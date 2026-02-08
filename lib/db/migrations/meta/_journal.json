@@ -1,0 +1,48 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1770179443426,
+      "tag": "0000_flippant_lockheed",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1770187762785,
+      "tag": "0001_productive_timeslip",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1770190931913,
+      "tag": "0002_open_lethal_legion",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1770197017398,
+      "tag": "0003_moaning_toad",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1770207198678,
+      "tag": "0004_change-entity-id-to-text",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1770213274946,
+      "tag": "0005_groovy_barracuda",
+      "breakpoints": true
+    }
+  ]
+}
