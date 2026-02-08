@@ -23,6 +23,9 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { getDashboardStats } from "@/lib/actions/dashboard"
 import { formatCurrency, formatDate } from "@/lib/utils"
 
+// Force dynamic rendering - this page requires authentication
+export const dynamic = "force-dynamic"
+
 const statusColors: Record<string, string> = {
   draft: "bg-neutral-100 text-neutral-800",
   pending_payment: "bg-yellow-100 text-yellow-800",
