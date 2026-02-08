@@ -263,14 +263,14 @@ revalidateAllStorefrontCaches()
 
 ## Cache Strategy Summary
 
-| Data Type | Cache Duration | Revalidation Trigger |
-|-----------|---------------|---------------------|
-| Featured Products | 1 hour | Product update |
-| New Arrivals | 30 minutes | Product create |
-| Best Sellers | 30 minutes | Order create |
-| Categories | 1 hour | Category update |
-| Deals | 30 minutes | Product update |
-| Homepage | 30 minutes | Any product/category change |
+| Data Type         | Cache Duration | Revalidation Trigger        |
+| ----------------- | -------------- | --------------------------- |
+| Featured Products | 1 hour         | Product update              |
+| New Arrivals      | 30 minutes     | Product create              |
+| Best Sellers      | 30 minutes     | Order create                |
+| Categories        | 1 hour         | Category update             |
+| Deals             | 30 minutes     | Product update              |
+| Homepage          | 30 minutes     | Any product/category change |
 
 ---
 

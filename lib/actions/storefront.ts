@@ -40,17 +40,17 @@ export async function getFeaturedProducts(limit: number = 8) {
       const images =
         productIds.length > 0
           ? await db
-              .select({
-                productId: productImages.productId,
-                url: productImages.url,
-              })
-              .from(productImages)
-              .where(
-                and(
-                  inArray(productImages.productId, productIds),
-                  eq(productImages.isPrimary, true),
-                ),
-              )
+            .select({
+              productId: productImages.productId,
+              url: productImages.url,
+            })
+            .from(productImages)
+            .where(
+              and(
+                inArray(productImages.productId, productIds),
+                eq(productImages.isPrimary, true),
+              ),
+            )
           : []
 
       const imageMap = new Map(images.map((img) => [img.productId, img.url]))
@@ -105,17 +105,17 @@ export async function getNewArrivals(limit: number = 8) {
       const images =
         productIds.length > 0
           ? await db
-              .select({
-                productId: productImages.productId,
-                url: productImages.url,
-              })
-              .from(productImages)
-              .where(
-                and(
-                  inArray(productImages.productId, productIds),
-                  eq(productImages.isPrimary, true),
-                ),
-              )
+            .select({
+              productId: productImages.productId,
+              url: productImages.url,
+            })
+            .from(productImages)
+            .where(
+              and(
+                inArray(productImages.productId, productIds),
+                eq(productImages.isPrimary, true),
+              ),
+            )
           : []
 
       const imageMap = new Map(images.map((img) => [img.productId, img.url]))
@@ -237,18 +237,18 @@ export async function getFeaturedCategories(limit: number = 6) {
       const productCounts =
         catIds.length > 0
           ? await db
-              .select({
-                categoryId: products.categoryId,
-                count: sql<number>`count(*)::int`,
-              })
-              .from(products)
-              .where(
-                and(
-                  eq(products.status, "active"),
-                  inArray(products.categoryId, catIds),
-                ),
-              )
-              .groupBy(products.categoryId)
+            .select({
+              categoryId: products.categoryId,
+              count: sql<number>`count(*)::int`,
+            })
+            .from(products)
+            .where(
+              and(
+                eq(products.status, "active"),
+                inArray(products.categoryId, catIds),
+              ),
+            )
+            .groupBy(products.categoryId)
           : []
 
       const countMap = new Map(productCounts.map((c) => [c.categoryId, c.count]))
@@ -302,17 +302,17 @@ export async function getDealProducts(limit: number = 8) {
       const images =
         productIds.length > 0
           ? await db
-              .select({
-                productId: productImages.productId,
-                url: productImages.url,
-              })
-              .from(productImages)
-              .where(
-                and(
-                  inArray(productImages.productId, productIds),
-                  eq(productImages.isPrimary, true),
-                ),
-              )
+            .select({
+              productId: productImages.productId,
+              url: productImages.url,
+            })
+            .from(productImages)
+            .where(
+              and(
+                inArray(productImages.productId, productIds),
+                eq(productImages.isPrimary, true),
+              ),
+            )
           : []
 
       const imageMap = new Map(images.map((img) => [img.productId, img.url]))

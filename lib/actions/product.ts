@@ -162,10 +162,10 @@ export async function getProduct(id: string) {
       .orderBy(asc(productImages.sortOrder)),
     product.categoryId
       ? db
-          .select()
-          .from(categories)
-          .where(eq(categories.id, product.categoryId))
-          .limit(1)
+        .select()
+        .from(categories)
+        .where(eq(categories.id, product.categoryId))
+        .limit(1)
       : Promise.resolve([]),
   ])
 
