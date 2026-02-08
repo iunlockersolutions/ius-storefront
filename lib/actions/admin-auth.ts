@@ -156,22 +156,14 @@ export async function handlePostLoginRedirect(callbackUrl: string = "/") {
 
 /**
  * Set the must-change-password cookie after successful staff login
- *
- * Cookie settings for production:
- * - httpOnly: Prevents client-side JS access
- * - secure: Always true for HTTPS (Vercel, production)
- * - sameSite: lax for cross-origin cookie handling
- * - maxAge: 24 hours to persist across redirects
  */
 export async function setMustChangePasswordCookie(mustChange: boolean) {
   const cookieStore = await cookies()
-  const isProduction = process.env.NODE_ENV === "production" ||
-    process.env.VERCEL === "1"
 
   if (mustChange) {
     cookieStore.set("must-change-password", "true", {
       httpOnly: true,
-      secure: isProduction,
+      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
       maxAge: 60 * 60 * 24, // 24 hours
@@ -192,28 +184,17 @@ export async function clearMustChangePasswordCookie() {
 /**
  * Set the is-staff cookie to indicate user has staff role.
  * This is used by middleware to mask admin routes from non-staff users.
- *
- * Cookie settings for production reliability:
- * - httpOnly: Prevents client-side JS access for security
- * - secure: Always true in production/Vercel for HTTPS
- * - sameSite: lax allows cookie on top-level navigations
- * - maxAge: 7 days to match session duration and persist across deployments
- *
- * Note: If cookie propagation issues occur, middleware redirects to
- * /admin/verify-access which sets cookies server-side.
  */
 export async function setIsStaffCookie(isStaffUser: boolean) {
   const cookieStore = await cookies()
-  const isProduction = process.env.NODE_ENV === "production" ||
-    process.env.VERCEL === "1"
 
   if (isStaffUser) {
     cookieStore.set("is-staff", "true", {
       httpOnly: true,
-      secure: isProduction,
+      secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 60 * 60 * 24 * 7, // 7 days - matches session duration
+      // Cookie expires with session (no maxAge = session cookie)
     })
   } else {
     cookieStore.delete("is-staff")
