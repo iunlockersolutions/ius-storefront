@@ -36,9 +36,9 @@ interface OrderEmailData {
 
 // Email provider configuration
 const EMAIL_CONFIG = {
-  from: process.env.EMAIL_FROM || "noreply@ius-shop.com",
-  replyTo: process.env.EMAIL_REPLY_TO || "support@ius-shop.com",
-  siteName: process.env.NEXT_PUBLIC_SITE_NAME || "IUS Shop",
+  from: process.env.EMAIL_FROM || "noreply@ius-storefront.com",
+  replyTo: process.env.EMAIL_REPLY_TO || "support@ius-storefront.com",
+  siteName: process.env.NEXT_PUBLIC_SITE_NAME || "IUS Storefront",
   siteUrl: process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
 }
 
@@ -63,7 +63,7 @@ function getOrderConfirmationTemplate(data: OrderEmailData): {
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Order Confirmation</title>
+    <title>Order Confirmation - ${EMAIL_CONFIG.siteName}</title>
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
     <div style="text-align: center; margin-bottom: 30px;">
