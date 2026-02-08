@@ -9,15 +9,7 @@ import { auth } from "@/lib/auth"
 import { getUserRoles, type UserRole } from "@/lib/auth/rbac"
 import { db } from "@/lib/db"
 import { user } from "@/lib/db/schema/auth"
-
-/**
- * Get the cookie name with the appropriate prefix.
- * In production (HTTPS), cookies use __Secure- prefix for security.
- */
-function getCookieName(name: string): string {
-  const isProduction = process.env.NODE_ENV === "production"
-  return isProduction ? `__Secure-${name}` : name
-}
+import { getCookieName } from "@/lib/utils/cookies"
 
 /**
  * Check if a user should be treated as a staff user (has staff role)
