@@ -1,25 +1,37 @@
 import type { NextRequest } from "next/server"
 import { NextResponse } from "next/server"
 
+/**
+ * Get a cookie value checking both secure and non-secure prefixes.
+ * In production (HTTPS), better-auth uses __Secure- prefix for cookies.
+ */
+function getCookie(request: NextRequest, name: string): string | undefined {
+  // Check for __Secure- prefixed cookie first (production HTTPS)
+  const secureCookie = request.cookies.get(`__Secure-${name}`)?.value
+  if (secureCookie) return secureCookie
+
+  // Fall back to non-prefixed cookie (local development)
+  return request.cookies.get(name)?.value
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   if (pathname.startsWith("/admin")) {
-    const sessionToken = request.cookies.get("better-auth.session_token")?.value
+    const sessionToken = getCookie(request, "better-auth.session_token")
 
     if (!sessionToken) {
       const url = new URL("/404", request.url)
       return NextResponse.rewrite(url, { status: 404 })
     }
 
-    const isStaff = request.cookies.get("is-staff")?.value === "true"
+    const isStaff = getCookie(request, "is-staff") === "true"
     if (!isStaff) {
       const url = new URL("/404", request.url)
       return NextResponse.rewrite(url, { status: 404 })
     }
 
-    const mustChangePassword =
-      request.cookies.get("must-change-password")?.value === "true"
+    const mustChangePassword = getCookie(request, "must-change-password") === "true"
     if (mustChangePassword) {
       const allowedPaths = ["/admin/change-password"]
 

@@ -11,6 +11,15 @@ import { db } from "@/lib/db"
 import { user } from "@/lib/db/schema/auth"
 
 /**
+ * Get the cookie name with the appropriate prefix.
+ * In production (HTTPS), cookies use __Secure- prefix for security.
+ */
+function getCookieName(name: string): string {
+  const isProduction = process.env.NODE_ENV === "production"
+  return isProduction ? `__Secure-${name}` : name
+}
+
+/**
  * Check if a user should be treated as a staff user (has staff role)
  */
 export async function checkStaffLogin(email: string) {
@@ -159,9 +168,10 @@ export async function handlePostLoginRedirect(callbackUrl: string = "/") {
  */
 export async function setMustChangePasswordCookie(mustChange: boolean) {
   const cookieStore = await cookies()
+  const cookieName = getCookieName("must-change-password")
 
   if (mustChange) {
-    cookieStore.set("must-change-password", "true", {
+    cookieStore.set(cookieName, "true", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -169,7 +179,7 @@ export async function setMustChangePasswordCookie(mustChange: boolean) {
       maxAge: 60 * 60 * 24, // 24 hours
     })
   } else {
-    cookieStore.delete("must-change-password")
+    cookieStore.delete(cookieName)
   }
 }
 
@@ -178,18 +188,19 @@ export async function setMustChangePasswordCookie(mustChange: boolean) {
  */
 export async function clearMustChangePasswordCookie() {
   const cookieStore = await cookies()
-  cookieStore.delete("must-change-password")
+  cookieStore.delete(getCookieName("must-change-password"))
 }
 
 /**
  * Set the is-staff cookie to indicate user has staff role.
- * This is used by middleware to mask admin routes from non-staff users.
+ * This is used by proxy to mask admin routes from non-staff users.
  */
 export async function setIsStaffCookie(isStaffUser: boolean) {
   const cookieStore = await cookies()
+  const cookieName = getCookieName("is-staff")
 
   if (isStaffUser) {
-    cookieStore.set("is-staff", "true", {
+    cookieStore.set(cookieName, "true", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -197,7 +208,7 @@ export async function setIsStaffCookie(isStaffUser: boolean) {
       // Cookie expires with session (no maxAge = session cookie)
     })
   } else {
-    cookieStore.delete("is-staff")
+    cookieStore.delete(cookieName)
   }
 }
 
@@ -206,7 +217,7 @@ export async function setIsStaffCookie(isStaffUser: boolean) {
  */
 export async function clearIsStaffCookie() {
   const cookieStore = await cookies()
-  cookieStore.delete("is-staff")
+  cookieStore.delete(getCookieName("is-staff"))
 }
 
 /**
@@ -281,6 +292,6 @@ export async function changeFirstTimePassword(
  */
 export async function clearAuthCookies() {
   const cookieStore = await cookies()
-  cookieStore.delete("is-staff")
-  cookieStore.delete("must-change-password")
+  cookieStore.delete(getCookieName("is-staff"))
+  cookieStore.delete(getCookieName("must-change-password"))
 }

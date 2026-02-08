@@ -189,12 +189,12 @@ export default function NotFound() {
           <Button
             variant="outline"
             onClick={() => router.back()}
-            className="min-w-[140px]"
+            className="min-w-35"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Go Back
           </Button>
-          <Button asChild className="min-w-[140px]">
+          <Button asChild className="min-w-35">
             <Link href="/">
               <Home className="mr-2 h-4 w-4" />
               Home Page
