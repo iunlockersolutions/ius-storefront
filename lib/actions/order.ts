@@ -17,6 +17,7 @@ import {
   sendOrderDeliveredEmail,
   sendOrderShippedEmail,
 } from "@/lib/email/order-notifications"
+import { revalidateOrderCaches } from "@/lib/utils/cache"
 
 // Schemas
 const orderFilterSchema = z.object({
@@ -301,6 +302,11 @@ export async function updateOrderStatus(input: UpdateOrderStatusInput) {
           await sendOrderDeliveredEmail(orderData)
         }
       }
+    }
+
+    // Invalidate best sellers cache when order status changes to paid
+    if (status === "paid") {
+      revalidateOrderCaches()
     }
 
     return { success: true as const }
