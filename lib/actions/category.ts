@@ -8,6 +8,7 @@ import { z } from "zod"
 import { requirePermission } from "@/lib/auth/rbac"
 import { db } from "@/lib/db"
 import { categories, products } from "@/lib/db/schema"
+import { revalidateCategoryCaches } from "@/lib/utils/cache"
 
 // Schema for creating/updating a category
 const categorySchema = z.object({
@@ -181,6 +182,7 @@ export async function createCategory(data: z.infer<typeof categorySchema>) {
 
     revalidatePath("/admin/categories")
     revalidatePath("/categories")
+    revalidateCategoryCaches() // Invalidate cached category data
     return { success: true as const, data: category }
   } catch (error) {
     console.error("Failed to create category:", error)
@@ -209,6 +211,7 @@ export async function updateCategory(
   revalidatePath("/admin/categories")
   revalidatePath("/categories")
   revalidatePath(`/categories/${category.slug}`)
+  revalidateCategoryCaches() // Invalidate cached category data
   return category
 }
 

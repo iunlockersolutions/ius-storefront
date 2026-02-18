@@ -16,6 +16,7 @@ import {
   products,
   productVariants,
 } from "@/lib/db/schema"
+import { revalidateProductCaches } from "@/lib/utils/cache"
 
 // Schema for creating a product
 const createProductSchema = z.object({
@@ -161,10 +162,10 @@ export async function getProduct(id: string) {
       .orderBy(asc(productImages.sortOrder)),
     product.categoryId
       ? db
-          .select()
-          .from(categories)
-          .where(eq(categories.id, product.categoryId))
-          .limit(1)
+        .select()
+        .from(categories)
+        .where(eq(categories.id, product.categoryId))
+        .limit(1)
       : Promise.resolve([]),
   ])
 
@@ -353,6 +354,7 @@ export async function createProduct(data: z.infer<typeof createProductSchema>) {
       .returning()
 
     revalidatePath("/admin/products")
+    revalidateProductCaches() // Invalidate cached product data
     return { success: true as const, data: product }
   } catch (error) {
     console.error("Failed to create product:", error)
@@ -381,6 +383,7 @@ export async function updateProduct(
   revalidatePath("/admin/products")
   revalidatePath(`/admin/products/${id}`)
   revalidatePath(`/products/${product.slug}`)
+  revalidateProductCaches() // Invalidate cached product data
   return product
 }
 
@@ -393,6 +396,7 @@ export async function deleteProduct(id: string) {
   await db.delete(products).where(eq(products.id, id))
 
   revalidatePath("/admin/products")
+  revalidateProductCaches() // Invalidate cached product data
   return { success: true }
 }
 

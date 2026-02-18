@@ -5,10 +5,13 @@ import * as schema from "./schema"
 
 const connectionString = process.env.DATABASE_URL!
 
+// Optimized connection pooling for Vercel serverless
 const queryClient = postgres(connectionString, {
-  max: 10,
-  idle_timeout: 20,
-  connect_timeout: 10,
+  max: 1, // Single connection per serverless function instance
+  idle_timeout: 60, // Increased for better connection reuse
+  connect_timeout: 30, // More lenient timeout for cold starts
+  max_lifetime: 60 * 30, // 30 minutes connection lifetime
+  prepare: false, // Disable prepared statements for better serverless compatibility
 })
 
 export const db = drizzle(queryClient, { schema })

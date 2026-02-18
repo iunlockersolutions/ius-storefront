@@ -11,6 +11,10 @@ import {
   getNewArrivals,
 } from "@/lib/actions/storefront"
 
+// Enable Incremental Static Regeneration (ISR)
+// Regenerate page every 30 minutes or on-demand via revalidateTag
+export const revalidate = 1800
+
 /**
  * Storefront Home Page
  *
