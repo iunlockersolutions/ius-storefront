@@ -10,8 +10,10 @@ import { ac, roles } from "@/lib/auth/permissions"
  * Client-side authentication utilities for use in React components.
  * Includes passkey and admin client plugins.
  */
+const authClientBaseURL = process.env.NEXT_PUBLIC_SITE_URL?.trim()
+
 export const authClient = createAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+  ...(authClientBaseURL ? { baseURL: authClientBaseURL } : {}),
   plugins: [
     passkeyClient(),
 

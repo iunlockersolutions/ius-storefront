@@ -7,6 +7,70 @@ import { ac, roles } from "@/lib/auth/permissions"
 import { db } from "@/lib/db"
 import * as schema from "@/lib/db/schema"
 import { sendEmail } from "@/lib/email/send"
+import { serverEnv } from "@/lib/env"
+
+const DEFAULT_LOCAL_ORIGIN = "http://localhost:4000"
+const DEFAULT_PASSKEY_RP_NAME = "IUS Shop"
+
+function normalizeOrigin(value: string): string {
+  const url = new URL(value)
+  return url.origin
+}
+
+function parseOriginList(value?: string): string[] {
+  if (!value) return []
+
+  return value
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+    .map(normalizeOrigin)
+}
+
+function unique(values: string[]): string[] {
+  return [...new Set(values)]
+}
+
+function resolvePasskeyOrigins() {
+  const configuredOrigins = parseOriginList(serverEnv.PASSKEY_ORIGIN)
+
+  if (configuredOrigins.length > 0) {
+    return configuredOrigins
+  }
+
+  const fallbackOrigins = [
+    serverEnv.SITE_URL,
+    serverEnv.NEXT_PUBLIC_SITE_URL,
+    serverEnv.BETTER_AUTH_URL,
+    DEFAULT_LOCAL_ORIGIN,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .map(normalizeOrigin)
+
+  return unique(fallbackOrigins)
+}
+
+function resolvePasskeyRpId(passkeyOrigins: string[]) {
+  if (serverEnv.PASSKEY_RP_ID?.trim()) {
+    return serverEnv.PASSKEY_RP_ID.trim()
+  }
+
+  return new URL(passkeyOrigins[0]).hostname
+}
+
+const passkeyOrigins = resolvePasskeyOrigins()
+const trustedOrigins = unique(
+  [
+    ...passkeyOrigins,
+    serverEnv.SITE_URL,
+    serverEnv.NEXT_PUBLIC_SITE_URL,
+    serverEnv.BETTER_AUTH_URL,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .map(normalizeOrigin),
+)
+const passkeyOrigin =
+  passkeyOrigins.length === 1 ? passkeyOrigins[0] : passkeyOrigins
 
 /**
  * BetterAuth Configuration
@@ -47,21 +111,21 @@ export const auth = betterAuth({
   },
   socialProviders: {
     google: {
-      clientId: process.env.GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+      clientId: serverEnv.GOOGLE_CLIENT_ID || "",
+      clientSecret: serverEnv.GOOGLE_CLIENT_SECRET || "",
       prompt: "select_account",
     },
     github: {
-      clientId: process.env.GITHUB_CLIENT_ID || "",
-      clientSecret: process.env.GITHUB_CLIENT_SECRET || "",
+      clientId: serverEnv.GITHUB_CLIENT_ID || "",
+      clientSecret: serverEnv.GITHUB_CLIENT_SECRET || "",
     },
   },
   plugins: [
     // Passkey plugin for WebAuthn support
     passkey({
-      rpID: process.env.PASSKEY_RP_ID || "localhost",
-      rpName: process.env.PASSKEY_RP_NAME || "IUS Shop",
-      origin: process.env.SITE_URL || "http://localhost:3000",
+      rpID: resolvePasskeyRpId(passkeyOrigins),
+      rpName: serverEnv.PASSKEY_RP_NAME || DEFAULT_PASSKEY_RP_NAME,
+      origin: passkeyOrigin,
     }),
     // Admin plugin for user management
 
@@ -105,7 +169,7 @@ export const auth = betterAuth({
       generateId: "uuid",
     },
   },
-  trustedOrigins: [process.env.SITE_URL || "http://localhost:3000"],
+  trustedOrigins,
 })
 
 // Export auth types
