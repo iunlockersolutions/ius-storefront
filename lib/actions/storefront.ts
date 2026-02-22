@@ -1,6 +1,7 @@
 "use server"
 
 import { unstable_cache } from "next/cache"
+
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm"
 
 import { db } from "@/lib/db"
@@ -31,7 +32,9 @@ export async function getFeaturedProducts(limit: number = 8) {
           isFeatured: products.isFeatured,
         })
         .from(products)
-        .where(and(eq(products.status, "active"), eq(products.isFeatured, true)))
+        .where(
+          and(eq(products.status, "active"), eq(products.isFeatured, true)),
+        )
         .orderBy(desc(products.createdAt))
         .limit(limit)
 
@@ -40,17 +43,17 @@ export async function getFeaturedProducts(limit: number = 8) {
       const images =
         productIds.length > 0
           ? await db
-            .select({
-              productId: productImages.productId,
-              url: productImages.url,
-            })
-            .from(productImages)
-            .where(
-              and(
-                inArray(productImages.productId, productIds),
-                eq(productImages.isPrimary, true),
-              ),
-            )
+              .select({
+                productId: productImages.productId,
+                url: productImages.url,
+              })
+              .from(productImages)
+              .where(
+                and(
+                  inArray(productImages.productId, productIds),
+                  eq(productImages.isPrimary, true),
+                ),
+              )
           : []
 
       const imageMap = new Map(images.map((img) => [img.productId, img.url]))
@@ -105,17 +108,17 @@ export async function getNewArrivals(limit: number = 8) {
       const images =
         productIds.length > 0
           ? await db
-            .select({
-              productId: productImages.productId,
-              url: productImages.url,
-            })
-            .from(productImages)
-            .where(
-              and(
-                inArray(productImages.productId, productIds),
-                eq(productImages.isPrimary, true),
-              ),
-            )
+              .select({
+                productId: productImages.productId,
+                url: productImages.url,
+              })
+              .from(productImages)
+              .where(
+                and(
+                  inArray(productImages.productId, productIds),
+                  eq(productImages.isPrimary, true),
+                ),
+              )
           : []
 
       const imageMap = new Map(images.map((img) => [img.productId, img.url]))
@@ -152,8 +155,13 @@ export async function getBestSellers(limit: number = 8) {
         })
         .from(orderItems)
         .innerJoin(orders, eq(orderItems.orderId, orders.id))
-        .innerJoin(productVariants, eq(orderItems.variantId, productVariants.id))
-        .where(and(eq(orders.status, "paid"), gte(orders.createdAt, thirtyDaysAgo)))
+        .innerJoin(
+          productVariants,
+          eq(orderItems.variantId, productVariants.id),
+        )
+        .where(
+          and(eq(orders.status, "paid"), gte(orders.createdAt, thirtyDaysAgo)),
+        )
         .groupBy(productVariants.productId)
         .orderBy(desc(sql`SUM(${orderItems.quantity})`))
         .limit(limit)
@@ -176,7 +184,9 @@ export async function getBestSellers(limit: number = 8) {
           isFeatured: products.isFeatured,
         })
         .from(products)
-        .where(and(eq(products.status, "active"), inArray(products.id, productIds)))
+        .where(
+          and(eq(products.status, "active"), inArray(products.id, productIds)),
+        )
 
       // Get primary images
       const images = await db
@@ -193,7 +203,9 @@ export async function getBestSellers(limit: number = 8) {
         )
 
       const imageMap = new Map(images.map((img) => [img.productId, img.url]))
-      const salesMap = new Map(topSelling.map((p) => [p.productId, p.totalSold]))
+      const salesMap = new Map(
+        topSelling.map((p) => [p.productId, p.totalSold]),
+      )
 
       // Sort by sales count
       return bestSellerProducts
@@ -237,21 +249,23 @@ export async function getFeaturedCategories(limit: number = 6) {
       const productCounts =
         catIds.length > 0
           ? await db
-            .select({
-              categoryId: products.categoryId,
-              count: sql<number>`count(*)::int`,
-            })
-            .from(products)
-            .where(
-              and(
-                eq(products.status, "active"),
-                inArray(products.categoryId, catIds),
-              ),
-            )
-            .groupBy(products.categoryId)
+              .select({
+                categoryId: products.categoryId,
+                count: sql<number>`count(*)::int`,
+              })
+              .from(products)
+              .where(
+                and(
+                  eq(products.status, "active"),
+                  inArray(products.categoryId, catIds),
+                ),
+              )
+              .groupBy(products.categoryId)
           : []
 
-      const countMap = new Map(productCounts.map((c) => [c.categoryId, c.count]))
+      const countMap = new Map(
+        productCounts.map((c) => [c.categoryId, c.count]),
+      )
 
       return featuredCats.map((c) => ({
         ...c,
@@ -302,17 +316,17 @@ export async function getDealProducts(limit: number = 8) {
       const images =
         productIds.length > 0
           ? await db
-            .select({
-              productId: productImages.productId,
-              url: productImages.url,
-            })
-            .from(productImages)
-            .where(
-              and(
-                inArray(productImages.productId, productIds),
-                eq(productImages.isPrimary, true),
-              ),
-            )
+              .select({
+                productId: productImages.productId,
+                url: productImages.url,
+              })
+              .from(productImages)
+              .where(
+                and(
+                  inArray(productImages.productId, productIds),
+                  eq(productImages.isPrimary, true),
+                ),
+              )
           : []
 
       const imageMap = new Map(images.map((img) => [img.productId, img.url]))

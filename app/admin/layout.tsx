@@ -26,7 +26,14 @@ export default async function AdminLayout({
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        <AppHeader />
+        <AppHeader
+          user={{
+            id: session.user.id,
+            email: session.user.email,
+            name: session.user.name,
+            image: session.user.image,
+          }}
+        />
         <main className="flex-1 overflow-y-auto bg-neutral-50 p-6 dark:bg-neutral-900">
           {children}
         </main>
