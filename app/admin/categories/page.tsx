@@ -1,33 +1,13 @@
-import { Suspense } from "react"
 import Link from "next/link"
 
 import { Plus } from "lucide-react"
 
-import { CategoriesTable } from "@/components/admin/categories/categories-table"
+import { CategoriesPageClient } from "@/components/admin/categories/categories-page-client"
 import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
-import { getCategoriesFlat } from "@/lib/actions/category"
 
 export const metadata = {
   title: "Categories | Admin Dashboard",
   description: "Manage your product categories",
-}
-
-async function CategoriesData() {
-  const categories = await getCategoriesFlat()
-
-  // Transform to include level and path for the table
-  const flatCategories = categories.map((cat) => ({
-    id: cat.id,
-    name: cat.name,
-    slug: cat.slug,
-    level: 0,
-    path: cat.name,
-    isActive: cat.isActive,
-    sortOrder: cat.sortOrder,
-  }))
-
-  return <CategoriesTable categories={flatCategories} />
 }
 
 export default function CategoriesPage() {
@@ -46,16 +26,7 @@ export default function CategoriesPage() {
         </Button>
       </div>
 
-      <Suspense
-        fallback={
-          <div className="space-y-4">
-            <Skeleton className="h-10 w-full max-w-sm" />
-            <Skeleton className="h-64 w-full" />
-          </div>
-        }
-      >
-        <CategoriesData />
-      </Suspense>
+      <CategoriesPageClient />
     </div>
   )
 }

@@ -40,6 +40,8 @@ applyTo: "**"
   - retries
   - invalidation
   - mutation status handling
+- Scope note: this client-side-first + `TanStack Query` default is for **admin/dashboard/backoffice** UX.
+- For **storefront/public customer routes**, prefer Server Components and server-rendered data as much as possible, and add client-side fetching only for clearly interactive islands.
 - Keep server functions/routes focused on:
   - authentication/authorization
   - database access

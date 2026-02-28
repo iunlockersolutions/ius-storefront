@@ -25,7 +25,7 @@ interface Movement {
   referenceType: string | null
   referenceId: string | null
   notes: string | null
-  createdAt: Date
+  createdAt: string | Date
   inventoryItemId: string
   variantName: string
   variantSku: string
@@ -76,7 +76,7 @@ export function MovementHistory({
     })
   }
 
-  function formatDate(date: Date) {
+  function formatDate(date: string | Date) {
     return new Date(date).toLocaleString("en-US", {
       dateStyle: "medium",
       timeStyle: "short",

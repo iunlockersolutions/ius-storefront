@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation"
 
-import { CustomersTable } from "@/components/admin/customers/customers-table"
+import { CustomersPageClient } from "@/components/admin/customers/customers-page-client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { getCustomers } from "@/lib/actions/customer"
 import { requireStaff } from "@/lib/auth/rbac"
 
 interface PageProps {
@@ -23,8 +22,6 @@ export default async function CustomersPage({ searchParams }: PageProps) {
   const page = Number(params.page) || 1
   const search = params.search || ""
 
-  const { customers, pagination } = await getCustomers({ page, search })
-
   return (
     <div className="space-y-6">
       <div>
@@ -39,11 +36,7 @@ export default async function CustomersPage({ searchParams }: PageProps) {
           <CardTitle>All Customers</CardTitle>
         </CardHeader>
         <CardContent>
-          <CustomersTable
-            customers={customers}
-            pagination={pagination}
-            search={search}
-          />
+          <CustomersPageClient page={page} search={search} />
         </CardContent>
       </Card>
     </div>

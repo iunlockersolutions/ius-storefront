@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 
 import {
   Calendar,
@@ -37,7 +36,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { assignRole, removeRole } from "@/lib/actions/customer"
+import {
+  useAssignCustomerRoleMutation,
+  useRemoveCustomerRoleMutation,
+} from "@/hooks/admin/use-customer-role-mutations"
 
 interface CustomerDetailProps {
   customer: {
@@ -47,12 +49,12 @@ interface CustomerDetailProps {
       email: string
       emailVerified: boolean
       image: string | null
-      createdAt: Date
+      createdAt: string | Date
     }
     profile: {
       id: string
       phone: string | null
-      dateOfBirth: Date | null
+      dateOfBirth: string | Date | null
       marketingOptIn: boolean
     } | null
     addresses: Array<{
@@ -80,7 +82,7 @@ interface CustomerDetailProps {
     orderNumber: string
     status: string
     total: string
-    createdAt: Date
+    createdAt: string | Date
   }>
   ordersPagination: {
     page: number
@@ -98,7 +100,7 @@ function formatCurrency(amount: number): string {
   }).format(amount)
 }
 
-function formatDate(date: Date): string {
+function formatDate(date: string | Date): string {
   return new Date(date).toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",
@@ -135,10 +137,9 @@ export function CustomerDetail({
   orders,
   allRoles,
 }: CustomerDetailProps) {
-  const router = useRouter()
   const [selectedRole, setSelectedRole] = useState<string>("")
-  const [isAddingRole, setIsAddingRole] = useState(false)
-  const [removingRoleId, setRemovingRoleId] = useState<string | null>(null)
+  const assignRoleMutation = useAssignCustomerRoleMutation(customer.user.id)
+  const removeRoleMutation = useRemoveCustomerRoleMutation(customer.user.id)
 
   const availableRoles = allRoles.filter(
     (role) => !customer.roles.some((r) => r.roleId === role.id),
@@ -147,29 +148,25 @@ export function CustomerDetail({
   async function handleAddRole() {
     if (!selectedRole) return
 
-    setIsAddingRole(true)
-    const result = await assignRole(customer.user.id, selectedRole)
-    setIsAddingRole(false)
-
-    if (result.success) {
+    try {
+      await assignRoleMutation.mutateAsync(selectedRole)
       toast.success("Role assigned successfully")
       setSelectedRole("")
-      router.refresh()
-    } else {
-      toast.error(result.error || "Failed to assign role")
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to assign role",
+      )
     }
   }
 
   async function handleRemoveRole(roleId: string) {
-    setRemovingRoleId(roleId)
-    const result = await removeRole(customer.user.id, roleId)
-    setRemovingRoleId(null)
-
-    if (result.success) {
+    try {
+      await removeRoleMutation.mutateAsync(roleId)
       toast.success("Role removed successfully")
-      router.refresh()
-    } else {
-      toast.error(result.error || "Failed to remove role")
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to remove role",
+      )
     }
   }
 
@@ -325,10 +322,14 @@ export function CustomerDetail({
                     {role.roleName}
                     <button
                       onClick={() => handleRemoveRole(role.roleId)}
-                      disabled={removingRoleId === role.roleId}
+                      disabled={
+                        removeRoleMutation.isPending &&
+                        removeRoleMutation.variables === role.roleId
+                      }
                       className="ml-1 hover:text-destructive"
                     >
-                      {removingRoleId === role.roleId ? (
+                      {removeRoleMutation.isPending &&
+                      removeRoleMutation.variables === role.roleId ? (
                         <Loader2 className="h-3 w-3 animate-spin" />
                       ) : (
                         <X className="h-3 w-3" />
@@ -357,9 +358,9 @@ export function CustomerDetail({
                 <Button
                   size="icon"
                   onClick={handleAddRole}
-                  disabled={!selectedRole || isAddingRole}
+                  disabled={!selectedRole || assignRoleMutation.isPending}
                 >
-                  {isAddingRole ? (
+                  {assignRoleMutation.isPending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
                     <Plus className="h-4 w-4" />

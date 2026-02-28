@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
-import { addProductImages, createProduct } from "@/lib/actions/product"
+import { useCreateProductMutation } from "@/hooks/admin/use-create-product-mutation"
 import { cn, slugify } from "@/lib/utils"
 
 // Form schemas for each step
@@ -93,6 +93,7 @@ export function NewProductForm({ categories }: NewProductFormProps) {
   const [currentStep, setCurrentStep] = useState(1)
   const [isPending, startTransition] = useTransition()
   const [images, setImages] = useState<UploadedImage[]>([])
+  const createProductMutation = useCreateProductMutation()
 
   const form = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
@@ -195,7 +196,7 @@ export function NewProductForm({ categories }: NewProductFormProps) {
   const onSubmit = async (data: ProductFormData) => {
     startTransition(async () => {
       try {
-        const result = await createProduct({
+        const createdProduct = await createProductMutation.mutateAsync({
           ...data,
           basePrice: data.basePrice,
           compareAtPrice: data.compareAtPrice || undefined,
@@ -203,27 +204,41 @@ export function NewProductForm({ categories }: NewProductFormProps) {
           categoryId: data.categoryId || undefined,
         })
 
-        if (result.success) {
-          // If we have images, add them to the product
-          if (images.length > 0 && result.data) {
-            await addProductImages(
-              result.data.id,
-              images.map((img) => ({
-                url: img.url,
-                altText: img.altText,
-                isPrimary: img.isPrimary,
-              })),
+        if (images.length > 0) {
+          const imageResponse = await fetch(
+            `/api/admin/products/${createdProduct.id}/images`,
+            {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                images: images.map((img) => ({
+                  url: img.url,
+                  altText: img.altText,
+                  isPrimary: img.isPrimary,
+                })),
+              }),
+            },
+          )
+
+          if (!imageResponse.ok) {
+            const errorBody = await imageResponse.json().catch(() => null)
+            throw new Error(
+              errorBody?.error?.message ||
+                errorBody?.error ||
+                "Failed to save product images",
             )
           }
-
-          toast.success("Product created successfully!")
-          router.push("/admin/products")
-          router.refresh()
-        } else {
-          toast.error(result.error || "Failed to create product")
         }
+
+        toast.success("Product created successfully!")
+        router.push("/admin/products")
+        router.refresh()
       } catch (error) {
-        toast.error("Something went wrong")
+        toast.error(
+          error instanceof Error ? error.message : "Something went wrong",
+        )
       }
     })
   }

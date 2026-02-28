@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { updateStaffProfile } from "@/lib/actions/staff-profile"
+import { useUpdateStaffProfileMutation } from "@/hooks/admin/use-profile-mutations"
 
 const profileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -33,8 +33,8 @@ interface ProfileOverviewProps {
     email: string
     image: string | null
     role: "admin" | "manager" | "support"
-    createdAt: Date
-    lastPasswordChange: Date | null
+    createdAt: string | Date
+    lastPasswordChange: string | Date | null
   }
 }
 
@@ -55,6 +55,7 @@ export function ProfileOverview({ user }: ProfileOverviewProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const updateProfileMutation = useUpdateStaffProfileMutation()
 
   const {
     register,
@@ -72,14 +73,17 @@ export function ProfileOverview({ user }: ProfileOverviewProps) {
     setError(null)
     setSuccess(false)
 
-    const result = await updateStaffProfile(data)
-
-    if (result.success) {
+    try {
+      await updateProfileMutation.mutateAsync(data)
       setSuccess(true)
       setIsEditing(false)
       setTimeout(() => setSuccess(false), 3000)
-    } else {
-      setError(result.error || "Failed to update profile")
+    } catch (mutationError) {
+      setError(
+        mutationError instanceof Error
+          ? mutationError.message
+          : "Failed to update profile",
+      )
     }
   }
 

@@ -32,10 +32,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import {
-  revokeAllUserSessions,
-  revokeUserSession,
-} from "@/lib/actions/admin-users"
+
+import { revokeAllUserSessionsByApi, revokeUserSessionByApi } from "./api"
 
 interface Session {
   id: string
@@ -133,7 +131,7 @@ export function UserSessionsTable({
     if (!selectedSession) return
 
     startTransition(async () => {
-      await revokeUserSession(selectedSession, userId)
+      await revokeUserSessionByApi(selectedSession, userId)
       setRevokeDialogOpen(false)
       setSelectedSession(null)
       router.refresh()
@@ -142,7 +140,7 @@ export function UserSessionsTable({
 
   const confirmRevokeAllSessions = () => {
     startTransition(async () => {
-      await revokeAllUserSessions(userId)
+      await revokeAllUserSessionsByApi(userId)
       setRevokeAllDialogOpen(false)
       router.refresh()
     })
@@ -181,9 +179,7 @@ export function UserSessionsTable({
               <TableHead>IP Address</TableHead>
               <TableHead>Created</TableHead>
               <TableHead>Expires</TableHead>
-              {canManage && (
-                <TableHead className="w-[100px]">Actions</TableHead>
-              )}
+              {canManage && <TableHead className="w-25">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>

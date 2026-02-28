@@ -165,6 +165,15 @@ export async function getCustomerOrder(orderId: string) {
   }
 }
 
+export async function getOrderConfirmationById(orderId: string) {
+  return db.query.orders.findFirst({
+    where: eq(orders.id, orderId),
+    with: {
+      items: true,
+    },
+  })
+}
+
 // ============================================
 // Cancel Order
 // ============================================

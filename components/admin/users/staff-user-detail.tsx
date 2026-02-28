@@ -52,14 +52,14 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  banStaffUser,
-  deleteStaffUser,
-  resetStaffPassword,
-  unbanStaffUser,
-  updateStaffUser,
-} from "@/lib/actions/admin-users"
 
+import {
+  banStaffUserByApi,
+  deleteStaffUserByApi,
+  resetStaffPasswordByApi,
+  unbanStaffUserByApi,
+  updateStaffUserByApi,
+} from "./api"
 import { UserActivityLog } from "./user-activity-log"
 import { UserSessionsTable } from "./user-sessions-table"
 
@@ -158,7 +158,7 @@ export function StaffUserDetail({
     setError(null)
 
     try {
-      const result = await updateStaffUser({
+      const result = await updateStaffUserByApi({
         id: staffUser.id,
         ...data,
       })
@@ -182,7 +182,7 @@ export function StaffUserDetail({
   async function handleBan() {
     setActionLoading(true)
     try {
-      const result = await banStaffUser(staffUser.id)
+      const result = await banStaffUserByApi(staffUser.id)
       if (result.success) {
         router.refresh()
       } else {
@@ -199,7 +199,7 @@ export function StaffUserDetail({
   async function handleUnban() {
     setActionLoading(true)
     try {
-      const result = await unbanStaffUser(staffUser.id)
+      const result = await unbanStaffUserByApi(staffUser.id)
       if (result.success) {
         router.refresh()
       } else {
@@ -216,7 +216,7 @@ export function StaffUserDetail({
   async function handleResetPassword() {
     setActionLoading(true)
     try {
-      const result = await resetStaffPassword(staffUser.id)
+      const result = await resetStaffPasswordByApi(staffUser.id)
       if (!result.success) {
         setError(result.error || "Failed to reset password")
       }
@@ -231,7 +231,7 @@ export function StaffUserDetail({
   async function handleDelete() {
     setActionLoading(true)
     try {
-      const result = await deleteStaffUser(staffUser.id)
+      const result = await deleteStaffUserByApi(staffUser.id)
       if (result.success) {
         router.push("/admin/users")
       } else {

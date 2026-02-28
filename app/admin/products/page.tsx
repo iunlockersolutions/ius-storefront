@@ -2,9 +2,8 @@ import Link from "next/link"
 
 import { Plus } from "lucide-react"
 
-import { ProductsTable } from "@/components/admin/products/products-table"
+import { ProductsPageClient } from "@/components/admin/products/products-page-client"
 import { Button } from "@/components/ui/button"
-import { getProducts } from "@/lib/actions/product"
 
 interface ProductsPageProps {
   searchParams: Promise<{
@@ -22,13 +21,6 @@ export default async function ProductsPage({
   const search = params.search || ""
   const status = params.status || ""
 
-  const { products, total, totalPages } = await getProducts({
-    page,
-    search,
-    status,
-    limit: 20,
-  })
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -44,14 +36,7 @@ export default async function ProductsPage({
         </Button>
       </div>
 
-      <ProductsTable
-        products={products}
-        total={total}
-        page={page}
-        totalPages={totalPages}
-        search={search}
-        status={status}
-      />
+      <ProductsPageClient page={page} search={search} status={status} />
     </div>
   )
 }

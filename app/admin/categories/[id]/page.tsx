@@ -1,54 +1,23 @@
 import Link from "next/link"
-import { notFound } from "next/navigation"
 
 import { ChevronLeft } from "lucide-react"
 
-import { EditCategoryForm } from "@/components/admin/categories/edit-category-form"
+import { EditCategoryPageClient } from "@/components/admin/categories/edit-category-page-client"
 import { Button } from "@/components/ui/button"
-import { getCategoriesFlat, getCategory } from "@/lib/actions/category"
 
 interface EditCategoryPageProps {
   params: Promise<{ id: string }>
 }
 
-export async function generateMetadata({ params }: EditCategoryPageProps) {
-  const { id } = await params
-  const category = await getCategory(id)
-
-  if (!category) {
-    return { title: "Category Not Found" }
-  }
-
-  return {
-    title: `Edit ${category.name} | Admin Dashboard`,
-    description: `Edit category: ${category.name}`,
-  }
+export const metadata = {
+  title: "Edit Category | Admin Dashboard",
+  description: "Edit category details",
 }
 
 export default async function EditCategoryPage({
   params,
 }: EditCategoryPageProps) {
   const { id } = await params
-
-  const [category, allCategories] = await Promise.all([
-    getCategory(id),
-    getCategoriesFlat(),
-  ])
-
-  if (!category) {
-    notFound()
-  }
-
-  // Filter out current category and its children from parent options
-  const parentOptions = allCategories
-    .filter((cat) => cat.id !== id)
-    .map((cat) => ({
-      id: cat.id,
-      name: cat.name,
-      slug: cat.slug,
-      level: 0,
-      path: cat.name,
-    }))
 
   return (
     <div className="space-y-6">
@@ -60,13 +29,11 @@ export default async function EditCategoryPage({
         </Button>
         <div>
           <h1 className="text-2xl font-bold">Edit Category</h1>
-          <p className="text-muted-foreground">
-            Update &quot;{category.name}&quot;
-          </p>
+          <p className="text-muted-foreground">Update category details</p>
         </div>
       </div>
 
-      <EditCategoryForm category={category} parentOptions={parentOptions} />
+      <EditCategoryPageClient categoryId={id} />
     </div>
   )
 }

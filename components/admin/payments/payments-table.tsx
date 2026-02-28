@@ -34,8 +34,8 @@ interface Payment {
   amount: string
   currency: string
   externalId: string | null
-  processedAt: Date | null
-  createdAt: Date
+  processedAt: string | Date | null
+  createdAt: string | Date
   orderNumber: string
   customerEmail: string
   customerName: string | null
@@ -49,6 +49,9 @@ interface PaymentsTableProps {
     total: number
     totalPages: number
   }
+  isLoading?: boolean
+  errorMessage?: string | null
+  onRefetch?: () => Promise<unknown>
 }
 
 const statusColors: Record<string, string> = {
@@ -64,7 +67,12 @@ const methodLabels: Record<string, string> = {
   cash_on_delivery: "COD",
 }
 
-export function PaymentsTable({ payments, pagination }: PaymentsTableProps) {
+export function PaymentsTable({
+  payments,
+  pagination,
+  isLoading = false,
+  errorMessage = null,
+}: PaymentsTableProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [search, setSearch] = useState(searchParams.get("search") || "")
@@ -150,6 +158,12 @@ export function PaymentsTable({ payments, pagination }: PaymentsTableProps) {
         </div>
       </div>
 
+      {errorMessage && (
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          {errorMessage}
+        </div>
+      )}
+
       {/* Table */}
       <div className="border rounded-lg">
         <Table>
@@ -161,11 +175,20 @@ export function PaymentsTable({ payments, pagination }: PaymentsTableProps) {
               <TableHead>Amount</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Date</TableHead>
-              <TableHead className="w-[80px]"></TableHead>
+              <TableHead className="w-20"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {payments.length === 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell
+                  colSpan={7}
+                  className="text-center py-8 text-muted-foreground"
+                >
+                  Loading payments...
+                </TableCell>
+              </TableRow>
+            ) : payments.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={7}

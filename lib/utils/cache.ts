@@ -7,16 +7,20 @@
 
 import { revalidateTag } from "next/cache"
 
+function revalidateStorefrontTag(tag: string) {
+  revalidateTag(tag, "max")
+}
+
 /**
  * Revalidate product-related caches
  * Call this after creating, updating, or deleting products
  */
 export function revalidateProductCaches() {
-  revalidateTag("products")
-  revalidateTag("featured-products")
-  revalidateTag("new-arrivals")
-  revalidateTag("best-sellers")
-  revalidateTag("deals")
+  revalidateStorefrontTag("products")
+  revalidateStorefrontTag("featured-products")
+  revalidateStorefrontTag("new-arrivals")
+  revalidateStorefrontTag("best-sellers")
+  revalidateStorefrontTag("deals")
 }
 
 /**
@@ -24,7 +28,7 @@ export function revalidateProductCaches() {
  * Call this after creating, updating, or deleting categories
  */
 export function revalidateCategoryCaches() {
-  revalidateTag("categories")
+  revalidateStorefrontTag("categories")
 }
 
 /**
@@ -32,8 +36,8 @@ export function revalidateCategoryCaches() {
  * Call this after creating new orders (affects best sellers)
  */
 export function revalidateOrderCaches() {
-  revalidateTag("orders")
-  revalidateTag("best-sellers")
+  revalidateStorefrontTag("orders")
+  revalidateStorefrontTag("best-sellers")
 }
 
 /**

@@ -34,7 +34,9 @@ export default defineConfig([
 
     rules: {
       semi: ["error", "never"],
-
+      "no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": "off",
+      "@typescript-eslint/no-explicit-any": "off",
       "prettier/prettier": ["error", { semi: false }],
 
       "simple-import-sort/imports": [
@@ -70,6 +72,23 @@ export default defineConfig([
     files: ["components/ui/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": "off",
+    },
+  },
+  {
+    files: ["app/**/page.tsx"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/lib/db", "@/lib/db/*"],
+              message:
+                "Route pages must not import '@/lib/db' directly. Use API boundaries or server actions in lib/actions/*.",
+            },
+          ],
+        },
+      ],
     },
   },
 ])

@@ -22,6 +22,8 @@
 ## Data flow patterns to follow
 - Read/write operations should go through `lib/actions/*`; pages/components call actions, not ad-hoc DB logic.
 - For dashboard-heavy interactivity, prefer client-side data flow with TanStack Query and route handlers/actions as the server boundary.
+- Treat the TanStack Query client-first policy as **admin/backoffice-specific** (`app/admin`).
+- For storefront routes (`app/(storefront)`), prefer Server Components and SSR data composition as the default; keep client components to interactive leaf behavior.
 - Complex writes use Drizzle transactions and row locks (see `lib/actions/checkout.ts` and payment webhook handling).
 - Inventory consistency is maintained through `inventory_items` + append-style `inventory_movements`; update both when stock state changes.
 - Payment flow: create payment session in `lib/actions/payment.ts`, confirm via `app/api/payment/webhook/route.ts`, then update order + inventory atomically.

@@ -1,0 +1,56 @@
+name: Compliance Guardrails
+
+on:
+    pull_request:
+    push:
+        branches:
+            - main
+    schedule:
+        - cron: "0 5 * * 1"
+    workflow_dispatch:
+
+jobs:
+    compliance:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup pnpm
+              uses: pnpm/action-setup@v4
+              with:
+                  version: 10
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: 20
+                  cache: pnpm
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Lint
+              run: pnpm lint
+
+            - name: UUID schema governance
+              run: pnpm db:audit:uuid
+
+            - name: Route page DB import guard
+              run: pnpm check:route-db-imports
+
+            - name: Large admin client action-import guard
+              run: pnpm check:admin-client-action-imports
+
+            - name: Architecture drift report (check)
+              run: pnpm report:architecture-drift --check
+
+            - name: Architecture drift report (artifact)
+              run: pnpm report:architecture-drift
+
+            - name: Upload drift report artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: architecture-drift-report
+                  path: docs/architecture/drift-report.md

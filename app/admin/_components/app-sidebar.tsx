@@ -239,7 +239,11 @@ function DropdownParentNavMenuItem({
       >
         <DropdownMenuLabel>{item.title}</DropdownMenuLabel>
         {subItems.map((subItem) => (
-          <DropdownMenuItem key={subItem.title} asChild className="cursor-pointer">
+          <DropdownMenuItem
+            key={subItem.title}
+            asChild
+            className="cursor-pointer"
+          >
             <Link href={subItem.url}>{subItem.title}</Link>
           </DropdownMenuItem>
         ))}
@@ -264,9 +268,7 @@ function AppSidebar() {
               const hasSubItems = subItems.length > 0
 
               if (!hasSubItems) {
-                return (
-                  <LeafNavMenuItem key={item.title} item={item} />
-                )
+                return <LeafNavMenuItem key={item.title} item={item} />
               }
 
               if (isCollapsed) {

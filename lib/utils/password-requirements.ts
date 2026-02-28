@@ -46,7 +46,7 @@ export function hasNumber(password: string): boolean {
  * Check if password contains special character
  */
 export function hasSpecialChar(password: string): boolean {
-  return /[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]/.test(password)
+  return /[!@#$%^&*()_+\-=\\[\]{}|;:,.<>?]/.test(password)
 }
 
 /**

@@ -44,7 +44,7 @@ interface Order {
   shippingCost: string
   discount: string
   total: string
-  createdAt: Date
+  createdAt: string | Date
   customer: {
     id: string | null
     name: string | null
@@ -59,6 +59,9 @@ interface OrdersTableProps {
   totalPages: number
   search: string
   status: string
+  isLoading?: boolean
+  errorMessage?: string | null
+  onRefetch?: () => Promise<unknown>
 }
 
 const statusColors: Record<string, string> = {
@@ -80,6 +83,8 @@ export function OrdersTable({
   totalPages,
   search,
   status,
+  isLoading = false,
+  errorMessage = null,
 }: OrdersTableProps) {
   const router = useRouter()
   const [searchInput, setSearchInput] = useState(search)
@@ -143,6 +148,12 @@ export function OrdersTable({
         </Select>
       </div>
 
+      {errorMessage && (
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          {errorMessage}
+        </div>
+      )}
+
       {/* Table */}
       <div className="rounded-md border">
         <Table>
@@ -157,7 +168,16 @@ export function OrdersTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {orders.length === 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell
+                  colSpan={6}
+                  className="text-center py-8 text-neutral-500"
+                >
+                  Loading orders...
+                </TableCell>
+              </TableRow>
+            ) : orders.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={6}
@@ -199,9 +219,10 @@ export function OrdersTable({
                     {formatDate(order.createdAt)}
                   </TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="icon" asChild>
+                    <Button variant="ghost" size="sm" asChild className="h-10">
                       <Link href={`/admin/orders/${order.id}`}>
                         <Eye className="h-4 w-4" />
+                        <span className="ml-1">View</span>
                       </Link>
                     </Button>
                   </TableCell>

@@ -1,0 +1,31 @@
+"use client"
+
+import { CategoriesTable } from "@/components/admin/categories/categories-table"
+import { useAdminCategoriesQuery } from "@/hooks/admin/use-admin-categories-query"
+
+export function CategoriesPageClient() {
+  const categoriesQuery = useAdminCategoriesQuery()
+
+  const categories = (categoriesQuery.data ?? []).map((category) => ({
+    id: category.id,
+    name: category.name,
+    slug: category.slug,
+    level: 0,
+    path: category.name,
+    isActive: category.isActive,
+    sortOrder: category.sortOrder,
+  }))
+
+  return (
+    <CategoriesTable
+      categories={categories}
+      isLoading={categoriesQuery.isLoading || categoriesQuery.isFetching}
+      errorMessage={
+        categoriesQuery.error instanceof Error
+          ? categoriesQuery.error.message
+          : null
+      }
+      onRefetch={categoriesQuery.refetch}
+    />
+  )
+}

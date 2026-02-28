@@ -1,9 +1,6 @@
 import { Metadata } from "next"
-import { headers } from "next/headers"
 import Link from "next/link"
-import { redirect } from "next/navigation"
 
-import { eq } from "drizzle-orm"
 import { ArrowLeft } from "lucide-react"
 
 import { RolesTable } from "@/components/admin/users/roles-table"
@@ -15,9 +12,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { auth } from "@/lib/auth"
-import { db } from "@/lib/db"
-import { user } from "@/lib/db/schema/auth"
+
+import { requireAdminAccessOrRedirect } from "../_actions/access"
 
 export const metadata: Metadata = {
   title: "Roles & Permissions | Admin",
@@ -25,22 +21,7 @@ export const metadata: Metadata = {
 }
 
 export default async function RolesPage() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  })
-
-  if (!session?.user) {
-    redirect("/admin/login")
-  }
-
-  // Only admins can view roles page
-  const currentUser = await db.query.user.findFirst({
-    where: eq(user.id, session.user.id),
-  })
-
-  // if (!currentUser || currentUser.role !== "admin") {
-  //     redirect("/admin");
-  // }
+  await requireAdminAccessOrRedirect()
 
   return (
     <div className="space-y-6">
