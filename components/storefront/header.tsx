@@ -17,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { clearAuthCookies } from "@/lib/actions/admin-auth"
-import { signOut } from "@/lib/auth-client"
+import { authClient } from "@/lib/auth-client"
 
 import { CartBadge } from "./cart-badge"
 import { MobileNav } from "./mobile-nav"
@@ -47,7 +47,7 @@ export function StorefrontHeader({
 
   const handleSignOut = async () => {
     await clearAuthCookies()
-    await signOut()
+    await authClient.signOut()
     router.push("/")
     router.refresh()
   }
@@ -62,7 +62,7 @@ export function StorefrontHeader({
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:bg-neutral-950/95 dark:supports-[backdrop-filter]:bg-neutral-950/60">
+      <header className="sticky top-0 z-40 w-full border-b bg-white/95 backdrop-blur supports-backdrop-filter:bg-white/60 dark:bg-neutral-950/95 dark:supports-backdrop-filter:bg-neutral-950/60">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-2">

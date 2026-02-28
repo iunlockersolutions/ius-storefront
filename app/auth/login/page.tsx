@@ -26,7 +26,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { handlePostLoginRedirect } from "@/lib/actions/admin-auth"
-import { authClient, signIn } from "@/lib/auth-client"
+import { authClient } from "@/lib/auth-client"
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -75,7 +75,7 @@ function LoginForm() {
     setIsLoading(true)
 
     try {
-      const result = await signIn.email({
+      const result = await authClient.signIn.email({
         email: data.email,
         password: data.password,
       })

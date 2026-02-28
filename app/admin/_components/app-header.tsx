@@ -18,7 +18,7 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { clearAuthCookies } from "@/lib/actions/admin-auth"
-import { signOut } from "@/lib/auth-client"
+import { authClient } from "@/lib/auth-client"
 
 type AppHeaderProps = {
   user: {
@@ -42,7 +42,7 @@ function AppHeader({ user }: AppHeaderProps) {
 
   async function handleSignOut() {
     await clearAuthCookies()
-    await signOut()
+    await authClient.signOut()
     router.push("/auth/login")
     router.refresh()
   }

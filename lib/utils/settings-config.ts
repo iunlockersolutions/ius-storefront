@@ -1,5 +1,3 @@
-// Settings category definitions (non-server code)
-
 export interface SettingDefinition {
   key: string
   label: string

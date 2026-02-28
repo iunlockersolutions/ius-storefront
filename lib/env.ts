@@ -20,10 +20,6 @@ const csvUrlList = z
       })
   }, "PASSKEY_ORIGIN must be a valid URL or comma-separated list of URLs")
 
-/**
- * Server-side environment variables schema.
- * These are validated at build time and runtime.
- */
 const serverEnvSchema = z.object({
   DATABASE_URL: z.string().url("DATABASE_URL must be a valid PostgreSQL URL"),
   AUTH_SECRET: z.string().min(32, "AUTH_SECRET must be at least 32 characters"),
@@ -47,18 +43,11 @@ const serverEnvSchema = z.object({
     .default("development"),
 })
 
-/**
- * Client-side environment variables schema.
- * Only NEXT_PUBLIC_ prefixed variables should be here.
- */
+// Only NEXT_PUBLIC_ prefixed variables should be here
 const clientEnvSchema = z.object({
   NEXT_PUBLIC_SITE_URL: z.string().url().optional(),
 })
 
-/**
- * Validate and parse server environment variables.
- * Throws detailed error if validation fails.
- */
 function validateServerEnv() {
   const parsed = serverEnvSchema.safeParse(process.env)
 
@@ -73,9 +62,6 @@ function validateServerEnv() {
   return parsed.data
 }
 
-/**
- * Validate and parse client environment variables.
- */
 function validateClientEnv() {
   const parsed = clientEnvSchema.safeParse({
     NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
@@ -92,10 +78,8 @@ function validateClientEnv() {
   return parsed.data
 }
 
-// Export validated environment variables
 export const serverEnv = validateServerEnv()
 export const clientEnv = validateClientEnv()
 
-// Type exports for use throughout the application
 export type ServerEnv = z.infer<typeof serverEnvSchema>
 export type ClientEnv = z.infer<typeof clientEnvSchema>

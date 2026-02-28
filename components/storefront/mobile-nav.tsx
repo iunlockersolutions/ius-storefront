@@ -20,7 +20,7 @@ import {
 
 import { Button } from "@/components/ui/button"
 import { clearAuthCookies } from "@/lib/actions/admin-auth"
-import { signOut } from "@/lib/auth-client"
+import { authClient } from "@/lib/auth-client"
 import { cn } from "@/lib/utils"
 
 interface MobileNavProps {
@@ -55,7 +55,7 @@ export function MobileNav({
   const handleSignOut = async () => {
     onClose()
     await clearAuthCookies()
-    await signOut()
+    await authClient.signOut()
     router.push("/")
     router.refresh()
   }
