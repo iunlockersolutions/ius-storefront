@@ -12,12 +12,9 @@ export const authClient = createAuthClient({
   ...(authClientBaseURL ? { baseURL: authClientBaseURL } : {}),
   plugins: [
     passkeyClient(),
-
     adminClient({
       ac,
       roles: adminClientRoles,
     }),
   ],
 })
-
-// export const { signIn, signUp, signOut, useSession, getSession } = authClient

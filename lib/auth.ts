@@ -1,5 +1,7 @@
+import { passkey } from "@better-auth/passkey"
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
+import { nextCookies } from "better-auth/next-js"
 import { admin } from "better-auth/plugins"
 
 import { ac, roles } from "@/lib/auth/permissions"
@@ -8,9 +10,19 @@ import * as schema from "@/lib/db/schema"
 import { sendEmail } from "@/lib/email/send"
 import { serverEnv } from "@/lib/env"
 
-import { passkeyPlugin, trustedOrigins } from "./passkey"
+const appBaseUrl =
+  process.env.BETTER_AUTH_URL ??
+  process.env.NEXT_PUBLIC_APP_URL ??
+  "http://localhost:3000"
 
 export const auth = betterAuth({
+  appName: "IUS Storefront",
+  baseURL: appBaseUrl,
+  advanced: {
+    database: {
+      generateId: "uuid",
+    },
+  },
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: {
@@ -47,14 +59,6 @@ export const auth = betterAuth({
       clientSecret: serverEnv.GITHUB_CLIENT_SECRET || "",
     },
   },
-  plugins: [
-    passkeyPlugin,
-    admin({
-      ac,
-      roles: roles as any,
-      defaultRole: "customer",
-    }),
-  ],
   session: {
     expiresIn: 60 * 60 * 24 * 7, // 7d
     updateAge: 60 * 60 * 24, // 1d
@@ -84,12 +88,19 @@ export const auth = betterAuth({
       },
     },
   },
-  advanced: {
-    database: {
-      generateId: "uuid",
-    },
-  },
-  trustedOrigins,
+  plugins: [
+    passkey({
+      rpID: serverEnv.PASSKEY_RP_ID,
+      rpName: serverEnv.PASSKEY_RP_NAME,
+      origin: serverEnv.PASSKEY_ORIGIN,
+    }),
+    admin({
+      ac,
+      roles: roles as any,
+      defaultRole: "customer",
+    }),
+    nextCookies(),
+  ],
 })
 
 export type Session = typeof auth.$Infer.Session

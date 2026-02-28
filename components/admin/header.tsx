@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { clearAuthCookies } from "@/lib/actions/admin-auth"
-import { signOut } from "@/lib/auth-client"
+import { authClient } from "@/lib/auth-client"
 
 interface AdminHeaderProps {
   user: {
@@ -37,7 +37,7 @@ export function AdminHeader({ user }: AdminHeaderProps) {
 
   const handleSignOut = async () => {
     await clearAuthCookies()
-    await signOut()
+    await authClient.signOut()
     router.push("/auth/login")
   }
 
