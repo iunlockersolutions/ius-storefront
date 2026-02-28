@@ -3,10 +3,9 @@ import { redirect } from "next/navigation"
 
 import { ArrowLeft } from "lucide-react"
 
-import { MovementHistory } from "@/components/admin/inventory/movement-history"
+import { MovementHistoryPageClient } from "@/components/admin/inventory/movement-history-page-client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { getInventoryMovements } from "@/lib/actions/inventory"
 import { requireStaff } from "@/lib/auth/rbac"
 
 interface PageProps {
@@ -27,12 +26,6 @@ export default async function InventoryHistoryPage({
   const { id } = await params
   const { page } = await searchParams
   const currentPage = Number(page) || 1
-
-  const movements = await getInventoryMovements({
-    inventoryItemId: id,
-    page: currentPage,
-    limit: 20,
-  })
 
   return (
     <div className="space-y-6">
@@ -55,10 +48,7 @@ export default async function InventoryHistoryPage({
           <CardTitle>Stock Movements</CardTitle>
         </CardHeader>
         <CardContent>
-          <MovementHistory
-            movements={movements.movements}
-            pagination={movements.pagination}
-          />
+          <MovementHistoryPageClient inventoryItemId={id} page={currentPage} />
         </CardContent>
       </Card>
     </div>

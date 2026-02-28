@@ -33,14 +33,14 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
-import { verifyBankTransfer } from "@/lib/actions/payment"
+import { useVerifyBankTransferMutation } from "@/hooks/admin/use-verify-bank-transfer-mutation"
 
 interface BankTransferProof {
   id: string
   fileUrl: string
   fileName: string
   notes: string | null
-  createdAt: Date
+  createdAt: string | Date
 }
 
 interface PendingTransfer {
@@ -48,7 +48,7 @@ interface PendingTransfer {
   orderId: string
   amount: string
   currency: string
-  createdAt: Date
+  createdAt: string | Date
   orderNumber: string
   customerEmail: string
   customerName: string | null
@@ -57,9 +57,17 @@ interface PendingTransfer {
 
 interface BankTransferQueueProps {
   transfers: PendingTransfer[]
+  isLoading?: boolean
+  errorMessage?: string | null
+  onRefetch?: () => Promise<unknown>
 }
 
-export function BankTransferQueue({ transfers }: BankTransferQueueProps) {
+export function BankTransferQueue({
+  transfers,
+  isLoading = false,
+  errorMessage = null,
+  onRefetch,
+}: BankTransferQueueProps) {
   const router = useRouter()
   const [selectedTransfer, setSelectedTransfer] =
     useState<PendingTransfer | null>(null)
@@ -69,6 +77,7 @@ export function BankTransferQueue({ transfers }: BankTransferQueueProps) {
   )
   const [notes, setNotes] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const verifyMutation = useVerifyBankTransferMutation()
 
   const formatCurrency = (amount: string, currency: string) => {
     return new Intl.NumberFormat("en-LK", {
@@ -82,23 +91,22 @@ export function BankTransferQueue({ transfers }: BankTransferQueueProps) {
 
     setIsSubmitting(true)
     try {
-      const result = await verifyBankTransfer(
-        selectedTransfer.id,
-        verifyAction === "approve",
+      await verifyMutation.mutateAsync({
+        paymentId: selectedTransfer.id,
+        approved: verifyAction === "approve",
         notes,
-      )
+        orderId: selectedTransfer.orderId,
+      })
 
-      if (result.success) {
-        setVerifyDialogOpen(false)
-        setSelectedTransfer(null)
-        setNotes("")
-        router.refresh()
-      } else {
-        alert(result.error || "Failed to verify transfer")
+      setVerifyDialogOpen(false)
+      setSelectedTransfer(null)
+      setNotes("")
+      if (onRefetch) {
+        await onRefetch()
       }
+      router.refresh()
     } catch (error) {
       console.error("Verification error:", error)
-      alert("An error occurred")
     } finally {
       setIsSubmitting(false)
     }
@@ -112,6 +120,22 @@ export function BankTransferQueue({ transfers }: BankTransferQueueProps) {
     setVerifyAction(action)
     setNotes("")
     setVerifyDialogOpen(true)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        Loading pending transfers...
+      </div>
+    )
+  }
+
+  if (errorMessage) {
+    return (
+      <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+        {errorMessage}
+      </div>
+    )
   }
 
   if (transfers.length === 0) {

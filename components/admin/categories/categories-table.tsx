@@ -33,7 +33,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { deleteCategory } from "@/lib/actions/category"
+import { useDeleteCategoryMutation } from "@/hooks/admin/use-category-mutations"
 
 interface Category {
   id: string
@@ -47,28 +47,36 @@ interface Category {
 
 interface CategoriesTableProps {
   categories: Category[]
+  isLoading?: boolean
+  errorMessage?: string | null
+  onRefetch?: () => Promise<unknown>
 }
 
-export function CategoriesTable({ categories }: CategoriesTableProps) {
+export function CategoriesTable({
+  categories,
+  isLoading = false,
+  errorMessage = null,
+  onRefetch,
+}: CategoriesTableProps) {
   const router = useRouter()
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const deleteCategoryMutation = useDeleteCategoryMutation()
 
   const handleDelete = async () => {
     if (!deleteId) return
 
     setIsDeleting(true)
     try {
-      const result = await deleteCategory(deleteId)
-      if (result.success) {
-        toast.success("Category deleted successfully")
-        router.refresh()
-      } else {
-        toast.error(result.error || "Failed to delete category")
+      await deleteCategoryMutation.mutateAsync(deleteId)
+      toast.success("Category deleted successfully")
+      if (onRefetch) {
+        await onRefetch()
       }
     } catch (error) {
-      toast.error("Something went wrong")
-      console.log(error)
+      toast.error(
+        error instanceof Error ? error.message : "Something went wrong",
+      )
     } finally {
       setIsDeleting(false)
       setDeleteId(null)
@@ -77,6 +85,11 @@ export function CategoriesTable({ categories }: CategoriesTableProps) {
 
   return (
     <>
+      {errorMessage && (
+        <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          {errorMessage}
+        </div>
+      )}
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -89,7 +102,16 @@ export function CategoriesTable({ categories }: CategoriesTableProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {categories.length === 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell
+                  colSpan={5}
+                  className="text-center py-8 text-neutral-500"
+                >
+                  Loading categories...
+                </TableCell>
+              </TableRow>
+            ) : categories.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={5}
@@ -130,8 +152,13 @@ export function CategoriesTable({ categories }: CategoriesTableProps) {
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
+                        <Button
+                          variant="ghost"
+                          className="h-10 gap-2 px-3"
+                          aria-label={`Actions for ${category.name}`}
+                        >
                           <MoreHorizontal className="h-4 w-4" />
+                          <span className="sm:hidden">Actions</span>
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">

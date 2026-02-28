@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 
 import { formatDistanceToNow } from "date-fns"
 import {
@@ -18,7 +17,10 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
-import { bulkModerateReviews, moderateReview } from "@/lib/actions/review"
+import {
+  useBulkModerateReviewsMutation,
+  useModerateReviewMutation,
+} from "@/hooks/admin/use-review-mutations"
 
 interface Review {
   id: string
@@ -27,7 +29,7 @@ interface Review {
   content: string | null
   status: string
   orderId: string | null
-  createdAt: Date
+  createdAt: string | Date
   productId: string
   productName: string
   userId: string | null
@@ -37,13 +39,21 @@ interface Review {
 
 interface ReviewModerationQueueProps {
   reviews: Review[]
+  isLoading?: boolean
+  errorMessage?: string | null
+  onRefetch?: () => Promise<unknown>
 }
 
-export function ReviewModerationQueue({ reviews }: ReviewModerationQueueProps) {
-  const router = useRouter()
+export function ReviewModerationQueue({
+  reviews,
+  isLoading = false,
+  errorMessage = null,
+  onRefetch,
+}: ReviewModerationQueueProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [isLoading, setIsLoading] = useState<string | null>(null)
-  const [isBulkLoading, setIsBulkLoading] = useState(false)
+  const [activeReviewId, setActiveReviewId] = useState<string | null>(null)
+  const moderateMutation = useModerateReviewMutation()
+  const bulkModerateMutation = useBulkModerateReviewsMutation()
 
   const toggleSelect = (id: string) => {
     const newSelected = new Set(selectedIds)
@@ -67,29 +77,33 @@ export function ReviewModerationQueue({ reviews }: ReviewModerationQueueProps) {
     reviewId: string,
     action: "approve" | "reject",
   ) => {
-    setIsLoading(reviewId)
+    setActiveReviewId(reviewId)
     try {
-      await moderateReview(reviewId, action)
-      router.refresh()
+      await moderateMutation.mutateAsync({ reviewId, action })
+      if (onRefetch) {
+        await onRefetch()
+      }
     } catch (error) {
       console.error("Moderation error:", error)
     } finally {
-      setIsLoading(null)
+      setActiveReviewId(null)
     }
   }
 
   const handleBulkModerate = async (action: "approve" | "reject") => {
     if (selectedIds.size === 0) return
 
-    setIsBulkLoading(true)
     try {
-      await bulkModerateReviews(Array.from(selectedIds), action)
+      await bulkModerateMutation.mutateAsync({
+        reviewIds: Array.from(selectedIds),
+        action,
+      })
       setSelectedIds(new Set())
-      router.refresh()
+      if (onRefetch) {
+        await onRefetch()
+      }
     } catch (error) {
       console.error("Bulk moderation error:", error)
-    } finally {
-      setIsBulkLoading(false)
     }
   }
 
@@ -106,6 +120,22 @@ export function ReviewModerationQueue({ reviews }: ReviewModerationQueueProps) {
             }`}
           />
         ))}
+      </div>
+    )
+  }
+
+  if (isLoading) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        Loading pending reviews...
+      </div>
+    )
+  }
+
+  if (errorMessage) {
+    return (
+      <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+        {errorMessage}
       </div>
     )
   }
@@ -141,7 +171,7 @@ export function ReviewModerationQueue({ reviews }: ReviewModerationQueueProps) {
               variant="outline"
               size="sm"
               onClick={() => handleBulkModerate("reject")}
-              disabled={isBulkLoading}
+              disabled={bulkModerateMutation.isPending}
               className="text-red-500 hover:text-red-600"
             >
               <XCircle className="h-4 w-4 mr-1" />
@@ -150,7 +180,7 @@ export function ReviewModerationQueue({ reviews }: ReviewModerationQueueProps) {
             <Button
               size="sm"
               onClick={() => handleBulkModerate("approve")}
-              disabled={isBulkLoading}
+              disabled={bulkModerateMutation.isPending}
               className="bg-green-600 hover:bg-green-700"
             >
               <CheckCircle className="h-4 w-4 mr-1" />
@@ -226,7 +256,11 @@ export function ReviewModerationQueue({ reviews }: ReviewModerationQueueProps) {
                       variant="outline"
                       size="sm"
                       onClick={() => handleModerate(review.id, "reject")}
-                      disabled={isLoading === review.id}
+                      disabled={
+                        activeReviewId === review.id ||
+                        moderateMutation.isPending ||
+                        bulkModerateMutation.isPending
+                      }
                       className="text-red-500 hover:text-red-600"
                     >
                       <XCircle className="h-4 w-4 mr-1" />
@@ -235,7 +269,11 @@ export function ReviewModerationQueue({ reviews }: ReviewModerationQueueProps) {
                     <Button
                       size="sm"
                       onClick={() => handleModerate(review.id, "approve")}
-                      disabled={isLoading === review.id}
+                      disabled={
+                        activeReviewId === review.id ||
+                        moderateMutation.isPending ||
+                        bulkModerateMutation.isPending
+                      }
                       className="bg-green-600 hover:bg-green-700"
                     >
                       <CheckCircle className="h-4 w-4 mr-1" />

@@ -19,11 +19,9 @@ import {
 } from "@/components/ui/card"
 import { FormField } from "@/components/ui/form-field"
 import { Input } from "@/components/ui/input"
-import {
-  checkStaffLogin,
-  setMustChangePasswordCookie,
-} from "@/lib/actions/admin-auth"
 import { authClient, signIn } from "@/lib/auth-client"
+
+import { checkStaffLoginByApi, setMustChangePasswordCookieByApi } from "./api"
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -54,7 +52,7 @@ export function AdminLoginForm() {
 
     try {
       // First check if user is a staff member
-      const staffCheck = await checkStaffLogin(data.email)
+      const staffCheck = await checkStaffLoginByApi(data.email)
 
       if (!staffCheck.isStaff) {
         setError(
@@ -85,7 +83,7 @@ export function AdminLoginForm() {
 
       // Set must-change-password cookie if needed
       if (staffCheck.mustChangePassword) {
-        await setMustChangePasswordCookie(true)
+        await setMustChangePasswordCookieByApi(true)
         router.push("/admin/change-password")
       } else {
         router.push(callbackUrl)
@@ -119,7 +117,7 @@ export function AdminLoginForm() {
       // After passkey sign-in, check if it's a staff member and mustChangePassword
       const session = await authClient.getSession()
       if (session?.data?.user?.email) {
-        const staffCheck = await checkStaffLogin(session.data.user.email)
+        const staffCheck = await checkStaffLoginByApi(session.data.user.email)
 
         if (!staffCheck.isStaff) {
           // Sign out and show error
@@ -139,7 +137,7 @@ export function AdminLoginForm() {
         }
 
         if (staffCheck.mustChangePassword) {
-          await setMustChangePasswordCookie(true)
+          await setMustChangePasswordCookieByApi(true)
           router.push("/admin/change-password")
         } else {
           router.push(callbackUrl)

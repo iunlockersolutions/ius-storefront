@@ -30,6 +30,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { useDeleteProductMutation } from "@/hooks/admin/use-delete-product-mutation"
 import { formatCurrency } from "@/lib/utils"
 
 interface Product {
@@ -39,7 +40,7 @@ interface Product {
   basePrice: string
   status: "draft" | "active" | "archived"
   isFeatured: boolean
-  createdAt: Date
+  createdAt: string | Date
 }
 
 interface ProductsTableProps {
@@ -49,6 +50,9 @@ interface ProductsTableProps {
   totalPages: number
   search: string
   status: string
+  isLoading?: boolean
+  errorMessage?: string | null
+  onRefetch?: () => Promise<unknown>
 }
 
 export function ProductsTable({
@@ -58,9 +62,13 @@ export function ProductsTable({
   totalPages,
   search,
   status,
+  isLoading = false,
+  errorMessage = null,
+  onRefetch,
 }: ProductsTableProps) {
   const router = useRouter()
   const [searchInput, setSearchInput] = useState(search)
+  const deleteProductMutation = useDeleteProductMutation()
 
   const handleSearch = () => {
     const params = new URLSearchParams()
@@ -92,6 +100,17 @@ export function ProductsTable({
     archived: "bg-neutral-100 text-neutral-800",
   }
 
+  const handleDelete = async (productId: string) => {
+    try {
+      await deleteProductMutation.mutateAsync(productId)
+      if (onRefetch) {
+        await onRefetch()
+      }
+    } catch {
+      // mutation hook exposes toast + error state externally if needed
+    }
+  }
+
   return (
     <div className="space-y-4">
       {/* Filters */}
@@ -121,6 +140,12 @@ export function ProductsTable({
         </Select>
       </div>
 
+      {errorMessage && (
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          {errorMessage}
+        </div>
+      )}
+
       {/* Table */}
       <div className="rounded-md border">
         <Table>
@@ -130,11 +155,20 @@ export function ProductsTable({
               <TableHead>Price</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Featured</TableHead>
-              <TableHead className="w-[70px]"></TableHead>
+              <TableHead className="w-20"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {products.length === 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell
+                  colSpan={5}
+                  className="text-center py-8 text-neutral-500"
+                >
+                  Loading products...
+                </TableCell>
+              </TableRow>
+            ) : products.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={5}
@@ -172,8 +206,13 @@ export function ProductsTable({
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
+                        <Button
+                          variant="ghost"
+                          className="h-10 gap-2 px-3"
+                          aria-label={`Actions for ${product.name}`}
+                        >
                           <MoreHorizontal className="h-4 w-4" />
+                          <span className="sm:hidden">Actions</span>
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
@@ -192,7 +231,11 @@ export function ProductsTable({
                             Edit
                           </Link>
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-red-600">
+                        <DropdownMenuItem
+                          className="text-red-600"
+                          onClick={() => handleDelete(product.id)}
+                          disabled={deleteProductMutation.isPending}
+                        >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete
                         </DropdownMenuItem>

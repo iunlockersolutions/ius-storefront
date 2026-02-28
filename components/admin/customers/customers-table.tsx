@@ -25,7 +25,7 @@ interface Customer {
   email: string
   emailVerified: boolean
   image: string | null
-  createdAt: Date
+  createdAt: string | Date
   orderCount: number
   totalSpent: number
 }
@@ -39,6 +39,9 @@ interface CustomersTableProps {
     totalPages: number
   }
   search: string
+  isLoading?: boolean
+  errorMessage?: string | null
+  onRefetch?: () => Promise<unknown>
 }
 
 function formatCurrency(amount: number): string {
@@ -48,7 +51,7 @@ function formatCurrency(amount: number): string {
   }).format(amount)
 }
 
-function formatDate(date: Date): string {
+function formatDate(date: string | Date): string {
   return new Date(date).toLocaleDateString("en-US", {
     year: "numeric",
     month: "short",
@@ -72,6 +75,8 @@ export function CustomersTable({
   customers,
   pagination,
   search,
+  isLoading = false,
+  errorMessage = null,
 }: CustomersTableProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -118,6 +123,12 @@ export function CustomersTable({
         </Button>
       </form>
 
+      {errorMessage ? (
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          {errorMessage}
+        </div>
+      ) : null}
+
       {/* Table */}
       <div className="rounded-md border">
         <Table>
@@ -132,7 +143,16 @@ export function CustomersTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {customers.length === 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell
+                  colSpan={6}
+                  className="text-center py-8 text-muted-foreground"
+                >
+                  Loading customers...
+                </TableCell>
+              </TableRow>
+            ) : customers.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={6}

@@ -25,7 +25,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { createStaffUser } from "@/lib/actions/admin-users"
+
+import { createStaffUserByApi } from "./api"
 
 const createStaffSchema = z.object({
   name: z
@@ -69,7 +70,7 @@ export function CreateStaffForm() {
     setError(null)
 
     try {
-      const result = await createStaffUser(data)
+      const result = await createStaffUserByApi(data)
 
       if (!result.success) {
         setError(result.error || "Failed to create staff user")

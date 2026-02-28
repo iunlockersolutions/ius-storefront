@@ -1,75 +1,67 @@
-<!-- Copilot / AI agent instructions for contributors and coding agents -->
-# IUS Storefront — AI coding agent quick guide
+# Copilot Instructions for ius-storefront
 
-This file captures essential, repository-specific knowledge to help AI agents be productive immediately.
+## Instruction compatibility notes
+- This repo currently uses top-level folders (`app/`, `components/`, `lib/`, `docs/`), not `src/*`; apply feature-first placement by scope, but keep current folder layout unless a migration is requested.
+- The imported instruction files in `.github/instructions/*` are mostly compatible; treat `src/features/*` as a target architecture, not a hard requirement for current edits.
 
-## Purpose
-- Focus: storefront + admin Next.js app using the App Router (app/). Key domains: products, orders, inventory, payments, users.
-- Primary concerns: server components for routing/layouts, client components for interactivity, RBAC-backed auth, Postgres via Drizzle ORM, and Vercel storage for images.
+## Big picture architecture
+- This is a Next.js 16 App Router monolith with two product surfaces: public storefront under `app/(storefront)` and backoffice under `app/admin`.
+- Prefer Server Components for data pages; client interactivity lives in leaf components under `components/**` with `'use client'`.
+- Core business logic is centralized in server actions under `lib/actions/*` (products, checkout, payments, inventory, customers, etc.).
+- Persistence uses Drizzle + Postgres (`lib/db/index.ts`, `lib/db/schema/*`), with domain tables split by concern (catalog, inventory, orders, payments, reviews, auth).
+- Auth is Better Auth + passkeys + social providers (`lib/auth.ts`, `lib/auth-client.ts`), with role/permission helpers in `lib/auth/rbac.ts`.
 
-## Quick start (commands)
-- Dev: `pnpm dev` or `npm run dev` (runs `next dev`).
-- Build: `npm run build` → `npm run start` for prod server.
-- Lint: `npm run lint` / fix: `npm run lint:fix`.
-- DB: migrations & tools use `drizzle-kit`:
-  - `npm run db:generate`, `npm run db:migrate`, `npm run db:push`, `npm run db:studio`
-  - Seed / clean: `npm run db:seed`, `npm run db:clean` (runs `tsx lib/db/...`)
+## Route and security boundaries
+- Admin access is enforced in layers:
+  1) edge proxy masking/redirect rules in `proxy.ts`,
+  2) server layout checks in `app/admin/layout.tsx` (`getServerSession`, `isStaff`),
+  3) action-level guards via `requireStaff`, `requireRole`, `requirePermission` from `lib/auth/rbac.ts`.
+- Do not rely only on client-side checks for admin/staff features.
+- Auth endpoints are mounted via Better Auth catch-all route: `app/api/auth/[...all]/route.ts`.
 
-## High-level architecture notes
-- Next.js App Router (see `app/`): layouts are used heavily. Example: `app/(storefront)/layout.tsx` is a server component that calls `getServerSession()`.
-- Route grouping: store and admin use separate route groups under `app/(storefront)/` and `app/admin/`.
-- Components: UI primitives live in `components/ui/` (shadcn-style). Feature UIs split into `components/storefront/` and `components/admin/`.
-- State: React Query is the canonical client-state library. App-level provider is in `components/providers.tsx`.
-- Auth & RBAC: user sessions and permissions live in `lib/auth*`:
-  - Client auth utilities: `lib/auth-client.ts` (uses `better-auth` + passkeys)
-  - Server RBAC helpers & session access: `lib/auth/rbac.ts` (functions like `getServerSession()`, `requireRole()`)
-- Data layer: `drizzle-orm` + `postgres`. DB schema lives under `lib/db/schema` and migrations managed by `drizzle-kit`.
-- Storage & integrations: Vercel Blob (`@vercel/blob`) for image uploads; `next.config.ts` contains remote image patterns (see `remotePatterns`).
+## Data flow patterns to follow
+- Read/write operations should go through `lib/actions/*`; pages/components call actions, not ad-hoc DB logic.
+- For dashboard-heavy interactivity, prefer client-side data flow with TanStack Query and route handlers/actions as the server boundary.
+- Treat the TanStack Query client-first policy as **admin/backoffice-specific** (`app/admin`).
+- For storefront routes (`app/(storefront)`), prefer Server Components and SSR data composition as the default; keep client components to interactive leaf behavior.
+- Complex writes use Drizzle transactions and row locks (see `lib/actions/checkout.ts` and payment webhook handling).
+- Inventory consistency is maintained through `inventory_items` + append-style `inventory_movements`; update both when stock state changes.
+- Payment flow: create payment session in `lib/actions/payment.ts`, confirm via `app/api/payment/webhook/route.ts`, then update order + inventory atomically.
+- Cache invalidation is explicit after mutations using `revalidatePath` and tag helpers in `lib/utils/cache.ts`.
 
-## Project-specific conventions and patterns
-- Server vs Client components
-  - Default: prefer server components for layouts and data fetching (e.g., `app/(storefront)/layout.tsx` is `async` and calls server helpers).
-  - Client components must include `"use client"` (see `components/providers.tsx`). Interactive pieces and hooks live here.
-- Session access pattern
-  - Use `getServerSession()` exported from `lib/auth/rbac.ts` inside server components and layouts to determine UI state (header, footer).
-  - Client-side hooks are exposed from `lib/auth-client.ts` (e.g., `useSession`, `signIn`, `signOut`).
-- RBAC permissions
-  - Permissions are strings and grouped in `ROLE_PERMISSIONS` inside `lib/auth/rbac.ts`. Use `requirePermission()`/`requireRole()` in API routes or server actions.
-- Database usage
-  - Use `db` from `lib/db` and Drizzle query APIs; see `lib/auth/rbac.ts` for example `db.select(...).from(...).where(...)` joins.
-- UI pattern
-  - Reusable atoms under `components/ui/*`; feature components import these instead of raw HTML/CSS.
+## File placement rules (current repo)
+- Route-only UI/action files should be colocated under route-private folders like `app/**/_components` and `app/**/_actions`.
+- Reusable domain logic belongs in `lib/actions/*` and related domain modules under `lib/*`.
+- Cross-route shared UI belongs in `components/*`; shared primitives stay in `components/ui/*`.
+- Shared utilities/integrations belong in `lib/utils` and `lib/*`; avoid putting business logic directly in route files.
 
-## Integration & external dependencies to be aware of
-- Auth: `better-auth` + `@better-auth/passkey` for passkey flows; admin plugin uses `ac` and `roles` from local RBAC.
-- Email: `resend` is included (check `lib/email`).
-- Image hosting: Vercel Blob + `next/image` with remote patterns in `next.config.ts`.
-- DB: `postgres` package + `drizzle-orm` + `drizzle-kit` for migrations and studio.
+## Next.js 16 conventions used here
+- Dynamic route props are async; await `params`/`searchParams` in pages and metadata (example: `app/(storefront)/products/[slug]/page.tsx`).
+- App-wide providers are mounted in `app/layout.tsx` (`components/providers.tsx` for React Query + tooltip context, `Toaster` for notifications).
+- Use `next/image` with configured remote hosts in `next.config.ts` (Vercel Blob + Unsplash patterns).
 
-## Files to inspect for common patterns (examples)
-- Layout + global providers: `app/layout.tsx`, `components/providers.tsx`
-- Storefront layout & session usage: `app/(storefront)/layout.tsx` (calls `getServerSession()`)
-- RBAC & server session helpers: `lib/auth/rbac.ts` (permission enums, `requireRole()`)
-- Client auth utilities: `lib/auth-client.ts`
-- DB seed scripts: `lib/db/seed.ts` (invoked by `npm run db:seed`)
-- Example component patterns: `components/storefront/header.tsx`, `components/ui/button.tsx`
+## UI and code style conventions
+- Use existing shadcn-style components from `components/ui/*`; do not import `@base-ui/react` or `radix-ui` directly outside UI primitives (enforced by ESLint).
+- Follow import sort groups and no-semicolon style from `eslint.config.mjs`.
+- Use absolute imports via `@/*` path alias from `tsconfig.json`.
+- Keep types explicit for action inputs/outputs and validate external/form data with Zod (see `lib/env.ts`, action schemas in `lib/actions/*`).
 
-## When editing code, prefer these safe edits
-- If altering server-session flow, update both `lib/auth/rbac.ts` and `lib/auth-client.ts` to keep server/client APIs consistent.
-- When adding data fetching on server components, prefer `async` server components over client hooks for SSR performance.
+## Developer workflows (actual project commands)
+- Install deps: `pnpm install`
+- Dev server: `pnpm dev` (runs on port `4000`)
+- Build/start: `pnpm build` then `pnpm start`
+- Lint: `pnpm lint` (or `pnpm lint:fix`)
+- DB lifecycle: `pnpm db:generate`, `pnpm db:migrate`, `pnpm db:push`, `pnpm db:studio`
+- Seed/reset seed data: `pnpm db:seed`, `pnpm db:clean`
+- Local payment gateway simulator: `node scripts/mock-ipg.js` (default port `3001`)
 
-## What this file does NOT cover
-- CI / deployment specifics (project deploys to Vercel but infra-specific env vars are not included here).
-- Untracked runtime secrets — consult `.env` and `lib/env.ts` when present.
+## Documentation-first workflow
+- Review relevant official docs from `.github/instructions/stack-preference.instructions.md` before implementing unfamiliar stack areas (Next.js, Better Auth, Drizzle, shadcn/ui, TanStack).
+- Keep `docs/` updated when major implementation decisions or architectural patterns change.
 
----
-If any section looks unclear or you'd like more examples (API route patterns, a typical admin flow, or DB schema examples), tell me which area to expand and I'll iterate.
-
----
-Read the following llms.txt file for more general instructions on how to write instructions files for AI agents:
-- https://www.better-auth.com/llms.txt
-- https://orm.drizzle.team/llms-full.txt
-- https://ui.shadcn.com/llms.txt
-- https://nextjs.org/docs/llms-full.txt
-- https://resend.com/docs/llms-full.txt
-
+## Integration details agents should not miss
+- Environment variables are runtime-validated with Zod in `lib/env.ts`; invalid env fails fast.
+- Upload API (`app/api/upload/route.ts`) requires authenticated admin/manager role and stores assets in Vercel Blob.
+- Custom auth-related cookies (`is-staff`, `must-change-password`) use secure-prefix helpers in `lib/utils/cookies.ts`; keep naming consistent.
+- Keep UUID IDs for database entities; Better Auth is configured with `advanced.database.generateId: "uuid"` in `lib/auth.ts`.
+- There is currently no test script/test suite in `package.json`; prioritize lint/build checks for validation.

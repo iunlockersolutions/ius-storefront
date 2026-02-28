@@ -23,6 +23,7 @@ export function CartBadge() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchCount()
 
     // Listen for cart updates

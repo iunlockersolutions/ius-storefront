@@ -1,31 +1,13 @@
-import { Suspense } from "react"
 import Link from "next/link"
 
 import { ChevronLeft } from "lucide-react"
 
-import { NewCategoryForm } from "@/components/admin/categories/new-category-form"
+import { NewCategoryPageClient } from "@/components/admin/categories/new-category-page-client"
 import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
-import { getCategoriesFlat } from "@/lib/actions/category"
 
 export const metadata = {
   title: "Add New Category | Admin Dashboard",
   description: "Add a new product category",
-}
-
-async function CategoryFormWrapper() {
-  const categories = await getCategoriesFlat()
-
-  // Transform to include level and path for the form
-  const flatCategories = categories.map((cat) => ({
-    id: cat.id,
-    name: cat.name,
-    slug: cat.slug,
-    level: 0,
-    path: cat.name,
-  }))
-
-  return <NewCategoryForm categories={flatCategories} />
 }
 
 export default function NewCategoryPage() {
@@ -43,15 +25,7 @@ export default function NewCategoryPage() {
         </div>
       </div>
 
-      <Suspense
-        fallback={
-          <div className="max-w-2xl space-y-4">
-            <Skeleton className="h-64 w-full" />
-          </div>
-        }
-      >
-        <CategoryFormWrapper />
-      </Suspense>
+      <NewCategoryPageClient />
     </div>
   )
 }

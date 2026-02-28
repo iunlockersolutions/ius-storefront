@@ -33,7 +33,10 @@ import {
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
-import { deleteCategory, updateCategory } from "@/lib/actions/category"
+import {
+  useDeleteCategoryMutation,
+  useUpdateCategoryMutation,
+} from "@/hooks/admin/use-category-mutations"
 
 const categorySchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
@@ -77,6 +80,8 @@ export function EditCategoryForm({
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [isDeleting, setIsDeleting] = useState(false)
+  const updateCategoryMutation = useUpdateCategoryMutation(category.id)
+  const deleteCategoryMutation = useDeleteCategoryMutation()
 
   const form = useForm<CategoryFormData>({
     resolver: zodResolver(categorySchema),
@@ -103,7 +108,7 @@ export function EditCategoryForm({
   const onSubmit = async (data: CategoryFormData) => {
     startTransition(async () => {
       try {
-        await updateCategory(category.id, {
+        await updateCategoryMutation.mutateAsync({
           name: data.name,
           slug: data.slug,
           description: data.description || undefined,
@@ -115,8 +120,10 @@ export function EditCategoryForm({
         toast.success("Category updated successfully!")
         router.push("/admin/categories")
         router.refresh()
-      } catch {
-        toast.error("Failed to update category")
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Failed to update category",
+        )
       }
     })
   }
@@ -124,16 +131,14 @@ export function EditCategoryForm({
   const handleDelete = async () => {
     setIsDeleting(true)
     try {
-      const result = await deleteCategory(category.id)
-      if (result.success) {
-        toast.success("Category deleted successfully!")
-        router.push("/admin/categories")
-        router.refresh()
-      } else {
-        toast.error(result.error || "Failed to delete category")
-      }
-    } catch {
-      toast.error("Something went wrong")
+      await deleteCategoryMutation.mutateAsync(category.id)
+      toast.success("Category deleted successfully!")
+      router.push("/admin/categories")
+      router.refresh()
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Something went wrong",
+      )
     } finally {
       setIsDeleting(false)
     }

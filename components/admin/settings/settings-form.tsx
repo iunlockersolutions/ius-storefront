@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 
 import { Loader2, Save } from "lucide-react"
 
@@ -25,7 +24,7 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
-import { updateSiteSettings } from "@/lib/actions/settings"
+import { useUpdateSiteSettingsMutation } from "@/hooks/admin/use-update-site-settings-mutation"
 import type {
   SettingCategory,
   SettingDefinition,
@@ -37,7 +36,6 @@ interface SettingsFormProps {
 }
 
 export function SettingsForm({ settings, categories }: SettingsFormProps) {
-  const router = useRouter()
   const [values, setValues] = useState<Record<string, string>>(() => {
     // Initialize with current values or defaults
     const initial: Record<string, string> = {}
@@ -50,6 +48,8 @@ export function SettingsForm({ settings, categories }: SettingsFormProps) {
   })
   const [isSaving, setIsSaving] = useState(false)
   const [savedCategory, setSavedCategory] = useState<string | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const updateSettingsMutation = useUpdateSiteSettingsMutation()
 
   const handleChange = (key: string, value: string) => {
     setValues((prev) => ({ ...prev, [key]: value }))
@@ -61,6 +61,7 @@ export function SettingsForm({ settings, categories }: SettingsFormProps) {
 
     setIsSaving(true)
     setSavedCategory(null)
+    setErrorMessage(null)
 
     try {
       const categorySettings: Record<string, string> = {}
@@ -68,15 +69,13 @@ export function SettingsForm({ settings, categories }: SettingsFormProps) {
         categorySettings[setting.key] = values[setting.key] ?? setting.default
       })
 
-      const result = await updateSiteSettings(categorySettings)
-      if (result.success) {
-        setSavedCategory(categoryId)
-        setTimeout(() => setSavedCategory(null), 2000)
-        router.refresh()
-      }
+      await updateSettingsMutation.mutateAsync(categorySettings)
+      setSavedCategory(categoryId)
+      setTimeout(() => setSavedCategory(null), 2000)
     } catch (error) {
-      console.error("Save error:", error)
-      alert("Failed to save settings")
+      setErrorMessage(
+        error instanceof Error ? error.message : "Failed to save settings",
+      )
     } finally {
       setIsSaving(false)
     }
@@ -181,6 +180,12 @@ export function SettingsForm({ settings, categories }: SettingsFormProps) {
               <CardDescription>{category.description}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {errorMessage && (
+                <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                  {errorMessage}
+                </div>
+              )}
+
               {category.settings.map((setting) => (
                 <div key={setting.key}>{renderSettingInput(setting)}</div>
               ))}

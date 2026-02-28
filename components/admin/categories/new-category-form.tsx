@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
-import { createCategory } from "@/lib/actions/category"
+import { useCreateCategoryMutation } from "@/hooks/admin/use-category-mutations"
 import { slugify } from "@/lib/utils"
 
 const categorySchema = z.object({
@@ -54,6 +54,7 @@ interface NewCategoryFormProps {
 export function NewCategoryForm({ categories }: NewCategoryFormProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const createCategoryMutation = useCreateCategoryMutation()
 
   const form = useForm<CategoryFormData>({
     resolver: zodResolver(categorySchema),
@@ -93,20 +94,18 @@ export function NewCategoryForm({ categories }: NewCategoryFormProps) {
   const onSubmit = async (data: CategoryFormData) => {
     startTransition(async () => {
       try {
-        const result = await createCategory({
+        await createCategoryMutation.mutateAsync({
           ...data,
-          parentId: data.parentId || undefined,
+          parentId: data.parentId || null,
         })
 
-        if (result.success) {
-          toast.success("Category created successfully!")
-          router.push("/admin/categories")
-          router.refresh()
-        } else {
-          toast.error(result.error || "Failed to create category")
-        }
+        toast.success("Category created successfully!")
+        router.push("/admin/categories")
+        router.refresh()
       } catch (error) {
-        toast.error("Something went wrong")
+        toast.error(
+          error instanceof Error ? error.message : "Something went wrong",
+        )
       }
     })
   }

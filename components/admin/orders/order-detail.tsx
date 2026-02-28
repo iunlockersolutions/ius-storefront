@@ -45,7 +45,10 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { updateOrderNotes, updateOrderStatus } from "@/lib/actions/order"
+import {
+  useUpdateOrderNotesMutation,
+  useUpdateOrderStatusMutation,
+} from "@/hooks/admin/use-order-mutations"
 import { getValidTransitions } from "@/lib/utils/order-status"
 
 // Types
@@ -92,7 +95,7 @@ interface StatusHistoryEntry {
   fromStatus: string | null
   toStatus: string
   notes: string | null
-  createdAt: Date
+  createdAt: string | Date
   changedBy: {
     id: string | null
     name: string | null
@@ -116,8 +119,8 @@ interface Order {
   customerName: string | null
   shippingAddress: ShippingAddress | null
   billingAddress: BillingAddress | null
-  createdAt: Date
-  updatedAt: Date
+  createdAt: string | Date
+  updatedAt: string | Date
   customer: {
     id: string | null
     name: string | null
@@ -186,7 +189,7 @@ function formatCurrency(amount: string | number): string {
   }).format(num)
 }
 
-function formatDate(date: Date): string {
+function formatDate(date: string | Date): string {
   return new Intl.DateTimeFormat("en-US", {
     dateStyle: "medium",
     timeStyle: "short",
@@ -268,6 +271,8 @@ export function OrderDetail({ order }: OrderDetailProps) {
   const [statusNote, setStatusNote] = useState("")
   const [adminNotes, setAdminNotes] = useState(order.adminNotes || "")
   const [error, setError] = useState<string | null>(null)
+  const updateOrderStatusMutation = useUpdateOrderStatusMutation(order.id)
+  const updateOrderNotesMutation = useUpdateOrderNotesMutation(order.id)
 
   const validTransitions = getValidTransitions(order.status)
 
@@ -276,27 +281,29 @@ export function OrderDetail({ order }: OrderDetailProps) {
     setError(null)
 
     startTransition(async () => {
-      const result = await updateOrderStatus({
-        orderId: order.id,
-        status: selectedStatus as
-          | "draft"
-          | "pending_payment"
-          | "paid"
-          | "processing"
-          | "packing"
-          | "shipped"
-          | "delivered"
-          | "cancelled"
-          | "refunded",
-        notes: statusNote || undefined,
-      })
-
-      if (result.success) {
+      try {
+        await updateOrderStatusMutation.mutateAsync({
+          status: selectedStatus as
+            | "draft"
+            | "pending_payment"
+            | "paid"
+            | "processing"
+            | "packing"
+            | "shipped"
+            | "delivered"
+            | "cancelled"
+            | "refunded",
+          notes: statusNote || undefined,
+        })
         setSelectedStatus("")
         setStatusNote("")
         router.refresh()
-      } else {
-        setError(result.error || "Failed to update status")
+      } catch (mutationError) {
+        setError(
+          mutationError instanceof Error
+            ? mutationError.message
+            : "Failed to update status",
+        )
       }
     })
   }
@@ -304,11 +311,15 @@ export function OrderDetail({ order }: OrderDetailProps) {
   const handleNotesUpdate = async () => {
     setError(null)
     startTransition(async () => {
-      const result = await updateOrderNotes(order.id, adminNotes)
-      if (result.success) {
+      try {
+        await updateOrderNotesMutation.mutateAsync(adminNotes)
         router.refresh()
-      } else {
-        setError(result.error || "Failed to update notes")
+      } catch (mutationError) {
+        setError(
+          mutationError instanceof Error
+            ? mutationError.message
+            : "Failed to update notes",
+        )
       }
     })
   }

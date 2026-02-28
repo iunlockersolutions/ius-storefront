@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 
@@ -53,12 +53,12 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
-  banStaffUser,
-  deleteStaffUser,
-  listStaffUsers,
-  resetStaffPassword,
-  unbanStaffUser,
-} from "@/lib/actions/admin-users"
+  useBanStaffUserMutation,
+  useDeleteStaffUserMutation,
+  useResetStaffPasswordMutation,
+  useUnbanStaffUserMutation,
+} from "@/hooks/admin/use-staff-user-mutations"
+import { useStaffUsersQuery } from "@/hooks/admin/use-staff-users-query"
 
 type StaffRole = "admin" | "manager" | "support"
 
@@ -70,7 +70,7 @@ interface StaffUser {
   role: string | null
   banned: boolean | null
   banReason: string | null
-  createdAt: Date
+  createdAt: string | Date
   emailVerified: boolean
 }
 
@@ -97,19 +97,35 @@ export function StaffUsersTable({ currentUserId }: { currentUserId: string }) {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const [users, setUsers] = useState<StaffUser[]>([])
-  const [pagination, setPagination] = useState<Pagination>({
-    page: 1,
-    limit: 10,
-    total: 0,
-    totalPages: 0,
-  })
-  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState(searchParams.get("search") || "")
   const [roleFilter, setRoleFilter] = useState<StaffRole | "all">(
     (searchParams.get("role") as StaffRole) || "all",
   )
+  const page = parseInt(searchParams.get("page") || "1")
+
+  const staffUsersQuery = useStaffUsersQuery({
+    search: search || undefined,
+    role: roleFilter !== "all" ? roleFilter : undefined,
+    page,
+  })
+
+  const users: StaffUser[] = staffUsersQuery.data?.users ?? []
+  const pagination: Pagination = staffUsersQuery.data?.pagination ?? {
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 0,
+  }
+  const loading = staffUsersQuery.isLoading || staffUsersQuery.isFetching
+  const queryError =
+    staffUsersQuery.error instanceof Error
+      ? staffUsersQuery.error.message
+      : null
+  const banMutation = useBanStaffUserMutation()
+  const unbanMutation = useUnbanStaffUserMutation()
+  const resetPasswordMutation = useResetStaffPasswordMutation()
+  const deleteMutation = useDeleteStaffUserMutation()
 
   // Dialog states
   const [banDialogOpen, setBanDialogOpen] = useState(false)
@@ -118,30 +134,6 @@ export function StaffUsersTable({ currentUserId }: { currentUserId: string }) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<StaffUser | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
-
-  const fetchUsers = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-
-    try {
-      const result = await listStaffUsers({
-        search: search || undefined,
-        role: roleFilter !== "all" ? roleFilter : undefined,
-        page: parseInt(searchParams.get("page") || "1"),
-      })
-
-      setUsers(result.users)
-      setPagination(result.pagination)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load users")
-    } finally {
-      setLoading(false)
-    }
-  }, [search, roleFilter, searchParams])
-
-  useEffect(() => {
-    fetchUsers()
-  }, [fetchUsers])
 
   function updateSearchParams(updates: Record<string, string | null>) {
     const params = new URLSearchParams(searchParams.toString())
@@ -162,12 +154,8 @@ export function StaffUsersTable({ currentUserId }: { currentUserId: string }) {
 
     setActionLoading(true)
     try {
-      const result = await banStaffUser(selectedUser.id)
-      if (result.success) {
-        await fetchUsers()
-      } else {
-        setError(result.error || "Failed to ban user")
-      }
+      await banMutation.mutateAsync(selectedUser.id)
+      await staffUsersQuery.refetch()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to ban user")
     } finally {
@@ -182,12 +170,8 @@ export function StaffUsersTable({ currentUserId }: { currentUserId: string }) {
 
     setActionLoading(true)
     try {
-      const result = await unbanStaffUser(selectedUser.id)
-      if (result.success) {
-        await fetchUsers()
-      } else {
-        setError(result.error || "Failed to unban user")
-      }
+      await unbanMutation.mutateAsync(selectedUser.id)
+      await staffUsersQuery.refetch()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to unban user")
     } finally {
@@ -202,12 +186,7 @@ export function StaffUsersTable({ currentUserId }: { currentUserId: string }) {
 
     setActionLoading(true)
     try {
-      const result = await resetStaffPassword(selectedUser.id)
-      if (result.success) {
-        // Show success message somehow
-      } else {
-        setError(result.error || "Failed to reset password")
-      }
+      await resetPasswordMutation.mutateAsync(selectedUser.id)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to reset password")
     } finally {
@@ -222,12 +201,8 @@ export function StaffUsersTable({ currentUserId }: { currentUserId: string }) {
 
     setActionLoading(true)
     try {
-      const result = await deleteStaffUser(selectedUser.id)
-      if (result.success) {
-        await fetchUsers()
-      } else {
-        setError(result.error || "Failed to delete user")
-      }
+      await deleteMutation.mutateAsync(selectedUser.id)
+      await staffUsersQuery.refetch()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete user")
     } finally {
@@ -287,7 +262,7 @@ export function StaffUsersTable({ currentUserId }: { currentUserId: string }) {
               })
             }}
           >
-            <SelectTrigger className="w-[150px]">
+            <SelectTrigger className="w-40">
               <SelectValue placeholder="Filter by role" />
             </SelectTrigger>
             <SelectContent>
@@ -299,9 +274,9 @@ export function StaffUsersTable({ currentUserId }: { currentUserId: string }) {
           </Select>
         </div>
 
-        {error && (
+        {(error || queryError) && (
           <div className="mb-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-            {error}
+            {error || queryError}
           </div>
         )}
 
@@ -405,10 +380,12 @@ export function StaffUsersTable({ currentUserId }: { currentUserId: string }) {
                           <DropdownMenuTrigger asChild>
                             <Button
                               variant="ghost"
-                              size="icon"
+                              className="h-10 gap-2 px-3"
                               disabled={user.id === currentUserId}
+                              aria-label={`Actions for ${user.name || user.email}`}
                             >
                               <MoreHorizontal className="h-4 w-4" />
+                              <span className="sm:hidden">Actions</span>
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">

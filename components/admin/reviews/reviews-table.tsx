@@ -42,7 +42,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { deleteReview, moderateReview } from "@/lib/actions/review"
+import {
+  useDeleteReviewMutation,
+  useModerateReviewMutation,
+} from "@/hooks/admin/use-review-mutations"
 
 interface Review {
   id: string
@@ -52,7 +55,7 @@ interface Review {
   status: string
   orderId: string | null
   helpfulCount: number
-  createdAt: Date
+  createdAt: string | Date
   productId: string
   productName: string
   userId: string | null
@@ -68,6 +71,9 @@ interface ReviewsTableProps {
     total: number
     totalPages: number
   }
+  isLoading?: boolean
+  errorMessage?: string | null
+  onRefetch?: () => Promise<unknown>
 }
 
 const statusColors: Record<string, string> = {
@@ -76,11 +82,19 @@ const statusColors: Record<string, string> = {
   rejected: "bg-red-500/10 text-red-500 hover:bg-red-500/20",
 }
 
-export function ReviewsTable({ reviews, pagination }: ReviewsTableProps) {
+export function ReviewsTable({
+  reviews,
+  pagination,
+  isLoading = false,
+  errorMessage = null,
+  onRefetch,
+}: ReviewsTableProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [search, setSearch] = useState(searchParams.get("search") || "")
-  const [isLoading, setIsLoading] = useState<string | null>(null)
+  const [activeReviewId, setActiveReviewId] = useState<string | null>(null)
+  const moderateMutation = useModerateReviewMutation()
+  const deleteMutation = useDeleteReviewMutation()
 
   const updateFilters = (updates: Record<string, string | null>) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -109,14 +123,16 @@ export function ReviewsTable({ reviews, pagination }: ReviewsTableProps) {
     reviewId: string,
     action: "approve" | "reject",
   ) => {
-    setIsLoading(reviewId)
+    setActiveReviewId(reviewId)
     try {
-      await moderateReview(reviewId, action)
-      router.refresh()
+      await moderateMutation.mutateAsync({ reviewId, action })
+      if (onRefetch) {
+        await onRefetch()
+      }
     } catch (error) {
       console.error("Moderation error:", error)
     } finally {
-      setIsLoading(null)
+      setActiveReviewId(null)
     }
   }
 
@@ -128,14 +144,16 @@ export function ReviewsTable({ reviews, pagination }: ReviewsTableProps) {
     ) {
       return
     }
-    setIsLoading(reviewId)
+    setActiveReviewId(reviewId)
     try {
-      await deleteReview(reviewId)
-      router.refresh()
+      await deleteMutation.mutateAsync(reviewId)
+      if (onRefetch) {
+        await onRefetch()
+      }
     } catch (error) {
       console.error("Delete error:", error)
     } finally {
-      setIsLoading(null)
+      setActiveReviewId(null)
     }
   }
 
@@ -158,6 +176,12 @@ export function ReviewsTable({ reviews, pagination }: ReviewsTableProps) {
 
   return (
     <div className="space-y-4">
+      {errorMessage ? (
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          {errorMessage}
+        </div>
+      ) : null}
+
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex gap-2 flex-1">
@@ -178,7 +202,7 @@ export function ReviewsTable({ reviews, pagination }: ReviewsTableProps) {
             value={searchParams.get("status") || "all"}
             onValueChange={(value) => updateFilters({ status: value })}
           >
-            <SelectTrigger className="w-[130px]">
+            <SelectTrigger className="w-32.5">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -193,7 +217,7 @@ export function ReviewsTable({ reviews, pagination }: ReviewsTableProps) {
             value={searchParams.get("rating") || "all"}
             onValueChange={(value) => updateFilters({ rating: value })}
           >
-            <SelectTrigger className="w-[130px]">
+            <SelectTrigger className="w-32.5">
               <SelectValue placeholder="Rating" />
             </SelectTrigger>
             <SelectContent>
@@ -218,11 +242,20 @@ export function ReviewsTable({ reviews, pagination }: ReviewsTableProps) {
               <TableHead>Rating</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Date</TableHead>
-              <TableHead className="w-[80px]"></TableHead>
+              <TableHead className="w-20"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {reviews.length === 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell
+                  colSpan={6}
+                  className="text-center py-8 text-muted-foreground"
+                >
+                  Loading reviews...
+                </TableCell>
+              </TableRow>
+            ) : reviews.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={6}
@@ -280,7 +313,11 @@ export function ReviewsTable({ reviews, pagination }: ReviewsTableProps) {
                         <Button
                           variant="ghost"
                           size="icon"
-                          disabled={isLoading === review.id}
+                          disabled={
+                            activeReviewId === review.id ||
+                            moderateMutation.isPending ||
+                            deleteMutation.isPending
+                          }
                         >
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>

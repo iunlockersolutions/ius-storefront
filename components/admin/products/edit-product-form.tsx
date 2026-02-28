@@ -40,11 +40,11 @@ import {
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
+import { useDeleteProductMutation } from "@/hooks/admin/use-delete-product-mutation"
 import {
-  deleteProduct,
-  updateProduct,
-  updateProductImages,
-} from "@/lib/actions/product"
+  useUpdateProductImagesMutation,
+  useUpdateProductMutation,
+} from "@/hooks/admin/use-update-product-mutations"
 import { cn } from "@/lib/utils"
 
 // Form schemas
@@ -135,6 +135,9 @@ export function EditProductForm({
   const [currentStep, setCurrentStep] = useState(1)
   const [isPending, startTransition] = useTransition()
   const [isDeleting, setIsDeleting] = useState(false)
+  const updateProductMutation = useUpdateProductMutation(product.id)
+  const updateProductImagesMutation = useUpdateProductImagesMutation(product.id)
+  const deleteProductMutation = useDeleteProductMutation()
   const [images, setImages] = useState<UploadedImage[]>(
     initialImages.map((img) => ({
       id: img.id,
@@ -231,7 +234,7 @@ export function EditProductForm({
   const onSubmit = async (data: ProductFormData) => {
     startTransition(async () => {
       try {
-        await updateProduct(product.id, {
+        await updateProductMutation.mutateAsync({
           name: data.name,
           slug: data.slug,
           description: data.description || undefined,
@@ -248,8 +251,7 @@ export function EditProductForm({
 
         // Update images if changed
         if (imagesChanged) {
-          await updateProductImages(
-            product.id,
+          await updateProductImagesMutation.mutateAsync(
             images.map((img) => ({
               id: img.id,
               url: img.url,
@@ -271,12 +273,14 @@ export function EditProductForm({
   const handleDelete = async () => {
     setIsDeleting(true)
     try {
-      await deleteProduct(product.id)
+      await deleteProductMutation.mutateAsync(product.id)
       toast.success("Product deleted successfully!")
       router.push("/admin/products")
       router.refresh()
-    } catch {
-      toast.error("Failed to delete product")
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to delete product",
+      )
     } finally {
       setIsDeleting(false)
     }

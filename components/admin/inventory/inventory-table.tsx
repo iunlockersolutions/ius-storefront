@@ -44,7 +44,10 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
-import { adjustStock, updateLowStockThreshold } from "@/lib/actions/inventory"
+import {
+  useAdjustStockMutation,
+  useUpdateLowStockThresholdMutation,
+} from "@/hooks/admin/use-inventory-mutations"
 
 interface InventoryItem {
   id: string
@@ -73,6 +76,9 @@ interface InventoryTableProps {
   }
   search: string
   stockStatus: string
+  isLoading?: boolean
+  errorMessage?: string | null
+  onRefetch?: () => Promise<unknown>
 }
 
 export function InventoryTable({
@@ -80,6 +86,9 @@ export function InventoryTable({
   pagination,
   search,
   stockStatus,
+  isLoading = false,
+  errorMessage = null,
+  onRefetch,
 }: InventoryTableProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -93,6 +102,8 @@ export function InventoryTable({
   const [adjustReason, setAdjustReason] = useState("")
   const [newThreshold, setNewThreshold] = useState(5)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const adjustStockMutation = useAdjustStockMutation()
+  const updateThresholdMutation = useUpdateLowStockThresholdMutation()
 
   function updateFilters(updates: Record<string, string>) {
     const params = new URLSearchParams(searchParams.toString())
@@ -129,14 +140,13 @@ export function InventoryTable({
     }
 
     setIsSubmitting(true)
-    const result = await adjustStock({
-      inventoryItemId: selectedItem.id,
-      adjustment,
-      reason: adjustReason,
-    })
-    setIsSubmitting(false)
+    try {
+      const result = await adjustStockMutation.mutateAsync({
+        inventoryItemId: selectedItem.id,
+        adjustment,
+        reason: adjustReason,
+      })
 
-    if (result.success && "previousQuantity" in result) {
       toast.success(
         `Stock adjusted: ${result.previousQuantity} → ${result.newQuantity}`,
       )
@@ -144,9 +154,15 @@ export function InventoryTable({
       setAdjustment(0)
       setAdjustReason("")
       setSelectedItem(null)
-      router.refresh()
-    } else if (!result.success) {
-      toast.error(result.error || "Failed to adjust stock")
+      if (onRefetch) {
+        await onRefetch()
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to adjust stock",
+      )
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -154,16 +170,24 @@ export function InventoryTable({
     if (!selectedItem) return
 
     setIsSubmitting(true)
-    const result = await updateLowStockThreshold(selectedItem.id, newThreshold)
-    setIsSubmitting(false)
+    try {
+      await updateThresholdMutation.mutateAsync({
+        inventoryItemId: selectedItem.id,
+        threshold: newThreshold,
+      })
 
-    if (result.success) {
       toast.success("Low stock threshold updated")
       setThresholdDialogOpen(false)
       setSelectedItem(null)
-      router.refresh()
-    } else {
-      toast.error(result.error || "Failed to update threshold")
+      if (onRefetch) {
+        await onRefetch()
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update threshold",
+      )
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -220,6 +244,12 @@ export function InventoryTable({
         </Select>
       </div>
 
+      {errorMessage && (
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          {errorMessage}
+        </div>
+      )}
+
       {/* Table */}
       <div className="rounded-md border">
         <Table>
@@ -235,7 +265,16 @@ export function InventoryTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {items.length === 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell
+                  colSpan={7}
+                  className="text-center py-8 text-muted-foreground"
+                >
+                  Loading inventory...
+                </TableCell>
+              </TableRow>
+            ) : items.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={7}
@@ -274,40 +313,43 @@ export function InventoryTable({
                     {getStockBadge(item)}
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
+                    <div className="flex flex-wrap justify-end gap-2">
                       <Button
                         variant="ghost"
-                        size="icon"
+                        size="sm"
                         onClick={() => {
                           setSelectedItem(item)
                           setAdjustment(0)
                           setAdjustReason("")
                           setAdjustDialogOpen(true)
                         }}
-                        title="Adjust Stock"
+                        className="h-10"
                       >
                         <Plus className="h-4 w-4" />
+                        <span className="ml-1">Adjust</span>
                       </Button>
                       <Button
                         variant="ghost"
-                        size="icon"
+                        size="sm"
                         onClick={() => {
                           setSelectedItem(item)
                           setNewThreshold(item.lowStockThreshold || 5)
                           setThresholdDialogOpen(true)
                         }}
-                        title="Set Threshold"
+                        className="h-10"
                       >
                         <Settings className="h-4 w-4" />
+                        <span className="ml-1">Threshold</span>
                       </Button>
                       <Button
                         variant="ghost"
-                        size="icon"
+                        size="sm"
                         asChild
-                        title="View History"
+                        className="h-10"
                       >
                         <Link href={`/admin/inventory/${item.id}/history`}>
                           <History className="h-4 w-4" />
+                          <span className="ml-1">History</span>
                         </Link>
                       </Button>
                     </div>
@@ -330,21 +372,25 @@ export function InventoryTable({
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
-              size="icon"
+              size="sm"
               onClick={() => goToPage(pagination.page - 1)}
               disabled={pagination.page <= 1 || isPending}
+              className="h-10"
             >
               <ChevronLeft className="h-4 w-4" />
+              <span className="ml-1">Previous</span>
             </Button>
             <span className="text-sm">
               Page {pagination.page} of {pagination.totalPages}
             </span>
             <Button
               variant="outline"
-              size="icon"
+              size="sm"
               onClick={() => goToPage(pagination.page + 1)}
               disabled={pagination.page >= pagination.totalPages || isPending}
+              className="h-10"
             >
+              <span className="mr-1">Next</span>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>

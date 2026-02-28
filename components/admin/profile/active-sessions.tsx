@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 
 import {
   Laptop,
@@ -31,16 +31,16 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import {
-  getUserSessions,
-  revokeAllOtherSessions,
-  revokeSession,
-} from "@/lib/actions/staff-profile"
+  useRevokeAllOtherSessionsMutation,
+  useRevokeSessionMutation,
+  useUserSessionsQuery,
+} from "@/hooks/admin/use-profile-mutations"
 
 interface Session {
   id: string
   token: string
-  createdAt: Date
-  expiresAt: Date
+  createdAt: string | Date
+  expiresAt: string | Date
   ipAddress: string | null | undefined
   userAgent: string | null | undefined
   isCurrent: boolean
@@ -96,41 +96,27 @@ function getDeviceIcon(device: "desktop" | "mobile" | "tablet") {
 }
 
 export function ActiveSessions() {
-  const [sessions, setSessions] = useState<Session[]>([])
-  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [revokeDialogOpen, setRevokeDialogOpen] = useState(false)
   const [revokeAllDialogOpen, setRevokeAllDialogOpen] = useState(false)
   const [sessionToRevoke, setSessionToRevoke] = useState<Session | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
+  const sessionsQuery = useUserSessionsQuery()
+  const revokeSessionMutation = useRevokeSessionMutation()
+  const revokeAllMutation = useRevokeAllOtherSessionsMutation()
 
-  useEffect(() => {
-    fetchSessions()
-  }, [])
-
-  async function fetchSessions() {
-    try {
-      setLoading(true)
-      const data = await getUserSessions()
-      setSessions(data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load sessions")
-    } finally {
-      setLoading(false)
-    }
-  }
+  const sessions: Session[] = sessionsQuery.data ?? []
+  const loading = sessionsQuery.isLoading || sessionsQuery.isFetching
+  const queryError =
+    sessionsQuery.error instanceof Error ? sessionsQuery.error.message : null
 
   async function handleRevoke() {
     if (!sessionToRevoke) return
 
     setActionLoading(true)
     try {
-      const result = await revokeSession(sessionToRevoke.token)
-      if (result.success) {
-        setSessions((prev) => prev.filter((s) => s.id !== sessionToRevoke.id))
-      } else {
-        setError(result.error || "Failed to revoke session")
-      }
+      await revokeSessionMutation.mutateAsync(sessionToRevoke.token)
+      await sessionsQuery.refetch()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to revoke session")
     } finally {
@@ -143,12 +129,8 @@ export function ActiveSessions() {
   async function handleRevokeAll() {
     setActionLoading(true)
     try {
-      const result = await revokeAllOtherSessions()
-      if (result.success) {
-        setSessions((prev) => prev.filter((s) => s.isCurrent))
-      } else {
-        setError(result.error || "Failed to revoke sessions")
-      }
+      await revokeAllMutation.mutateAsync()
+      await sessionsQuery.refetch()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to revoke sessions")
     } finally {
@@ -187,9 +169,9 @@ export function ActiveSessions() {
         </div>
       </CardHeader>
       <CardContent>
-        {error && (
+        {(error || queryError) && (
           <div className="mb-4 rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
-            {error}
+            {error || queryError}
           </div>
         )}
 

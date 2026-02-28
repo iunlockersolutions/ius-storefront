@@ -1,7 +1,5 @@
 "use client"
 
-import { useRouter } from "next/navigation"
-
 import { Lock } from "lucide-react"
 
 import { PasswordChangeForm } from "@/components/shared/password-change-form"
@@ -12,7 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { changePassword } from "@/lib/actions/staff-profile"
+import { useChangePasswordMutation } from "@/hooks/admin/use-profile-mutations"
 
 interface SecurityPasswordProps {
   userInfo?: {
@@ -22,17 +20,22 @@ interface SecurityPasswordProps {
 }
 
 export function SecurityPassword({ userInfo }: SecurityPasswordProps) {
-  const router = useRouter()
+  const changePasswordMutation = useChangePasswordMutation()
 
   const handlePasswordChange = async (data: {
     currentPassword: string
     newPassword: string
   }) => {
-    const result = await changePassword(data)
-    if (result.success) {
-      router.refresh()
+    try {
+      await changePasswordMutation.mutateAsync(data)
+      return { success: true }
+    } catch (error) {
+      return {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Failed to change password",
+      }
     }
-    return result
   }
 
   return (

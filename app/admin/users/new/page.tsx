@@ -1,13 +1,8 @@
 import { Metadata } from "next"
-import { headers } from "next/headers"
-import { redirect } from "next/navigation"
-
-import { eq } from "drizzle-orm"
 
 import { CreateStaffForm } from "@/components/admin/users/create-staff-form"
-import { auth } from "@/lib/auth"
-import { db } from "@/lib/db"
-import { user } from "@/lib/db/schema/auth"
+
+import { requireAuthenticatedAdminUserOrRedirect } from "../_actions/access"
 
 export const metadata: Metadata = {
   title: "Invite Staff | Admin",
@@ -15,13 +10,7 @@ export const metadata: Metadata = {
 }
 
 export default async function NewStaffPage() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  })
-
-  if (!session?.user) {
-    redirect("/admin/login")
-  }
+  await requireAuthenticatedAdminUserOrRedirect()
 
   return (
     <div className="space-y-6">

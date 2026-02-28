@@ -1,5 +1,6 @@
 import { passkeyClient } from "@better-auth/passkey/client"
 import { adminClient } from "better-auth/client/plugins"
+import type { Role as BetterAuthRole } from "better-auth/plugins/access"
 import { createAuthClient } from "better-auth/react"
 
 import { ac, roles } from "@/lib/auth/permissions"
@@ -10,14 +11,17 @@ import { ac, roles } from "@/lib/auth/permissions"
  * Client-side authentication utilities for use in React components.
  * Includes passkey and admin client plugins.
  */
+const authClientBaseURL = process.env.NEXT_PUBLIC_SITE_URL?.trim()
+const adminClientRoles = roles as Record<string, BetterAuthRole>
+
 export const authClient = createAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+  ...(authClientBaseURL ? { baseURL: authClientBaseURL } : {}),
   plugins: [
     passkeyClient(),
 
     adminClient({
       ac,
-      roles: roles as any,
+      roles: adminClientRoles,
     }),
   ],
 })
