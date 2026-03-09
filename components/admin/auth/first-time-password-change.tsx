@@ -31,7 +31,7 @@ export function FirstTimePasswordChange({
 
   async function handleSignOut() {
     await authClient.signOut()
-    router.push("/admin/login")
+    router.push("/ops/login")
     router.refresh()
   }
 
@@ -77,7 +77,7 @@ export function FirstTimePasswordChange({
             if (result.success) {
               setSuccess(true)
               setTimeout(() => {
-                router.push("/admin")
+                router.push("/ops")
                 router.refresh()
               }, 2000)
             }

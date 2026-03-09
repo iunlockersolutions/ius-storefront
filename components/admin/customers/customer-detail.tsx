@@ -266,7 +266,7 @@ export function CustomerDetail({
                     <TableRow key={order.id}>
                       <TableCell>
                         <Link
-                          href={`/admin/orders/${order.id}`}
+                          href={`/ops/orders/${order.id}`}
                           className="font-medium hover:underline"
                         >
                           {order.orderNumber}

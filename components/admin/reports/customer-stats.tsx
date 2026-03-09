@@ -116,7 +116,7 @@ export function CustomerStats({ stats }: CustomerStatsProps) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[40px]">#</TableHead>
+                  <TableHead className="w-10">#</TableHead>
                   <TableHead>Customer</TableHead>
                   <TableHead className="text-right">Orders</TableHead>
                   <TableHead className="text-right">Total Spent</TableHead>
@@ -133,7 +133,7 @@ export function CustomerStats({ stats }: CustomerStatsProps) {
                     <TableCell>
                       {customer.userId ? (
                         <Link
-                          href={`/admin/customers/${customer.userId}`}
+                          href={`/ops/customers/${customer.userId}`}
                           className="hover:underline"
                         >
                           <div className="font-medium">

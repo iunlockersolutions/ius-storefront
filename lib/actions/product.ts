@@ -353,7 +353,7 @@ export async function createProduct(data: z.infer<typeof createProductSchema>) {
       })
       .returning()
 
-    revalidatePath("/admin/products")
+    revalidatePath("/ops/products")
     revalidateProductCaches() // Invalidate cached product data
     return { success: true as const, data: product }
   } catch (error) {
@@ -380,8 +380,8 @@ export async function updateProduct(
     .where(eq(products.id, id))
     .returning()
 
-  revalidatePath("/admin/products")
-  revalidatePath(`/admin/products/${id}`)
+  revalidatePath("/ops/products")
+  revalidatePath(`/ops/products/${id}`)
   revalidatePath(`/products/${product.slug}`)
   revalidateProductCaches() // Invalidate cached product data
   return product
@@ -395,7 +395,7 @@ export async function deleteProduct(id: string) {
 
   await db.delete(products).where(eq(products.id, id))
 
-  revalidatePath("/admin/products")
+  revalidatePath("/ops/products")
   revalidateProductCaches() // Invalidate cached product data
   return { success: true }
 }
@@ -469,7 +469,7 @@ export async function createVariant(data: z.infer<typeof createVariantSchema>) {
     })
   }
 
-  revalidatePath(`/admin/products/${validated.productId}`)
+  revalidatePath(`/ops/products/${validated.productId}`)
   return variant
 }
 
@@ -518,7 +518,7 @@ export async function updateStock(data: z.infer<typeof updateStockSchema>) {
     performedBy: session.user.id,
   })
 
-  revalidatePath("/admin/inventory")
+  revalidatePath("/ops/inventory")
   return { success: true, newQuantity }
 }
 
@@ -589,7 +589,7 @@ export async function addProductImages(
     }),
   )
 
-  revalidatePath(`/admin/products/${productId}`)
+  revalidatePath(`/ops/products/${productId}`)
   revalidatePath(`/products/${product.slug}`)
   return { success: true as const, data: newImages }
 }
@@ -661,7 +661,7 @@ export async function updateProductImages(
     }
   }
 
-  revalidatePath(`/admin/products/${productId}`)
+  revalidatePath(`/ops/products/${productId}`)
   revalidatePath(`/products/${product.slug}`)
   return { success: true as const }
 }
@@ -701,6 +701,6 @@ export async function deleteProductImage(imageId: string) {
     }
   }
 
-  revalidatePath(`/admin/products/${image.productId}`)
+  revalidatePath(`/ops/products/${image.productId}`)
   return { success: true as const }
 }

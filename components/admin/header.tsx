@@ -85,7 +85,7 @@ export function AdminHeader({ user }: AdminHeaderProps) {
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
               <Link
-                href="/admin/profile"
+                href="/ops/profile"
                 className="flex items-center cursor-pointer"
               >
                 <User className="mr-2 h-4 w-4" />
@@ -94,7 +94,7 @@ export function AdminHeader({ user }: AdminHeaderProps) {
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link
-                href="/admin/settings"
+                href="/ops/settings"
                 className="flex items-center cursor-pointer"
               >
                 <Settings className="mr-2 h-4 w-4" />

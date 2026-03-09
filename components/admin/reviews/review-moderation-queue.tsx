@@ -232,7 +232,7 @@ export function ReviewModerationQueue({
                       </div>
                     </div>
                     <Link
-                      href={`/admin/products/${review.productId}`}
+                      href={`/ops/products/${review.productId}`}
                       className="text-sm text-blue-500 hover:underline flex items-center gap-1"
                     >
                       {review.productName}

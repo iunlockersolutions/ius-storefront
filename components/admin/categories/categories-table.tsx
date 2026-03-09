@@ -172,7 +172,7 @@ export function CategoriesTable({
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
-                          <Link href={`/admin/categories/${category.id}`}>
+                          <Link href={`/ops/categories/${category.id}`}>
                             <Pencil className="mr-2 h-4 w-4" />
                             Edit
                           </Link>

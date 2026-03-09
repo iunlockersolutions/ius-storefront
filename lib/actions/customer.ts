@@ -212,7 +212,7 @@ export async function assignRole(userId: string, roleId: string) {
       roleId,
     })
 
-    revalidatePath(`/admin/customers/${userId}`)
+    revalidatePath(`/ops/customers/${userId}`)
     return { success: true }
   } catch (error) {
     console.error("Failed to assign role:", error)
@@ -232,7 +232,7 @@ export async function removeRole(userId: string, roleId: string) {
       .delete(userRoles)
       .where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, roleId)))
 
-    revalidatePath(`/admin/customers/${userId}`)
+    revalidatePath(`/ops/customers/${userId}`)
     return { success: true }
   } catch (error) {
     console.error("Failed to remove role:", error)

@@ -100,7 +100,7 @@ export function NewCategoryForm({ categories }: NewCategoryFormProps) {
         })
 
         toast.success("Category created successfully!")
-        router.push("/admin/categories")
+        router.push("/ops/categories")
         router.refresh()
       } catch (error) {
         toast.error(

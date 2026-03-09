@@ -28,7 +28,7 @@ export default async function RolesPage() {
       <div className="flex items-center justify-between">
         <div>
           <Button variant="ghost" size="sm" asChild className="mb-2">
-            <Link href="/admin/users">
+            <Link href="/ops/users">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Users
             </Link>

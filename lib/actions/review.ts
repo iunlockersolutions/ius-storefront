@@ -192,7 +192,7 @@ export async function moderateReview(
     })
     .where(eq(reviews.id, reviewId))
 
-  revalidatePath("/admin/reviews")
+  revalidatePath("/ops/reviews")
   revalidatePath(`/products/${review.productId}`)
 
   return { success: true }
@@ -218,7 +218,7 @@ export async function bulkModerateReviews(
     })
     .where(sql`${reviews.id} = ANY(${reviewIds})`)
 
-  revalidatePath("/admin/reviews")
+  revalidatePath("/ops/reviews")
 
   return { success: true, count: reviewIds.length }
 }
@@ -240,7 +240,7 @@ export async function deleteReview(reviewId: string) {
 
   await db.delete(reviews).where(eq(reviews.id, reviewId))
 
-  revalidatePath("/admin/reviews")
+  revalidatePath("/ops/reviews")
   revalidatePath(`/products/${review.productId}`)
 
   return { success: true }

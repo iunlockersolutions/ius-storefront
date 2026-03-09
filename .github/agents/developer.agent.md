@@ -81,7 +81,7 @@ import { Card, CardContent } from "@/components/ui/card"
 
 ## TanStack Query policy (high priority)
 
-- Default client data layer for interactive dashboard/admin flows.
+- Default client data layer for interactive dashboard/ops flows.
 - Define stable query keys per domain (`["products", filters]`, `["orders", page, status]`).
 - Use query functions that call route handlers/server boundaries, not direct DB calls from client.
 - Configure retries intentionally (strong defaults for idempotent reads; conservative for mutations).

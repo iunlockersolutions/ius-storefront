@@ -69,7 +69,7 @@ export async function updateStaffProfile(data: { name: string }) {
       })
       .where(eq(user.id, session.user.id))
 
-    revalidatePath("/admin/profile")
+    revalidatePath("/ops/profile")
 
     return { success: true }
   } catch (error) {
@@ -127,7 +127,7 @@ export async function changePassword(data: {
       })
     }
 
-    revalidatePath("/admin/profile")
+    revalidatePath("/ops/profile")
 
     return { success: true }
   } catch (error) {

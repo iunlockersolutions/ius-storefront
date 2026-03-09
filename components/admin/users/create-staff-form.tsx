@@ -79,7 +79,7 @@ export function CreateStaffForm() {
 
       setSuccess(true)
       setTimeout(() => {
-        router.push("/admin/users")
+        router.push("/ops/users")
       }, 2000)
     } catch (err) {
       setError(

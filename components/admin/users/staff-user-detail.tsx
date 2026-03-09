@@ -233,7 +233,7 @@ export function StaffUserDetail({
     try {
       const result = await deleteStaffUserByApi(staffUser.id)
       if (result.success) {
-        router.push("/admin/users")
+        router.push("/ops/users")
       } else {
         setError(result.error || "Failed to delete user")
       }
@@ -251,7 +251,7 @@ export function StaffUserDetail({
       <Button
         variant="ghost"
         size="sm"
-        onClick={() => router.push("/admin/users")}
+        onClick={() => router.push("/ops/users")}
       >
         <ArrowLeft className="mr-2 h-4 w-4" />
         Back to Users

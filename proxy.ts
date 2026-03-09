@@ -8,7 +8,7 @@ import { getCustomCookie } from "@/lib/utils/cookies"
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  if (pathname.startsWith("/admin")) {
+  if (pathname.startsWith("/ops")) {
     // Use Better Auth's getSessionCookie which handles prefix automatically
     const sessionCookie = getSessionCookie(request)
 
@@ -26,12 +26,12 @@ export async function proxy(request: NextRequest) {
     const mustChangePassword =
       getCustomCookie(request, "must-change-password") === "true"
     if (mustChangePassword) {
-      const allowedPaths = ["/admin/change-password"]
+      const allowedPaths = ["/ops/change-password"]
 
       const isAllowed = allowedPaths.some((p) => pathname.startsWith(p))
       if (!isAllowed && !pathname.startsWith("/api/")) {
         return NextResponse.redirect(
-          new URL("/admin/change-password", request.url),
+          new URL("/ops/change-password", request.url),
         )
       }
     }
@@ -41,5 +41,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/api/((?!auth).)*"],
+  matcher: ["/ops/:path*", "/api/((?!auth).)*"],
 }

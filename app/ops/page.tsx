@@ -107,7 +107,7 @@ async function DashboardStats() {
             <CardDescription>Latest customer orders</CardDescription>
           </div>
           <Button variant="outline" size="sm" asChild>
-            <Link href="/admin/orders">
+            <Link href="/ops/orders">
               View all
               <ArrowRight className="ml-2 h-4 w-4" />
             </Link>

@@ -49,7 +49,7 @@ export function EditCategoryPageClient({
         onRetry={() =>
           Promise.all([categoryQuery.refetch(), categoriesQuery.refetch()])
         }
-        backHref="/admin/categories"
+        backHref="/ops/categories"
         backLabel="Back to Categories"
       />
     )
@@ -59,7 +59,7 @@ export function EditCategoryPageClient({
     return (
       <AdminQueryEmptyState
         message="Category not found."
-        backHref="/admin/categories"
+        backHref="/ops/categories"
         backLabel="Back to Categories"
       />
     )

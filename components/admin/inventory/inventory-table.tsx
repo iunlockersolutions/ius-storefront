@@ -116,7 +116,7 @@ export function InventoryTable({
     })
     params.delete("page") // Reset to page 1 on filter change
     startTransition(() => {
-      router.push(`/admin/inventory?${params.toString()}`)
+      router.push(`/ops/inventory?${params.toString()}`)
     })
   }
 
@@ -129,7 +129,7 @@ export function InventoryTable({
     const params = new URLSearchParams(searchParams.toString())
     params.set("page", page.toString())
     startTransition(() => {
-      router.push(`/admin/inventory?${params.toString()}`)
+      router.push(`/ops/inventory?${params.toString()}`)
     })
   }
 
@@ -289,7 +289,7 @@ export function InventoryTable({
                   <TableCell>
                     <div>
                       <Link
-                        href={`/admin/products/${item.productId}/edit`}
+                        href={`/ops/products/${item.productId}/edit`}
                         className="font-medium hover:underline"
                       >
                         {item.productName}
@@ -347,7 +347,7 @@ export function InventoryTable({
                         asChild
                         className="h-10"
                       >
-                        <Link href={`/admin/inventory/${item.id}/history`}>
+                        <Link href={`/ops/inventory/${item.id}/history`}>
                           <History className="h-4 w-4" />
                           <span className="ml-1">History</span>
                         </Link>

@@ -116,7 +116,7 @@ export async function assignUserRole(userId: string, roleName: string) {
     assignedBy: session.user.id,
   })
 
-  revalidatePath("/admin/customers")
+  revalidatePath("/ops/customers")
   return { success: true }
 }
 
@@ -144,6 +144,6 @@ export async function removeUserRole(userId: string, roleName: string) {
     .delete(userRoles)
     .where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, role.id)))
 
-  revalidatePath("/admin/customers")
+  revalidatePath("/ops/customers")
   return { success: true }
 }

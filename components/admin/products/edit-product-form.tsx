@@ -262,7 +262,7 @@ export function EditProductForm({
         }
 
         toast.success("Product updated successfully!")
-        router.push("/admin/products")
+        router.push("/ops/products")
         router.refresh()
       } catch {
         toast.error("Failed to update product")
@@ -275,7 +275,7 @@ export function EditProductForm({
     try {
       await deleteProductMutation.mutateAsync(product.id)
       toast.success("Product deleted successfully!")
-      router.push("/admin/products")
+      router.push("/ops/products")
       router.refresh()
     } catch (error) {
       toast.error(

@@ -144,11 +144,11 @@ export async function handlePostLoginRedirect(callbackUrl: string = "/") {
     // Check must change password
     if (currentUser.mustChangePassword) {
       await setMustChangePasswordCookie(true)
-      redirect("/admin/change-password")
+      redirect("/ops/change-password")
     }
 
     // Staff goes to admin
-    redirect("/admin")
+    redirect("/ops")
   } else {
     // Regular customer - go to their destination
     redirect(callbackUrl)

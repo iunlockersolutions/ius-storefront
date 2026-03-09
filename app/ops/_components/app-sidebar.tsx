@@ -57,63 +57,63 @@ type NavItem = {
 const items: NavItem[] = [
   {
     title: "Dashboard",
-    url: "/admin",
+    url: "/ops",
     icon: LayoutDashboard,
     isActive: true,
   },
   {
     title: "Products",
-    url: "/admin/products",
+    url: "/ops/products",
     icon: Package,
   },
   {
     title: "Categories",
-    url: "/admin/categories",
+    url: "/ops/categories",
     icon: Tags,
   },
   {
     title: "Inventory",
-    url: "/admin/inventory",
+    url: "/ops/inventory",
     icon: Boxes,
   },
   {
     title: "Orders",
-    url: "/admin/orders",
+    url: "/ops/orders",
     icon: ShoppingCart,
   },
   {
     title: "Payments",
-    url: "/admin/payments",
+    url: "/ops/payments",
     icon: CreditCard,
   },
   {
     title: "Customers",
-    url: "/admin/customers",
+    url: "/ops/customers",
     icon: Users,
   },
   {
     title: "Reviews",
-    url: "/admin/reviews",
+    url: "/ops/reviews",
     icon: MessageSquare,
   },
   {
     title: "Reports",
-    url: "/admin/reports",
+    url: "/ops/reports",
     icon: BarChart3,
     items: [
       {
         title: "Sales",
-        url: "/admin/reports/sales",
+        url: "/ops/reports/sales",
       },
       {
         title: "Inventory",
-        url: "/admin/reports/inventory",
+        url: "/ops/reports/inventory",
       },
     ],
   },
   {
     title: "Settings",
-    url: "/admin/settings",
+    url: "/ops/settings",
     icon: Settings,
   },
 ]

@@ -75,7 +75,7 @@ export function ProductsTable({
     if (searchInput) params.set("search", searchInput)
     if (status) params.set("status", status)
     params.set("page", "1")
-    router.push(`/admin/products?${params.toString()}`)
+    router.push(`/ops/products?${params.toString()}`)
   }
 
   const handleStatusFilter = (value: string) => {
@@ -83,7 +83,7 @@ export function ProductsTable({
     if (search) params.set("search", search)
     if (value && value !== "all") params.set("status", value)
     params.set("page", "1")
-    router.push(`/admin/products?${params.toString()}`)
+    router.push(`/ops/products?${params.toString()}`)
   }
 
   const handlePageChange = (newPage: number) => {
@@ -91,7 +91,7 @@ export function ProductsTable({
     if (search) params.set("search", search)
     if (status) params.set("status", status)
     params.set("page", newPage.toString())
-    router.push(`/admin/products?${params.toString()}`)
+    router.push(`/ops/products?${params.toString()}`)
   }
 
   const statusColors = {
@@ -226,7 +226,7 @@ export function ProductsTable({
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
-                          <Link href={`/admin/products/${product.id}/edit`}>
+                          <Link href={`/ops/products/${product.id}/edit`}>
                             <Pencil className="mr-2 h-4 w-4" />
                             Edit
                           </Link>

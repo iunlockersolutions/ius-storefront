@@ -87,7 +87,7 @@ export function PaymentsTable({
       }
     })
     params.delete("page") // Reset to page 1 on filter change
-    router.push(`/admin/payments?${params.toString()}`)
+    router.push(`/ops/payments?${params.toString()}`)
   }
 
   const handleSearch = () => {
@@ -97,7 +97,7 @@ export function PaymentsTable({
   const goToPage = (page: number) => {
     const params = new URLSearchParams(searchParams.toString())
     params.set("page", page.toString())
-    router.push(`/admin/payments?${params.toString()}`)
+    router.push(`/ops/payments?${params.toString()}`)
   }
 
   const formatCurrency = (amount: string, currency: string) => {
@@ -202,7 +202,7 @@ export function PaymentsTable({
                 <TableRow key={payment.id}>
                   <TableCell>
                     <Link
-                      href={`/admin/orders/${payment.orderId}`}
+                      href={`/ops/orders/${payment.orderId}`}
                       className="font-medium hover:underline"
                     >
                       {payment.orderNumber}
@@ -238,7 +238,7 @@ export function PaymentsTable({
                   </TableCell>
                   <TableCell>
                     <Button variant="ghost" size="icon" asChild>
-                      <Link href={`/admin/orders/${payment.orderId}`}>
+                      <Link href={`/ops/orders/${payment.orderId}`}>
                         <ExternalLink className="h-4 w-4" />
                       </Link>
                     </Button>

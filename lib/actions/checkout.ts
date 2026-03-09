@@ -354,7 +354,7 @@ export async function createOrder(
 
     revalidatePath("/cart")
     revalidatePath("/orders")
-    revalidatePath("/admin/orders")
+    revalidatePath("/ops/orders")
 
     return {
       success: true,

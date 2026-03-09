@@ -106,7 +106,7 @@ export function ReviewsTable({
       }
     })
     params.delete("page")
-    router.push(`/admin/reviews?tab=all&${params.toString()}`)
+    router.push(`/ops/reviews?tab=all&${params.toString()}`)
   }
 
   const handleSearch = () => {
@@ -116,7 +116,7 @@ export function ReviewsTable({
   const goToPage = (page: number) => {
     const params = new URLSearchParams(searchParams.toString())
     params.set("page", page.toString())
-    router.push(`/admin/reviews?tab=all&${params.toString()}`)
+    router.push(`/ops/reviews?tab=all&${params.toString()}`)
   }
 
   const handleModerate = async (
@@ -290,7 +290,7 @@ export function ReviewsTable({
                   </TableCell>
                   <TableCell>
                     <Link
-                      href={`/admin/products/${review.productId}`}
+                      href={`/ops/products/${review.productId}`}
                       className="hover:underline"
                     >
                       {review.productName}

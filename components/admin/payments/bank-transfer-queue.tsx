@@ -169,7 +169,7 @@ export function BankTransferQueue({
               <TableRow key={transfer.id}>
                 <TableCell>
                   <Link
-                    href={`/admin/orders/${transfer.orderId}`}
+                    href={`/ops/orders/${transfer.orderId}`}
                     className="font-medium hover:underline"
                   >
                     {transfer.orderNumber}

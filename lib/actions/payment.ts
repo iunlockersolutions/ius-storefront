@@ -202,8 +202,8 @@ export async function verifyPaymentStatus(sessionId: string) {
     }
 
     revalidatePath(`/orders/${payment.orderId}`)
-    revalidatePath("/admin/orders")
-    revalidatePath("/admin/payments")
+    revalidatePath("/ops/orders")
+    revalidatePath("/ops/payments")
 
     return {
       success: true,
@@ -469,8 +469,8 @@ export async function markCODPaymentCollected(orderId: string) {
       }
     })
 
-    revalidatePath("/admin/orders")
-    revalidatePath(`/admin/orders/${orderId}`)
+    revalidatePath("/ops/orders")
+    revalidatePath(`/ops/orders/${orderId}`)
     revalidatePath(`/orders/${orderId}`)
 
     return { success: true }
@@ -497,7 +497,7 @@ export async function uploadBankTransferProof(
     notes,
   })
 
-  revalidatePath("/admin/payments")
+  revalidatePath("/ops/payments")
   return { success: true }
 }
 
@@ -710,9 +710,9 @@ export async function verifyBankTransfer(
       }
     })
 
-    revalidatePath("/admin/payments")
-    revalidatePath("/admin/orders")
-    revalidatePath(`/admin/orders/${payment.orderId}`)
+    revalidatePath("/ops/payments")
+    revalidatePath("/ops/orders")
+    revalidatePath(`/ops/orders/${payment.orderId}`)
 
     return { success: true }
   } catch (error) {

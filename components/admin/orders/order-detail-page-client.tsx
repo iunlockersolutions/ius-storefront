@@ -30,7 +30,7 @@ export function OrderDetailPageClient({ orderId }: OrderDetailPageClientProps) {
       <AdminQueryErrorState
         message={getQueryErrorMessage(orderQuery.error, "Failed to load order")}
         onRetry={orderQuery.refetch}
-        backHref="/admin/orders"
+        backHref="/ops/orders"
         backLabel="Back to Orders"
       />
     )
@@ -40,7 +40,7 @@ export function OrderDetailPageClient({ orderId }: OrderDetailPageClientProps) {
     return (
       <AdminQueryEmptyState
         message="Order not found."
-        backHref="/admin/orders"
+        backHref="/ops/orders"
         backLabel="Back to Orders"
       />
     )
@@ -50,7 +50,7 @@ export function OrderDetailPageClient({ orderId }: OrderDetailPageClientProps) {
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Button variant="outline" size="icon" asChild>
-          <Link href="/admin/orders">
+          <Link href="/ops/orders">
             <ChevronLeft className="h-4 w-4" />
           </Link>
         </Button>

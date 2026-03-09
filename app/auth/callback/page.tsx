@@ -62,7 +62,7 @@ function AuthCallbackContent() {
  *
  * This page handles post-authentication redirect logic.
  * It checks the user's role and redirects accordingly:
- * - Staff users → /admin (or /admin/change-password if needed)
+ * - Staff users → /ops (or /ops/change-password if needed)
  * - Regular customers → original callbackUrl or /
  *
  * Used by:

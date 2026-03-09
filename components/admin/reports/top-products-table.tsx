@@ -60,12 +60,12 @@ export function TopProductsTable({ products }: TopProductsTableProps) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[40px]">#</TableHead>
+                <TableHead className="w-10">#</TableHead>
                 <TableHead>Product</TableHead>
                 <TableHead className="text-right">Qty Sold</TableHead>
                 <TableHead className="text-right">Orders</TableHead>
                 <TableHead className="text-right">Revenue</TableHead>
-                <TableHead className="w-[150px]">Share</TableHead>
+                <TableHead className="w-37.5">Share</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -80,7 +80,7 @@ export function TopProductsTable({ products }: TopProductsTableProps) {
                     </TableCell>
                     <TableCell>
                       <Link
-                        href={`/admin/products/${product.productId}`}
+                        href={`/ops/products/${product.productId}`}
                         className="font-medium hover:underline"
                       >
                         {product.productName}

@@ -180,7 +180,7 @@ export async function createCategory(data: z.infer<typeof categorySchema>) {
       })
       .returning()
 
-    revalidatePath("/admin/categories")
+    revalidatePath("/ops/categories")
     revalidatePath("/categories")
     revalidateCategoryCaches() // Invalidate cached category data
     return { success: true as const, data: category }
@@ -208,7 +208,7 @@ export async function updateCategory(
     .where(eq(categories.id, id))
     .returning()
 
-  revalidatePath("/admin/categories")
+  revalidatePath("/ops/categories")
   revalidatePath("/categories")
   revalidatePath(`/categories/${category.slug}`)
   revalidateCategoryCaches() // Invalidate cached category data
@@ -254,7 +254,7 @@ export async function deleteCategory(id: string) {
 
     await db.delete(categories).where(eq(categories.id, id))
 
-    revalidatePath("/admin/categories")
+    revalidatePath("/ops/categories")
     revalidatePath("/categories")
     return { success: true as const }
   } catch (error) {

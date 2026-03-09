@@ -93,7 +93,7 @@ export function CustomersTable({
     }
     params.delete("page")
     startTransition(() => {
-      router.push(`/admin/customers?${params.toString()}`)
+      router.push(`/ops/customers?${params.toString()}`)
     })
   }
 
@@ -101,7 +101,7 @@ export function CustomersTable({
     const params = new URLSearchParams(searchParams.toString())
     params.set("page", page.toString())
     startTransition(() => {
-      router.push(`/admin/customers?${params.toString()}`)
+      router.push(`/ops/customers?${params.toString()}`)
     })
   }
 
@@ -205,7 +205,7 @@ export function CustomersTable({
                   </TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon" asChild>
-                      <Link href={`/admin/customers/${customer.id}`}>
+                      <Link href={`/ops/customers/${customer.id}`}>
                         <Eye className="h-4 w-4" />
                       </Link>
                     </Button>

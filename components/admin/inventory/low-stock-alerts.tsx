@@ -53,7 +53,7 @@ export function LowStockAlerts({ alerts }: LowStockAlertsProps) {
           Low Stock Alerts
         </CardTitle>
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/admin/inventory?status=low">
+          <Link href="/ops/inventory?status=low">
             View All <ArrowRight className="ml-1 h-4 w-4" />
           </Link>
         </Button>

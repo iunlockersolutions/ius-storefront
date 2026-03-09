@@ -6,7 +6,7 @@ export async function requireAdminAccessOrRedirect() {
   try {
     return await requireRole("admin")
   } catch {
-    redirect("/admin")
+    redirect("/ops")
   }
 }
 
@@ -20,7 +20,7 @@ export async function requireAdminOrManagerAccessOrRedirect() {
       canEdit,
     }
   } catch {
-    redirect("/admin")
+    redirect("/ops")
   }
 }
 
@@ -28,6 +28,6 @@ export async function requireAuthenticatedAdminUserOrRedirect() {
   try {
     return await requireRole(["admin", "manager", "support"])
   } catch {
-    redirect("/admin/login")
+    redirect("/ops/login")
   }
 }

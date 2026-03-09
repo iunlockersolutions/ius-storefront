@@ -54,7 +54,7 @@ export async function updateSiteSetting(key: string, value: string) {
     })
   }
 
-  revalidatePath("/admin/settings")
+  revalidatePath("/ops/settings")
   return { success: true }
 }
 
@@ -91,6 +91,6 @@ export async function updateSiteSettings(settings: Record<string, string>) {
     }
   })
 
-  revalidatePath("/admin/settings")
+  revalidatePath("/ops/settings")
   return { success: true }
 }

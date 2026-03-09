@@ -94,7 +94,7 @@ export function OrdersTable({
     if (searchInput) params.set("search", searchInput)
     if (status) params.set("status", status)
     params.set("page", "1")
-    router.push(`/admin/orders?${params.toString()}`)
+    router.push(`/ops/orders?${params.toString()}`)
   }
 
   const handleStatusFilter = (value: string) => {
@@ -102,7 +102,7 @@ export function OrdersTable({
     if (search) params.set("search", search)
     if (value && value !== "all") params.set("status", value)
     params.set("page", "1")
-    router.push(`/admin/orders?${params.toString()}`)
+    router.push(`/ops/orders?${params.toString()}`)
   }
 
   const handlePageChange = (newPage: number) => {
@@ -110,7 +110,7 @@ export function OrdersTable({
     if (search) params.set("search", search)
     if (status) params.set("status", status)
     params.set("page", newPage.toString())
-    router.push(`/admin/orders?${params.toString()}`)
+    router.push(`/ops/orders?${params.toString()}`)
   }
 
   return (
@@ -220,7 +220,7 @@ export function OrdersTable({
                   </TableCell>
                   <TableCell>
                     <Button variant="ghost" size="sm" asChild className="h-10">
-                      <Link href={`/admin/orders/${order.id}`}>
+                      <Link href={`/ops/orders/${order.id}`}>
                         <Eye className="h-4 w-4" />
                         <span className="ml-1">View</span>
                       </Link>

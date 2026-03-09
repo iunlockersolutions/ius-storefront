@@ -19,7 +19,7 @@ export default async function AdminUsersPage() {
   })
 
   if (!session?.user) {
-    redirect("/admin/login")
+    redirect("/ops/login")
   }
 
   return (

@@ -27,52 +27,52 @@ import { cn } from "@/lib/utils"
 const navigation = [
   {
     name: "Dashboard",
-    href: "/admin",
+    href: "/ops",
     icon: LayoutDashboard,
   },
   {
     name: "Products",
-    href: "/admin/products",
+    href: "/ops/products",
     icon: Package,
   },
   {
     name: "Categories",
-    href: "/admin/categories",
+    href: "/ops/categories",
     icon: Tags,
   },
   {
     name: "Inventory",
-    href: "/admin/inventory",
+    href: "/ops/inventory",
     icon: Boxes,
   },
   {
     name: "Orders",
-    href: "/admin/orders",
+    href: "/ops/orders",
     icon: ShoppingCart,
   },
   {
     name: "Payments",
-    href: "/admin/payments",
+    href: "/ops/payments",
     icon: CreditCard,
   },
   {
     name: "Customers",
-    href: "/admin/customers",
+    href: "/ops/customers",
     icon: Users,
   },
   {
     name: "Reviews",
-    href: "/admin/reviews",
+    href: "/ops/reviews",
     icon: MessageSquare,
   },
   {
     name: "Reports",
-    href: "/admin/reports",
+    href: "/ops/reports",
     icon: BarChart3,
   },
   {
     name: "Settings",
-    href: "/admin/settings",
+    href: "/ops/settings",
     icon: Settings,
   },
 ]
@@ -80,12 +80,12 @@ const navigation = [
 const staffNavigation = [
   {
     name: "Staff Users",
-    href: "/admin/users",
+    href: "/ops/users",
     icon: UserCog,
   },
   {
     name: "Roles & Permissions",
-    href: "/admin/users/roles",
+    href: "/ops/users/roles",
     icon: Shield,
   },
 ]
@@ -97,7 +97,7 @@ export function AdminSidebar() {
     <aside className="flex w-64 flex-col border-r bg-white dark:bg-neutral-950">
       {/* Logo */}
       <div className="flex h-16 items-center border-b px-6">
-        <Link href="/admin" className="flex items-center space-x-2">
+        <Link href="/ops" className="flex items-center space-x-2">
           <span className="text-xl font-bold">IUS Admin</span>
         </Link>
       </div>
@@ -107,7 +107,7 @@ export function AdminSidebar() {
         {navigation.map((item) => {
           const isActive =
             pathname === item.href ||
-            (item.href !== "/admin" && pathname.startsWith(item.href))
+            (item.href !== "/ops" && pathname.startsWith(item.href))
 
           return (
             <Link
@@ -134,7 +134,7 @@ export function AdminSidebar() {
           {staffNavigation.map((item) => {
             const isActive =
               pathname === item.href ||
-              (item.href !== "/admin/users" && pathname.startsWith(item.href))
+              (item.href !== "/ops/users" && pathname.startsWith(item.href))
 
             return (
               <Link

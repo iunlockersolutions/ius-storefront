@@ -118,7 +118,7 @@ export function EditCategoryForm({
         })
 
         toast.success("Category updated successfully!")
-        router.push("/admin/categories")
+        router.push("/ops/categories")
         router.refresh()
       } catch (error) {
         toast.error(
@@ -133,7 +133,7 @@ export function EditCategoryForm({
     try {
       await deleteCategoryMutation.mutateAsync(category.id)
       toast.success("Category deleted successfully!")
-      router.push("/admin/categories")
+      router.push("/ops/categories")
       router.refresh()
     } catch (error) {
       toast.error(

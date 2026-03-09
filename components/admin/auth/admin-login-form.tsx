@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/card"
 import { FormField } from "@/components/ui/form-field"
 import { Input } from "@/components/ui/input"
-import { authClient, signIn } from "@/lib/auth-client"
+import { authClient } from "@/lib/auth-client"
 
 import { checkStaffLoginByApi, setMustChangePasswordCookieByApi } from "./api"
 
@@ -33,7 +33,7 @@ type LoginFormData = z.infer<typeof loginSchema>
 export function AdminLoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get("callbackUrl") || "/admin"
+  const callbackUrl = searchParams.get("callbackUrl") || "/ops"
   const [isLoading, setIsLoading] = useState(false)
   const [isPasskeyLoading, setIsPasskeyLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -71,7 +71,7 @@ export function AdminLoginForm() {
       }
 
       // Attempt to sign in
-      const result = await signIn.email({
+      const result = await authClient.signIn.email({
         email: data.email,
         password: data.password,
       })
@@ -84,7 +84,7 @@ export function AdminLoginForm() {
       // Set must-change-password cookie if needed
       if (staffCheck.mustChangePassword) {
         await setMustChangePasswordCookieByApi(true)
-        router.push("/admin/change-password")
+        router.push("/ops/change-password")
       } else {
         router.push(callbackUrl)
       }
@@ -138,7 +138,7 @@ export function AdminLoginForm() {
 
         if (staffCheck.mustChangePassword) {
           await setMustChangePasswordCookieByApi(true)
-          router.push("/admin/change-password")
+          router.push("/ops/change-password")
         } else {
           router.push(callbackUrl)
         }

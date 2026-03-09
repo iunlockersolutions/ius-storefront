@@ -55,7 +55,7 @@ export function CustomerDetailPageClient({
             rolesQuery.refetch(),
           ])
         }
-        backHref="/admin/customers"
+        backHref="/ops/customers"
         backLabel="Back to Customers"
       />
     )
@@ -65,7 +65,7 @@ export function CustomerDetailPageClient({
     return (
       <AdminQueryEmptyState
         message="Customer not found."
-        backHref="/admin/customers"
+        backHref="/ops/customers"
         backLabel="Back to Customers"
       />
     )
@@ -75,7 +75,7 @@ export function CustomerDetailPageClient({
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" asChild>
-          <Link href="/admin/customers">
+          <Link href="/ops/customers">
             <ArrowLeft className="h-4 w-4" />
           </Link>
         </Button>

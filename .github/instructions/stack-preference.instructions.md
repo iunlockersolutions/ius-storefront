@@ -90,7 +90,7 @@ applyTo: "**"
 - We are using Next.js as a monolith (frontend + backend in one app).
 - Since this is primarily a dashboard product, default to a client-side-first approach for dashboard data flows.
 - Use `TanStack Query` as the default client data layer for fetching, caching, retries, and invalidation on dashboard features.
-- The `TanStack Query` default applies to `app/admin` (backoffice/dashboard) experiences.
+- The `TanStack Query` default applies to `app/ops` (backoffice/dashboard) experiences.
 - For `app/(storefront)` routes, prefer server-rendered data via Server Components by default, and introduce client-side data fetching only when interactivity truly requires it.
 - Use Drizzle only in server-side code.
 - Use Better Auth with the Next.js integration https://www.better-auth.com/docs/integrations/next.

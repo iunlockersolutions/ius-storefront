@@ -264,7 +264,7 @@ export async function adjustStock(input: z.infer<typeof adjustStockSchema>) {
       return { previousQuantity: item.quantity, newQuantity }
     })
 
-    revalidatePath("/admin/inventory")
+    revalidatePath("/ops/inventory")
     return { success: true, ...result }
   } catch (error) {
     console.error("Failed to adjust stock:", error)
@@ -298,7 +298,7 @@ export async function updateLowStockThreshold(
       })
       .where(eq(inventoryItems.id, inventoryItemId))
 
-    revalidatePath("/admin/inventory")
+    revalidatePath("/ops/inventory")
     return { success: true }
   } catch (error) {
     console.error("Failed to update threshold:", error)

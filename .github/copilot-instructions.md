@@ -5,7 +5,7 @@
 - The imported instruction files in `.github/instructions/*` are mostly compatible; treat `src/features/*` as a target architecture, not a hard requirement for current edits.
 
 ## Big picture architecture
-- This is a Next.js 16 App Router monolith with two product surfaces: public storefront under `app/(storefront)` and backoffice under `app/admin`.
+- This is a Next.js 16 App Router monolith with two product surfaces: public storefront under `app/(storefront)` and backoffice under `app/ops`.
 - Prefer Server Components for data pages; client interactivity lives in leaf components under `components/**` with `'use client'`.
 - Core business logic is centralized in server actions under `lib/actions/*` (products, checkout, payments, inventory, customers, etc.).
 - Persistence uses Drizzle + Postgres (`lib/db/index.ts`, `lib/db/schema/*`), with domain tables split by concern (catalog, inventory, orders, payments, reviews, auth).
@@ -14,15 +14,15 @@
 ## Route and security boundaries
 - Admin access is enforced in layers:
   1) edge proxy masking/redirect rules in `proxy.ts`,
-  2) server layout checks in `app/admin/layout.tsx` (`getServerSession`, `isStaff`),
+  2) server layout checks in `app/ops/layout.tsx` (`getServerSession`, `isStaff`),
   3) action-level guards via `requireStaff`, `requireRole`, `requirePermission` from `lib/auth/rbac.ts`.
-- Do not rely only on client-side checks for admin/staff features.
+- Do not rely only on client-side checks for ops/staff features.
 - Auth endpoints are mounted via Better Auth catch-all route: `app/api/auth/[...all]/route.ts`.
 
 ## Data flow patterns to follow
 - Read/write operations should go through `lib/actions/*`; pages/components call actions, not ad-hoc DB logic.
 - For dashboard-heavy interactivity, prefer client-side data flow with TanStack Query and route handlers/actions as the server boundary.
-- Treat the TanStack Query client-first policy as **admin/backoffice-specific** (`app/admin`).
+- Treat the TanStack Query client-first policy as **ops/backoffice-specific** (`app/ops`).
 - For storefront routes (`app/(storefront)`), prefer Server Components and SSR data composition as the default; keep client components to interactive leaf behavior.
 - Complex writes use Drizzle transactions and row locks (see `lib/actions/checkout.ts` and payment webhook handling).
 - Inventory consistency is maintained through `inventory_items` + append-style `inventory_movements`; update both when stock state changes.

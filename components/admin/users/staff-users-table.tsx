@@ -228,7 +228,7 @@ export function StaffUsersTable({ currentUserId }: { currentUserId: string }) {
             </div>
           </div>
           <Button asChild>
-            <Link href="/admin/users/new">
+            <Link href="/ops/users/new">
               <UserPlus className="mr-2 h-4 w-4" />
               Invite Staff
             </Link>
@@ -296,7 +296,7 @@ export function StaffUsersTable({ currentUserId }: { currentUserId: string }) {
             </p>
             {!search && roleFilter === "all" && (
               <Button asChild className="mt-4">
-                <Link href="/admin/users/new">
+                <Link href="/ops/users/new">
                   <UserPlus className="mr-2 h-4 w-4" />
                   Invite Staff
                 </Link>
@@ -390,7 +390,7 @@ export function StaffUsersTable({ currentUserId }: { currentUserId: string }) {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem asChild>
-                              <Link href={`/admin/users/${user.id}`}>
+                              <Link href={`/ops/users/${user.id}`}>
                                 <Eye className="mr-2 h-4 w-4" />
                                 View Details
                               </Link>

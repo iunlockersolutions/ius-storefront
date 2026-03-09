@@ -233,7 +233,7 @@ export function NewProductForm({ categories }: NewProductFormProps) {
         }
 
         toast.success("Product created successfully!")
-        router.push("/admin/products")
+        router.push("/ops/products")
         router.refresh()
       } catch (error) {
         toast.error(
