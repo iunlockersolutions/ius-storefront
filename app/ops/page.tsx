@@ -191,7 +191,7 @@ function DashboardSkeleton() {
 }
 
 /**
- * Admin Dashboard Page
+ * Operations Dashboard Page
  *
  * Overview page with key metrics and quick actions.
  */
@@ -200,7 +200,7 @@ export default function AdminDashboardPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-neutral-500">Welcome to the admin dashboard.</p>
+        <p className="text-neutral-500">Welcome to the operations dashboard.</p>
       </div>
 
       <Suspense fallback={<DashboardSkeleton />}>

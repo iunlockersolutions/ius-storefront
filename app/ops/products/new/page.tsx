@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { getCategoriesFlat } from "@/lib/actions/category"
 
 export const metadata = {
-  title: "Add New Product | Admin Dashboard",
+  title: "Add New Product | Operations",
   description: "Add a new product to your store",
 }
 

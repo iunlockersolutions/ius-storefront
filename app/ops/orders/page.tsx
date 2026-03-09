@@ -1,7 +1,7 @@
 import { OrdersPageClient } from "@/components/admin/orders/orders-page-client"
 
 export const metadata = {
-  title: "Orders | Admin Dashboard",
+  title: "Orders | Operations",
   description: "Manage customer orders",
 }
 

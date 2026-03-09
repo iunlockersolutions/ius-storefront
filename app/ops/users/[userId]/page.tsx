@@ -11,7 +11,7 @@ import {
 import { requireAdminOrManagerAccessOrRedirect } from "../_actions/access"
 
 export const metadata: Metadata = {
-  title: "User Details | Admin",
+  title: "User Details | Ops",
   description: "View and manage staff user details",
 }
 

@@ -3,8 +3,8 @@ import { Metadata } from "next"
 import { ProfilePageClient } from "@/components/admin/profile/profile-page-client"
 
 export const metadata: Metadata = {
-  title: "Profile | Admin",
-  description: "Manage your admin profile and security settings",
+  title: "Profile | Ops",
+  description: "Manage your operations profile and security settings",
 }
 
 export default function AdminProfilePage() {

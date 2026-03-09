@@ -41,7 +41,7 @@ type LoginFormData = z.infer<typeof loginSchema>
  * Unified login for all users:
  * - Customers can use any login method
  * - Staff (admin, manager, support) use email/password or passkey
- * - After login, staff are redirected to /admin, customers to their destination
+ * - After login, staff are redirected to /ops, customers to their destination
  */
 function LoginForm() {
   const searchParams = useSearchParams()

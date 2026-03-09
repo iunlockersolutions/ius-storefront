@@ -6,7 +6,7 @@ import { CategoriesPageClient } from "@/components/admin/categories/categories-p
 import { Button } from "@/components/ui/button"
 
 export const metadata = {
-  title: "Categories | Admin Dashboard",
+  title: "Categories | Operations",
   description: "Manage your product categories",
 }
 

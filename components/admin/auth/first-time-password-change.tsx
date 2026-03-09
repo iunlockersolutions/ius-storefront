@@ -31,7 +31,7 @@ export function FirstTimePasswordChange({
 
   async function handleSignOut() {
     await authClient.signOut()
-    router.push("/ops/login")
+    router.push("/auth/login")
     router.refresh()
   }
 
@@ -46,7 +46,7 @@ export function FirstTimePasswordChange({
             <h3 className="text-lg font-semibold">Password Changed!</h3>
             <p className="text-muted-foreground">
               Your password has been updated successfully. Redirecting to the
-              admin panel...
+              operations area...
             </p>
             <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
           </div>
@@ -64,7 +64,7 @@ export function FirstTimePasswordChange({
         <CardTitle className="text-2xl">Change Your Password</CardTitle>
         <CardDescription>
           You must change your temporary password before you can access the
-          admin panel. Please create a strong, unique password.
+          operations area. Please create a strong, unique password.
         </CardDescription>
       </CardHeader>
       <CardContent>

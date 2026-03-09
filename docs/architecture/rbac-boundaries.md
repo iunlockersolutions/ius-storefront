@@ -6,21 +6,21 @@ This document defines where authorization is enforced and how layers work togeth
 
 - File: `proxy.ts`
 - Responsibility:
-  - Mask unauthorized `/admin` access.
+  - Mask unauthorized `/ops` access.
   - Enforce basic staff cookie presence checks.
   - Redirect forced password-change flows.
 
 This layer is a first gate and is not sufficient on its own.
 
-## Layer 2: Admin Layout Boundary
+## Layer 2: Operations Layout Boundary
 
-- File: `app/admin/layout.tsx`
+- File: `app/ops/layout.tsx`
 - Responsibility:
   - Require authenticated session.
   - Ensure current user is staff (`isStaff`).
-  - Redirect unauthorized users out of admin surface.
+  - Redirect unauthorized users out of the operations surface.
 
-This layer protects route rendering for admin pages.
+This layer protects route rendering for operations pages.
 
 ## Layer 3: API and Action Boundary
 

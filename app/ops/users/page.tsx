@@ -9,7 +9,7 @@ import { StaffUsersTable } from "@/components/admin/users/staff-users-table"
 import { auth } from "@/lib/auth"
 
 export const metadata: Metadata = {
-  title: "Staff Users | Admin",
+  title: "Staff Users | Ops",
   description: "Manage staff user accounts and permissions",
 }
 
@@ -19,7 +19,7 @@ export default async function AdminUsersPage() {
   })
 
   if (!session?.user) {
-    redirect("/ops/login")
+    redirect("/auth/login")
   }
 
   return (

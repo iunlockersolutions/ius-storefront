@@ -10,7 +10,7 @@ interface EditCategoryPageProps {
 }
 
 export const metadata = {
-  title: "Edit Category | Admin Dashboard",
+  title: "Edit Category | Operations",
   description: "Edit category details",
 }
 

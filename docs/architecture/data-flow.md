@@ -4,10 +4,10 @@ This document defines the current data flow model for the monolith.
 
 ## Scope Split
 
-- Admin and backoffice routes (`app/admin`) are client-interactive by default.
+- Operations and backoffice routes (`app/ops`) are client-interactive by default.
 - Storefront routes (`app/(storefront)`) are server-rendered by default.
 
-## Admin Data Flow (Default)
+## Operations Data Flow (Default)
 
 1. Page shell renders and mounts a client component.
 2. Client component uses TanStack Query hooks from `hooks/admin/*`.

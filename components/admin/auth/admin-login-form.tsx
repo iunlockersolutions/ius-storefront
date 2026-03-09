@@ -166,7 +166,9 @@ export function AdminLoginForm() {
           <Shield className="h-6 w-6 text-primary" />
         </div>
         <CardTitle className="text-2xl">Staff Login</CardTitle>
-        <CardDescription>Sign in to access the admin panel</CardDescription>
+        <CardDescription>
+          Sign in to access the operations area
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

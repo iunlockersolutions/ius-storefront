@@ -6,7 +6,7 @@ import { NewCategoryPageClient } from "@/components/admin/categories/new-categor
 import { Button } from "@/components/ui/button"
 
 export const metadata = {
-  title: "Add New Category | Admin Dashboard",
+  title: "Add New Category | Operations",
   description: "Add a new product category",
 }
 

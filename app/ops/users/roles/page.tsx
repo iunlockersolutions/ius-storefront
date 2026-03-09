@@ -16,7 +16,7 @@ import {
 import { requireAdminAccessOrRedirect } from "../_actions/access"
 
 export const metadata: Metadata = {
-  title: "Roles & Permissions | Admin",
+  title: "Roles & Permissions | Ops",
   description: "View and manage staff roles and permissions",
 }
 
@@ -47,7 +47,8 @@ export default async function RolesPage() {
           <CardTitle>Role Definitions</CardTitle>
           <CardDescription>
             Each role has specific permissions that determine what actions users
-            can perform in the admin panel. Roles follow the principle of least
+            can perform in the operations area. Roles follow the principle of
+            least
             privilege - each role only has the permissions needed for its
             function.
           </CardDescription>

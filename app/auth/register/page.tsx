@@ -25,7 +25,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
-import { signUp } from "@/lib/auth-client"
+import { authClient } from "@/lib/auth-client"
 
 const registerSchema = z
   .object({
@@ -68,7 +68,7 @@ function RegisterForm() {
     setIsLoading(true)
 
     try {
-      const result = await signUp.email({
+      const result = await authClient.signUp.email({
         email: data.email,
         password: data.password,
         name: data.name,

@@ -28,6 +28,6 @@ export async function requireAuthenticatedAdminUserOrRedirect() {
   try {
     return await requireRole(["admin", "manager", "support"])
   } catch {
-    redirect("/ops/login")
+    redirect("/auth/login")
   }
 }

@@ -29,7 +29,7 @@ export default async function ProductsPage({
           <p className="text-neutral-500">Manage your product catalog</p>
         </div>
         <Button asChild>
-          <Link href="/admin/products/new">
+          <Link href="/ops/products/new">
             <Plus className="mr-2 h-4 w-4" />
             Add Product
           </Link>

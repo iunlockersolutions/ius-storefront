@@ -5,8 +5,8 @@ import { CreateStaffForm } from "@/components/admin/users/create-staff-form"
 import { requireAuthenticatedAdminUserOrRedirect } from "../_actions/access"
 
 export const metadata: Metadata = {
-  title: "Invite Staff | Admin",
-  description: "Invite a new staff member to the admin panel",
+  title: "Invite Staff | Ops",
+  description: "Invite a new staff member to the operations area",
 }
 
 export default async function NewStaffPage() {
