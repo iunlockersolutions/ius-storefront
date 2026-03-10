@@ -95,7 +95,6 @@ export function useAdminInventoryQuery(params?: InventoryParams) {
       const body = await response.json()
       return body.data as InventoryResponse
     },
-    retry: 2,
     staleTime: 60_000,
   })
 }

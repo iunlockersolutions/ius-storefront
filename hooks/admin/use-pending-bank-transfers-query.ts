@@ -42,7 +42,6 @@ export function usePendingBankTransfersQuery() {
       const body = await response.json()
       return body.data as PendingTransfer[]
     },
-    retry: 2,
     staleTime: 60_000,
   })
 }

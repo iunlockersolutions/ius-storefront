@@ -1,1 +1,0 @@
-ALTER TABLE "admin_activity_logs" ALTER COLUMN "entity_id" SET DATA TYPE text;

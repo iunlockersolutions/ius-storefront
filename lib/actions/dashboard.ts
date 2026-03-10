@@ -4,7 +4,7 @@ import { and, count, eq, gte, sql } from "drizzle-orm"
 
 import { requireStaff } from "@/lib/auth/rbac"
 import { db } from "@/lib/db"
-import { orders, products, roles, userRoles, users } from "@/lib/db/schema"
+import { orders, products, users } from "@/lib/db/schema"
 
 export async function getDashboardStats() {
   try {
@@ -18,20 +18,10 @@ export async function getDashboardStats() {
     const [totalOrders] = await db.select({ count: count() }).from(orders)
     const [totalProducts] = await db.select({ count: count() }).from(products)
 
-    // Get customer count (users with customer role)
-    const customerRole = await db
-      .select({ id: roles.id })
-      .from(roles)
-      .where(eq(roles.name, "customer"))
-      .limit(1)
-
-    let totalCustomers = { count: 0 }
-    if (customerRole.length > 0) {
-      ;[totalCustomers] = await db
-        .select({ count: count() })
-        .from(userRoles)
-        .where(eq(userRoles.roleId, customerRole[0].id))
-    }
+    const [totalCustomers] = await db
+      .select({ count: count() })
+      .from(users)
+      .where(eq(users.role, "customer"))
 
     // Get revenue stats
     const [totalRevenue] = await db

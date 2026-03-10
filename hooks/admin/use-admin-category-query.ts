@@ -24,7 +24,6 @@ export function useAdminCategoryQuery(categoryId: string) {
       return body.data as AdminCategory
     },
     enabled: Boolean(categoryId),
-    retry: 2,
     staleTime: 60_000,
   })
 }

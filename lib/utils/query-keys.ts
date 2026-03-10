@@ -1,5 +1,7 @@
 export const queryKeys = {
   admin: {
+    brands: () => ["admin", "brands"] as const,
+    brand: (id: string) => ["admin", "brands", id] as const,
     products: (params?: {
       page?: number
       limit?: number
@@ -55,7 +57,6 @@ export const queryKeys = {
     customer: (id: string) => ["admin", "customers", id] as const,
     customerOrders: (id: string, params?: { page?: number; limit?: number }) =>
       ["admin", "customers", id, "orders", params ?? {}] as const,
-    customerRoles: () => ["admin", "customers", "roles"] as const,
     reports: (params?: { days?: number; topProductsLimit?: number }) =>
       ["admin", "reports", params ?? {}] as const,
     settings: () => ["admin", "settings"] as const,

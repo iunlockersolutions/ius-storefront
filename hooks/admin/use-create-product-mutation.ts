@@ -9,7 +9,9 @@ type CreateProductPayload = {
   slug?: string
   description?: string
   shortDescription?: string
-  categoryId?: string
+  brandId: string
+  primaryCategoryId: string
+  categoryIds: string[]
   basePrice: string
   compareAtPrice?: string
   costPrice?: string
@@ -17,6 +19,17 @@ type CreateProductPayload = {
   isFeatured?: boolean
   metaTitle?: string
   metaDescription?: string
+  variants: Array<{
+    id?: string
+    sku?: string
+    name: string
+    price: string
+    compareAtPrice?: string
+    costPrice?: string
+    weight?: string
+    isDefault?: boolean
+    isActive?: boolean
+  }>
 }
 
 export function useCreateProductMutation() {

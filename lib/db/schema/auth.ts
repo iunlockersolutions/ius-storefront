@@ -10,8 +10,6 @@ import {
   uuid,
 } from "drizzle-orm/pg-core"
 
-import { userRoleEnum } from "./enums"
-
 /**
  * User table - Core authentication table managed by BetterAuth.
  *
@@ -48,6 +46,7 @@ export const user = pgTable("user", {
   invitedBy: uuid("invited_by"),
   invitedAt: timestamp("invited_at"),
   lastPasswordChange: timestamp("last_password_change"),
+  twoFactorEnabled: boolean("two_factor_enabled").default(false).notNull(),
 })
 
 /**
@@ -171,48 +170,30 @@ export const passkey = pgTable(
 )
 
 /**
- * Custom Application Tables
+ * Two-factor authentication records managed by BetterAuth.
  *
- * These tables extend BetterAuth with our application-specific features.
+ * @see https://www.better-auth.com/docs/plugins/2fa#schema
  */
-
-/**
- * Roles table - Available roles in the system.
- */
-export const roles = pgTable("roles", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: userRoleEnum("name").notNull().unique(),
-  description: text("description"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-})
-
-/**
- * User roles junction table - Maps users to roles.
- * A user can have multiple roles.
- * References BetterAuth's user table (text id).
- */
-export const userRoles = pgTable(
-  "user_roles",
+export const twoFactor = pgTable(
+  "two_factor",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    secret: text("secret").notNull(),
+    backupCodes: text("backup_codes").notNull(),
     userId: uuid("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    roleId: uuid("role_id")
-      .notNull()
-      .references(() => roles.id, { onDelete: "cascade" }),
-    assignedAt: timestamp("assigned_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    assignedBy: uuid("assigned_by").references(() => user.id, {
-      onDelete: "set null",
-    }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
   },
   (table) => [
-    index("user_roles_user_id_idx").on(table.userId),
-    index("user_roles_role_id_idx").on(table.roleId),
+    index("two_factor_secret_idx").on(table.secret),
+    index("two_factor_user_id_idx").on(table.userId),
   ],
 )
 
@@ -221,7 +202,7 @@ export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
   passkeys: many(passkey),
-  userRoles: many(userRoles),
+  twoFactors: many(twoFactor),
 }))
 
 export const sessionRelations = relations(session, ({ one }) => ({
@@ -245,24 +226,10 @@ export const passkeyRelations = relations(passkey, ({ one }) => ({
   }),
 }))
 
-// Application Relations
-export const rolesRelations = relations(roles, ({ many }) => ({
-  userRoles: many(userRoles),
-}))
-
-export const userRolesRelations = relations(userRoles, ({ one }) => ({
+export const twoFactorRelations = relations(twoFactor, ({ one }) => ({
   user: one(user, {
-    fields: [userRoles.userId],
+    fields: [twoFactor.userId],
     references: [user.id],
-  }),
-  role: one(roles, {
-    fields: [userRoles.roleId],
-    references: [roles.id],
-  }),
-  assignedByUser: one(user, {
-    fields: [userRoles.assignedBy],
-    references: [user.id],
-    relationName: "assignedByUser",
   }),
 }))
 
@@ -272,3 +239,4 @@ export const sessions = session
 export const accounts = account
 export const verifications = verification
 export const passkeys = passkey
+export const twoFactors = twoFactor

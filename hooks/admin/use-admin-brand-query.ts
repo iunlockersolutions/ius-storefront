@@ -2,32 +2,28 @@
 
 import { useQuery } from "@tanstack/react-query"
 
+import type { AdminBrand } from "@/hooks/admin/use-admin-brands-query"
 import { queryKeys } from "@/lib/utils/query-keys"
 
-export interface CustomerRole {
-  id: string
-  name: string
-}
-
-export function useCustomerRolesQuery() {
+export function useAdminBrandQuery(brandId: string) {
   return useQuery({
-    queryKey: queryKeys.admin.customerRoles(),
-    queryFn: async (): Promise<CustomerRole[]> => {
-      const response = await fetch("/api/admin/customers/roles")
+    queryKey: queryKeys.admin.brand(brandId),
+    queryFn: async (): Promise<AdminBrand> => {
+      const response = await fetch(`/api/admin/brands/${brandId}`)
 
       if (!response.ok) {
         const errorBody = await response.json().catch(() => null)
         const message =
           errorBody?.error?.message ||
           errorBody?.error ||
-          "Failed to fetch roles"
+          "Failed to fetch brand"
         throw new Error(message)
       }
 
       const body = await response.json()
-      return body.data as CustomerRole[]
+      return body.data as AdminBrand
     },
-    retry: 2,
-    staleTime: 300_000,
+    enabled: Boolean(brandId),
+    staleTime: 60_000,
   })
 }

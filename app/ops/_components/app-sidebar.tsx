@@ -13,6 +13,7 @@ import {
   Package,
   Settings,
   ShoppingCart,
+  Store,
   Tags,
   Users,
 } from "lucide-react"
@@ -65,6 +66,11 @@ const items: NavItem[] = [
     title: "Products",
     url: "/ops/products",
     icon: Package,
+  },
+  {
+    title: "Brands",
+    url: "/ops/brands",
+    icon: Store,
   },
   {
     title: "Categories",

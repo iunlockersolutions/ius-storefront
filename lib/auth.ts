@@ -2,7 +2,7 @@ import { passkey } from "@better-auth/passkey"
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { nextCookies } from "better-auth/next-js"
-import { admin } from "better-auth/plugins"
+import { admin, twoFactor } from "better-auth/plugins"
 
 import { ac, roles } from "@/lib/auth/permissions"
 import { db } from "@/lib/db"
@@ -31,6 +31,7 @@ export const auth = betterAuth({
       account: schema.account,
       verification: schema.verification,
       passkey: schema.passkey,
+      twoFactor: schema.twoFactor,
     },
   }),
   emailAndPassword: {
@@ -93,6 +94,9 @@ export const auth = betterAuth({
       rpID: serverEnv.PASSKEY_RP_ID,
       rpName: serverEnv.PASSKEY_RP_NAME,
       origin: serverEnv.PASSKEY_ORIGIN,
+    }),
+    twoFactor({
+      issuer: "IUS Storefront",
     }),
     admin({
       ac,

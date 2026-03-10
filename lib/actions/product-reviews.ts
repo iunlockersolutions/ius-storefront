@@ -16,6 +16,8 @@ import {
   users,
 } from "@/lib/db/schema"
 
+import { withStorefrontCatalogFallback } from "./storefront-catalog-read"
+
 // ============================================
 // Get Product Reviews
 // ============================================
@@ -27,47 +29,60 @@ export async function getProductReviews(
 ) {
   const offset = (page - 1) * limit
 
-  const productReviews = await db
-    .select({
-      id: reviews.id,
-      rating: reviews.rating,
-      title: reviews.title,
-      content: reviews.content,
-      helpfulCount: reviews.helpfulCount,
-      createdAt: reviews.createdAt,
-      orderId: reviews.orderId,
-      userId: reviews.userId,
-      userName: users.name,
-    })
-    .from(reviews)
-    .leftJoin(users, eq(reviews.userId, users.id))
-    .where(
-      and(eq(reviews.productId, productId), eq(reviews.status, "approved")),
-    )
-    .orderBy(desc(reviews.createdAt))
-    .limit(limit)
-    .offset(offset)
-
-  // Get total count
-  const [{ count }] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(reviews)
-    .where(
-      and(eq(reviews.productId, productId), eq(reviews.status, "approved")),
-    )
-
-  return {
-    reviews: productReviews.map((r) => ({
-      ...r,
-      isVerifiedPurchase: !!r.orderId,
-    })),
-    pagination: {
-      page,
-      limit,
-      total: count,
-      totalPages: Math.ceil(count / limit),
+  return withStorefrontCatalogFallback(
+    "reviews:getProductReviews",
+    {
+      reviews: [],
+      pagination: {
+        page,
+        limit,
+        total: 0,
+        totalPages: 0,
+      },
     },
-  }
+    async () => {
+      const productReviews = await db
+        .select({
+          id: reviews.id,
+          rating: reviews.rating,
+          title: reviews.title,
+          content: reviews.content,
+          helpfulCount: reviews.helpfulCount,
+          createdAt: reviews.createdAt,
+          orderId: reviews.orderId,
+          userId: reviews.userId,
+          userName: users.name,
+        })
+        .from(reviews)
+        .leftJoin(users, eq(reviews.userId, users.id))
+        .where(
+          and(eq(reviews.productId, productId), eq(reviews.status, "approved")),
+        )
+        .orderBy(desc(reviews.createdAt))
+        .limit(limit)
+        .offset(offset)
+
+      const [{ count }] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(reviews)
+        .where(
+          and(eq(reviews.productId, productId), eq(reviews.status, "approved")),
+        )
+
+      return {
+        reviews: productReviews.map((review) => ({
+          ...review,
+          isVerifiedPurchase: !!review.orderId,
+        })),
+        pagination: {
+          page,
+          limit,
+          total: count,
+          totalPages: Math.ceil(count / limit),
+        },
+      }
+    },
+  )
 }
 
 // ============================================
@@ -75,38 +90,56 @@ export async function getProductReviews(
 // ============================================
 
 export async function getProductReviewStats(productId: string) {
-  const stats = await db
-    .select({
-      averageRating: sql<string>`COALESCE(AVG(${reviews.rating}), 0)::text`,
-      totalReviews: sql<number>`count(*)::int`,
-    })
-    .from(reviews)
-    .where(
-      and(eq(reviews.productId, productId), eq(reviews.status, "approved")),
-    )
+  return withStorefrontCatalogFallback(
+    "reviews:getProductReviewStats",
+    {
+      averageRating: 0,
+      totalReviews: 0,
+      ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } as Record<
+        number,
+        number
+      >,
+    },
+    async () => {
+      const stats = await db
+        .select({
+          averageRating: sql<string>`COALESCE(AVG(${reviews.rating}), 0)::text`,
+          totalReviews: sql<number>`count(*)::int`,
+        })
+        .from(reviews)
+        .where(
+          and(eq(reviews.productId, productId), eq(reviews.status, "approved")),
+        )
 
-  // Get rating distribution
-  const distribution = await db
-    .select({
-      rating: reviews.rating,
-      count: sql<number>`count(*)::int`,
-    })
-    .from(reviews)
-    .where(
-      and(eq(reviews.productId, productId), eq(reviews.status, "approved")),
-    )
-    .groupBy(reviews.rating)
+      const distribution = await db
+        .select({
+          rating: reviews.rating,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(reviews)
+        .where(
+          and(eq(reviews.productId, productId), eq(reviews.status, "approved")),
+        )
+        .groupBy(reviews.rating)
 
-  const ratingCounts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
-  distribution.forEach((d) => {
-    ratingCounts[d.rating] = d.count
-  })
+      const ratingCounts: Record<number, number> = {
+        1: 0,
+        2: 0,
+        3: 0,
+        4: 0,
+        5: 0,
+      }
+      distribution.forEach((distributionItem) => {
+        ratingCounts[distributionItem.rating] = distributionItem.count
+      })
 
-  return {
-    averageRating: parseFloat(stats[0]?.averageRating || "0"),
-    totalReviews: stats[0]?.totalReviews || 0,
-    ratingDistribution: ratingCounts,
-  }
+      return {
+        averageRating: parseFloat(stats[0]?.averageRating || "0"),
+        totalReviews: stats[0]?.totalReviews || 0,
+        ratingDistribution: ratingCounts,
+      }
+    },
+  )
 }
 
 // ============================================
@@ -116,61 +149,73 @@ export async function getProductReviewStats(productId: string) {
 export async function canUserReview(productId: string) {
   const session = await getServerSession()
   if (!session?.user?.id) {
-    return { canReview: false, reason: "Please sign in to leave a review" }
-  }
-
-  // Check if user already reviewed this product
-  const [existingReview] = await db
-    .select({ id: reviews.id })
-    .from(reviews)
-    .where(
-      and(
-        eq(reviews.userId, session.user.id),
-        eq(reviews.productId, productId),
-      ),
-    )
-    .limit(1)
-
-  if (existingReview) {
     return {
       canReview: false,
-      reason: "You have already reviewed this product",
+      reason: "Please sign in to leave a review",
+      hasPurchased: false,
     }
   }
 
-  // Check if user has purchased this product
-  const purchasedVariants = await db
-    .select({ variantId: productVariants.id })
-    .from(productVariants)
-    .where(eq(productVariants.productId, productId))
+  return withStorefrontCatalogFallback(
+    "reviews:canUserReview",
+    {
+      canReview: false,
+      reason: "Reviews are unavailable right now",
+      hasPurchased: false,
+    },
+    async () => {
+      const [existingReview] = await db
+        .select({ id: reviews.id })
+        .from(reviews)
+        .where(
+          and(
+            eq(reviews.userId, session.user.id),
+            eq(reviews.productId, productId),
+          ),
+        )
+        .limit(1)
 
-  const variantIds = purchasedVariants.map((v) => v.variantId)
+      if (existingReview) {
+        return {
+          canReview: false,
+          reason: "You have already reviewed this product",
+          hasPurchased: false,
+        }
+      }
 
-  if (variantIds.length === 0) {
-    return { canReview: true, hasPurchased: false }
-  }
+      const purchasedVariants = await db
+        .select({ variantId: productVariants.id })
+        .from(productVariants)
+        .where(eq(productVariants.productId, productId))
 
-  // Use sql template to properly construct the array
-  const [purchase] = await db
-    .select({ id: orders.id })
-    .from(orders)
-    .innerJoin(orderItems, eq(orders.id, orderItems.orderId))
-    .where(
-      and(
-        eq(orders.userId, session.user.id),
-        eq(orders.status, "delivered"),
-        sql`${orderItems.variantId} = ANY(ARRAY[${sql.join(
-          variantIds.map((id) => sql`${id}::uuid`),
-          sql`, `,
-        )}])`,
-      ),
-    )
-    .limit(1)
+      const variantIds = purchasedVariants.map((variant) => variant.variantId)
 
-  return {
-    canReview: true,
-    hasPurchased: !!purchase,
-  }
+      if (variantIds.length === 0) {
+        return { canReview: true, hasPurchased: false }
+      }
+
+      const [purchase] = await db
+        .select({ id: orders.id })
+        .from(orders)
+        .innerJoin(orderItems, eq(orders.id, orderItems.orderId))
+        .where(
+          and(
+            eq(orders.userId, session.user.id),
+            eq(orders.status, "delivered"),
+            sql`${orderItems.variantId} = ANY(ARRAY[${sql.join(
+              variantIds.map((id) => sql`${id}::uuid`),
+              sql`, `,
+            )}])`,
+          ),
+        )
+        .limit(1)
+
+      return {
+        canReview: true,
+        hasPurchased: !!purchase,
+      }
+    },
+  )
 }
 
 // ============================================

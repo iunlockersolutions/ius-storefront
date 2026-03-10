@@ -68,7 +68,6 @@ export function useAdminReviewsQuery(params?: ReviewsParams) {
       const body = await response.json()
       return body.data as ReviewsResponse
     },
-    retry: 2,
     staleTime: 60_000,
   })
 }

@@ -93,7 +93,6 @@ export function useAdminOrderQuery(orderId: string) {
       return body.data as AdminOrder
     },
     enabled: Boolean(orderId),
-    retry: 2,
     staleTime: 60_000,
   })
 }

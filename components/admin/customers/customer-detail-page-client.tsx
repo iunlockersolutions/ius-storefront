@@ -14,7 +14,6 @@ import {
 import { Button } from "@/components/ui/button"
 import { useAdminCustomerOrdersQuery } from "@/hooks/admin/use-admin-customer-orders-query"
 import { useAdminCustomerQuery } from "@/hooks/admin/use-admin-customer-query"
-import { useCustomerRolesQuery } from "@/hooks/admin/use-customer-roles-query"
 
 interface CustomerDetailPageClientProps {
   customerId: string
@@ -29,19 +28,14 @@ export function CustomerDetailPageClient({
     page: 1,
     limit: 10,
   })
-  const rolesQuery = useCustomerRolesQuery()
 
-  if (
-    customerQuery.isLoading ||
-    customerOrdersQuery.isLoading ||
-    rolesQuery.isLoading
-  ) {
+  if (customerQuery.isLoading || customerOrdersQuery.isLoading) {
     return <AdminQueryLoadingState />
   }
 
-  if (customerQuery.error || customerOrdersQuery.error || rolesQuery.error) {
+  if (customerQuery.error || customerOrdersQuery.error) {
     const message = getQueryErrorMessage(
-      customerQuery.error ?? customerOrdersQuery.error ?? rolesQuery.error,
+      customerQuery.error ?? customerOrdersQuery.error,
       "Failed to load customer details",
     )
 
@@ -49,11 +43,7 @@ export function CustomerDetailPageClient({
       <AdminQueryErrorState
         message={message}
         onRetry={() =>
-          Promise.all([
-            customerQuery.refetch(),
-            customerOrdersQuery.refetch(),
-            rolesQuery.refetch(),
-          ])
+          Promise.all([customerQuery.refetch(), customerOrdersQuery.refetch()])
         }
         backHref="/ops/customers"
         backLabel="Back to Customers"
@@ -98,7 +88,6 @@ export function CustomerDetailPageClient({
             totalPages: 0,
           }
         }
-        allRoles={rolesQuery.data ?? []}
       />
     </div>
   )

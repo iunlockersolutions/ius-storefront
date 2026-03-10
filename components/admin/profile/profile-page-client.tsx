@@ -4,6 +4,7 @@ import { ActiveSessions } from "@/components/admin/profile/active-sessions"
 import { ProfileOverview } from "@/components/admin/profile/profile-overview"
 import { SecurityPasskeys } from "@/components/admin/profile/security-passkeys"
 import { SecurityPassword } from "@/components/admin/profile/security-password"
+import { SecurityTwoFactor } from "@/components/admin/profile/security-two-factor"
 import {
   AdminQueryEmptyState,
   AdminQueryErrorState,
@@ -59,6 +60,8 @@ export function ProfilePageClient() {
           name: profile.name || undefined,
         }}
       />
+
+      <SecurityTwoFactor enabled={profile.twoFactorEnabled} />
 
       <SecurityPasskeys />
 

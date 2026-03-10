@@ -13,6 +13,7 @@ import {
   Settings,
   Shield,
   ShoppingCart,
+  Store,
   Tags,
   UserCog,
   Users,
@@ -34,6 +35,11 @@ const navigation = [
     name: "Products",
     href: "/ops/products",
     icon: Package,
+  },
+  {
+    name: "Brands",
+    href: "/ops/brands",
+    icon: Store,
   },
   {
     name: "Categories",

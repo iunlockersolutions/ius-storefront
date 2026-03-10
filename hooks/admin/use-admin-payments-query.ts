@@ -68,7 +68,6 @@ export function useAdminPaymentsQuery(params?: PaymentsParams) {
       const body = await response.json()
       return body.data as PaymentsResponse
     },
-    retry: 2,
     staleTime: 60_000,
   })
 }

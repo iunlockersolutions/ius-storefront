@@ -33,7 +33,6 @@ export interface AdminCustomerDetail {
     postalCode: string
     country: string
   }>
-  roles: Array<{ roleId: string; roleName: string }>
   stats: {
     totalOrders: number
     totalSpent: number
@@ -59,7 +58,6 @@ export function useAdminCustomerQuery(customerId: string) {
       return body.data as AdminCustomerDetail
     },
     enabled: Boolean(customerId),
-    retry: 2,
     staleTime: 60_000,
   })
 }

@@ -6,6 +6,7 @@ import { ChevronLeft } from "lucide-react"
 import { NewProductForm } from "@/components/admin/products/new-product-form"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { getActiveBrands } from "@/lib/actions/brand"
 import { getCategoriesFlat } from "@/lib/actions/category"
 
 export const metadata = {
@@ -14,18 +15,26 @@ export const metadata = {
 }
 
 async function ProductFormWrapper() {
-  const categories = await getCategoriesFlat()
+  const [categories, brands] = await Promise.all([
+    getCategoriesFlat(),
+    getActiveBrands(),
+  ])
 
-  // Transform to include level and path for the form
   const flatCategories = categories.map((cat) => ({
     id: cat.id,
     name: cat.name,
     slug: cat.slug,
-    level: 0,
-    path: cat.name,
+    level: cat.level,
+    path: cat.path,
   }))
 
-  return <NewProductForm categories={flatCategories} />
+  const activeBrands = brands.map((brand) => ({
+    id: brand.id,
+    name: brand.name,
+    slug: brand.slug,
+  }))
+
+  return <NewProductForm categories={flatCategories} brands={activeBrands} />
 }
 
 export default function NewProductPage() {

@@ -4,7 +4,15 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
-import { Clock, Grid3X3, Package, Search, TrendingUp, X } from "lucide-react"
+import {
+  Clock,
+  Grid3X3,
+  Package,
+  Search,
+  Store,
+  TrendingUp,
+  X,
+} from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -26,7 +34,8 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
   const [suggestions, setSuggestions] = useState<{
     products: { id: string; name: string; slug: string }[]
     categories: { id: string; name: string; slug: string }[]
-  }>({ products: [], categories: [] })
+    brands: { id: string; name: string; slug: string }[]
+  }>({ products: [], categories: [], brands: [] })
   const [popularTerms, setPopularTerms] = useState<string[]>([])
   const [recentSearches, setRecentSearches] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -68,7 +77,7 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
   // Fetch suggestions with debounce
   useEffect(() => {
     if (query.length < 2) {
-      setSuggestions({ products: [], categories: [] })
+      setSuggestions({ products: [], categories: [], brands: [] })
       return
     }
 
@@ -119,6 +128,13 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
       <div
         className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
         onClick={onClose}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            onClose()
+          }
+        }}
+        role="button"
+        tabIndex={0}
       />
 
       {/* Dialog */}
@@ -206,9 +222,32 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
                     </div>
                   )}
 
+                  {/* Brand Suggestions */}
+                  {suggestions.brands.length > 0 && (
+                    <div>
+                      <h3 className="mb-2 text-xs font-medium uppercase text-muted-foreground">
+                        Brands
+                      </h3>
+                      <div className="space-y-1">
+                        {suggestions.brands.map((brand) => (
+                          <Link
+                            key={brand.id}
+                            href={`/brands/${brand.slug}`}
+                            onClick={onClose}
+                            className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-muted transition-colors"
+                          >
+                            <Store className="h-4 w-4 text-muted-foreground" />
+                            <span>{brand.name}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* View All Results */}
                   {(suggestions.products.length > 0 ||
-                    suggestions.categories.length > 0) && (
+                    suggestions.categories.length > 0 ||
+                    suggestions.brands.length > 0) && (
                     <Button
                       variant="outline"
                       className="w-full"
@@ -220,7 +259,8 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
 
                   {/* No Results */}
                   {suggestions.products.length === 0 &&
-                    suggestions.categories.length === 0 && (
+                    suggestions.categories.length === 0 &&
+                    suggestions.brands.length === 0 && (
                       <div className="py-8 text-center text-muted-foreground">
                         <p>No results found for &quot;{query}&quot;</p>
                         <p className="mt-1 text-sm">
@@ -251,9 +291,9 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
                     </Button>
                   </div>
                   <div className="space-y-1">
-                    {recentSearches.map((term, index) => (
+                    {recentSearches.map((term) => (
                       <button
-                        key={index}
+                        key={term}
                         onClick={() => handleSearch(term)}
                         className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-muted transition-colors"
                       >
@@ -272,9 +312,9 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
                   Popular Searches
                 </h3>
                 <div className="flex flex-wrap gap-2">
-                  {popularTerms.map((term, index) => (
+                  {popularTerms.map((term) => (
                     <Badge
-                      key={index}
+                      key={term}
                       variant="secondary"
                       className="cursor-pointer hover:bg-muted-foreground/20"
                       onClick={() => handleSearch(term)}

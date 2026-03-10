@@ -1,5 +1,4 @@
 "use client"
-
 import { Suspense, useState } from "react"
 import { useForm } from "react-hook-form"
 import Link from "next/link"
@@ -82,6 +81,10 @@ function LoginForm() {
 
       if (result.error) {
         toast.error(result.error.message || "Failed to sign in")
+        return
+      }
+
+      if ((result.data as { twoFactorRedirect?: boolean } | null)?.twoFactorRedirect) {
         return
       }
 

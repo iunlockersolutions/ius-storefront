@@ -3,8 +3,6 @@ import { NextResponse } from "next/server"
 
 import { getSessionCookie } from "better-auth/cookies"
 
-import { getCustomCookie } from "@/lib/utils/cookies"
-
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
@@ -15,25 +13,6 @@ export async function proxy(request: NextRequest) {
     if (!sessionCookie) {
       const url = new URL("/404", request.url)
       return NextResponse.rewrite(url, { status: 404 })
-    }
-
-    const isStaff = getCustomCookie(request, "is-staff") === "true"
-    if (!isStaff) {
-      const url = new URL("/404", request.url)
-      return NextResponse.rewrite(url, { status: 404 })
-    }
-
-    const mustChangePassword =
-      getCustomCookie(request, "must-change-password") === "true"
-    if (mustChangePassword) {
-      const allowedPaths = ["/ops/change-password"]
-
-      const isAllowed = allowedPaths.some((p) => pathname.startsWith(p))
-      if (!isAllowed && !pathname.startsWith("/api/")) {
-        return NextResponse.redirect(
-          new URL("/ops/change-password", request.url),
-        )
-      }
     }
   }
 

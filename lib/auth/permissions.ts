@@ -14,6 +14,9 @@ export const statement = {
   // Product management
   product: ["create", "read", "update", "delete", "list"],
 
+  // Brand management
+  brand: ["create", "read", "update", "delete", "list"],
+
   // Category management
   category: ["create", "read", "update", "delete", "list"],
 
@@ -97,6 +100,9 @@ export const manager = ac.newRole({
   ...adminAc.statements,
 
   // Full product management
+  brand: ["create", "read", "update", "delete", "list"],
+
+  // Full product management
   product: ["create", "read", "update", "delete", "list"],
 
   // Full category management
@@ -129,6 +135,9 @@ export const manager = ac.newRole({
 export const admin = ac.newRole({
   // Full user management from BetterAuth
   ...adminAc.statements,
+
+  // Full product management
+  brand: ["create", "read", "update", "delete", "list"],
 
   // Full product management
   product: ["create", "read", "update", "delete", "list"],

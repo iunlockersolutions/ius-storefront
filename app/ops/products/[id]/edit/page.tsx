@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation"
 
 import { EditProductForm } from "@/components/admin/products/edit-product-form"
+import { getActiveBrands } from "@/lib/actions/brand"
 import { getCategoriesFlat } from "@/lib/actions/category"
 import { getProduct } from "@/lib/actions/product"
 
@@ -8,14 +9,20 @@ interface EditProductPageProps {
   params: Promise<{ id: string }>
 }
 
+export const metadata = {
+  title: "Edit Product | Ops Dashboard",
+  description: "Update product catalog data in the ops dashboard.",
+}
+
 export default async function EditProductPage({
   params,
 }: EditProductPageProps) {
   const { id } = await params
 
-  const [product, categories] = await Promise.all([
+  const [product, categories, brands] = await Promise.all([
     getProduct(id),
     getCategoriesFlat(),
+    getActiveBrands(),
   ])
 
   if (!product) {
@@ -33,7 +40,18 @@ export default async function EditProductPage({
 
       <EditProductForm
         product={product}
-        categories={categories}
+        categories={categories.map((category) => ({
+          id: category.id,
+          name: category.name,
+          slug: category.slug,
+          level: category.level,
+          path: category.path,
+        }))}
+        brands={brands.map((brand) => ({
+          id: brand.id,
+          name: brand.name,
+          slug: brand.slug,
+        }))}
         images={product.images}
       />
     </div>

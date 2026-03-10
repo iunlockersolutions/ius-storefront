@@ -2,48 +2,71 @@
 
 import { revalidatePath } from "next/cache"
 
-import { and, asc, desc, eq, ilike, sql } from "drizzle-orm"
+import { and, asc, desc, eq, ilike, inArray, or, sql } from "drizzle-orm"
 import { nanoid } from "nanoid"
 import { z } from "zod"
 
-import { requirePermission } from "@/lib/auth/rbac"
+import { requireResourcePermission } from "@/lib/auth/rbac"
 import { db } from "@/lib/db"
 import {
+  brands,
   categories,
   inventoryItems,
   inventoryMovements,
+  productCategoryAssignments,
   productImages,
   products,
   productVariants,
 } from "@/lib/db/schema"
-import { revalidateProductCaches } from "@/lib/utils/cache"
+import {
+  revalidateBrandCaches,
+  revalidateCategoryCaches,
+  revalidateProductCaches,
+} from "@/lib/utils/cache"
 
-// Schema for creating a product
-const createProductSchema = z.object({
+import { withStorefrontCatalogFallback } from "./storefront-catalog-read"
+
+const variantInputSchema = z.object({
+  id: z.string().uuid().optional(),
+  sku: z.string().min(1).max(100).optional(),
+  name: z.string().min(1).max(255),
+  price: z
+    .string()
+    .refine((val) => !Number.isNaN(parseFloat(val)) && parseFloat(val) >= 0),
+  compareAtPrice: z.string().optional().nullable(),
+  costPrice: z.string().optional().nullable(),
+  weight: z.string().optional().nullable(),
+  isDefault: z.boolean().default(false),
+  isActive: z.boolean().default(true),
+})
+
+const productMutationSchema = z.object({
   name: z.string().min(1).max(255),
   slug: z.string().min(1).max(255).optional(),
   description: z.string().optional(),
   shortDescription: z.string().max(500).optional(),
-  categoryId: z.string().uuid().optional().nullable(),
+  brandId: z.string().uuid(),
+  primaryCategoryId: z.string().uuid(),
+  categoryIds: z.array(z.string().uuid()).default([]),
   basePrice: z
     .string()
-    .refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) >= 0),
+    .refine((val) => !Number.isNaN(parseFloat(val)) && parseFloat(val) >= 0),
   compareAtPrice: z.string().optional().nullable(),
   costPrice: z.string().optional().nullable(),
   status: z.enum(["draft", "active", "archived"]).default("draft"),
   isFeatured: z.boolean().default(false),
   metaTitle: z.string().max(100).optional(),
   metaDescription: z.string().max(300).optional(),
+  variants: z.array(variantInputSchema).min(1),
 })
 
-// Schema for creating a product variant
 const createVariantSchema = z.object({
   productId: z.string().uuid(),
   sku: z.string().min(1).max(100).optional(),
   name: z.string().min(1).max(255),
   price: z
     .string()
-    .refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) >= 0),
+    .refine((val) => !Number.isNaN(parseFloat(val)) && parseFloat(val) >= 0),
   compareAtPrice: z.string().optional().nullable(),
   costPrice: z.string().optional().nullable(),
   weight: z.string().optional().nullable(),
@@ -52,7 +75,6 @@ const createVariantSchema = z.object({
   initialStock: z.number().int().min(0).default(0),
 })
 
-// Schema for updating stock
 const updateStockSchema = z.object({
   variantId: z.string().uuid(),
   quantity: z.number().int(),
@@ -60,10 +82,7 @@ const updateStockSchema = z.object({
   notes: z.string().optional(),
 })
 
-/**
- * Generate a URL-friendly slug from a string
- */
-function generateSlug(name: string): string {
+function generateSlug(name: string) {
   return name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -71,24 +90,255 @@ function generateSlug(name: string): string {
     .concat("-", nanoid(6))
 }
 
-/**
- * Generate a SKU for a variant
- */
-function generateSku(productName: string, variantName: string): string {
+function generateSku(productName: string, variantName: string) {
   const prefix = productName.substring(0, 3).toUpperCase()
   const suffix = variantName.substring(0, 3).toUpperCase()
   return `${prefix}-${suffix}-${nanoid(6)}`.toUpperCase()
 }
 
-/**
- * Get all products with pagination and filtering
- */
+function createEmptyStorefrontProductsResult(page: number, limit: number) {
+  return {
+    products: [],
+    total: 0,
+    page,
+    limit,
+    totalPages: 0,
+  }
+}
+
+function normalizeCategoryIds(
+  primaryCategoryId: string,
+  categoryIds: string[],
+) {
+  return Array.from(new Set([primaryCategoryId, ...categoryIds]))
+}
+
+function normalizeVariants(
+  variants: z.infer<typeof variantInputSchema>[],
+): z.infer<typeof variantInputSchema>[] {
+  const prepared = variants.map((variant) => ({
+    ...variant,
+    compareAtPrice: variant.compareAtPrice || null,
+    costPrice: variant.costPrice || null,
+    weight: variant.weight || null,
+  }))
+
+  if (!prepared.some((variant) => variant.isDefault)) {
+    prepared[0] = { ...prepared[0], isDefault: true }
+  }
+
+  let defaultAssigned = false
+  return prepared.map((variant) => {
+    if (variant.isDefault && !defaultAssigned) {
+      defaultAssigned = true
+      return variant
+    }
+
+    return {
+      ...variant,
+      isDefault: false,
+    }
+  })
+}
+
+async function getPrimaryImageMap(productIds: string[]) {
+  if (productIds.length === 0) {
+    return new Map<string, string>()
+  }
+
+  const images = await db
+    .select({
+      productId: productImages.productId,
+      url: productImages.url,
+    })
+    .from(productImages)
+    .where(
+      and(
+        inArray(productImages.productId, productIds),
+        eq(productImages.isPrimary, true),
+      ),
+    )
+
+  return new Map(images.map((image) => [image.productId, image.url]))
+}
+
+async function validateCatalogRefs(input: {
+  brandId: string
+  primaryCategoryId: string
+  categoryIds: string[]
+}) {
+  const [brand] = await db
+    .select({ id: brands.id })
+    .from(brands)
+    .where(eq(brands.id, input.brandId))
+    .limit(1)
+
+  if (!brand) {
+    throw new Error("Brand not found")
+  }
+
+  const categoryIds = normalizeCategoryIds(
+    input.primaryCategoryId,
+    input.categoryIds,
+  )
+
+  const existingCategories = await db
+    .select({ id: categories.id })
+    .from(categories)
+    .where(inArray(categories.id, categoryIds))
+
+  if (existingCategories.length !== categoryIds.length) {
+    throw new Error("One or more categories do not exist")
+  }
+
+  return categoryIds
+}
+
+async function ensureUniqueVariantSku(sku: string, currentVariantId?: string) {
+  const [existing] = await db
+    .select({ id: productVariants.id })
+    .from(productVariants)
+    .where(eq(productVariants.sku, sku))
+    .limit(1)
+
+  if (existing && existing.id !== currentVariantId) {
+    throw new Error("A variant with this SKU already exists")
+  }
+}
+
+async function syncProductCategories(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  productId: string,
+  categoryIds: string[],
+) {
+  await tx
+    .delete(productCategoryAssignments)
+    .where(eq(productCategoryAssignments.productId, productId))
+
+  if (categoryIds.length > 0) {
+    await tx.insert(productCategoryAssignments).values(
+      categoryIds.map((categoryId) => ({
+        productId,
+        categoryId,
+      })),
+    )
+  }
+}
+
+async function syncProductVariants(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  productId: string,
+  productName: string,
+  variants: z.infer<typeof variantInputSchema>[],
+) {
+  const normalizedVariants = normalizeVariants(variants)
+  const existingVariants = await tx
+    .select()
+    .from(productVariants)
+    .where(eq(productVariants.productId, productId))
+
+  const keepIds = normalizedVariants
+    .map((variant) => variant.id)
+    .filter((id): id is string => Boolean(id))
+
+  for (let index = 0; index < normalizedVariants.length; index++) {
+    const variant = normalizedVariants[index]
+    const existing = variant.id
+      ? existingVariants.find((current) => current.id === variant.id)
+      : undefined
+    const sku =
+      variant.sku || existing?.sku || generateSku(productName, variant.name)
+
+    await ensureUniqueVariantSku(sku, existing?.id)
+
+    if (existing) {
+      await tx
+        .update(productVariants)
+        .set({
+          sku,
+          name: variant.name,
+          price: variant.price,
+          compareAtPrice: variant.compareAtPrice || null,
+          costPrice: variant.costPrice || null,
+          weight: variant.weight || null,
+          isDefault: variant.isDefault,
+          isActive: variant.isActive,
+          sortOrder: index,
+          updatedAt: new Date(),
+        })
+        .where(eq(productVariants.id, existing.id))
+    } else {
+      const [createdVariant] = await tx
+        .insert(productVariants)
+        .values({
+          productId,
+          sku,
+          name: variant.name,
+          price: variant.price,
+          compareAtPrice: variant.compareAtPrice || null,
+          costPrice: variant.costPrice || null,
+          weight: variant.weight || null,
+          isDefault: variant.isDefault,
+          isActive: variant.isActive,
+          sortOrder: index,
+        })
+        .returning()
+
+      // Maintain compatibility with the existing cart/PDP flow.
+      await tx.insert(inventoryItems).values({
+        variantId: createdVariant.id,
+        quantity: 0,
+        reservedQuantity: 0,
+        lowStockThreshold: 5,
+      })
+    }
+  }
+
+  if (existingVariants.length > keepIds.length) {
+    const deletableIds = existingVariants
+      .filter((variant) => !keepIds.includes(variant.id))
+      .map((variant) => variant.id)
+
+    if (deletableIds.length > 0) {
+      await tx
+        .delete(productVariants)
+        .where(inArray(productVariants.id, deletableIds))
+    }
+  }
+}
+
+async function getAssignedCategories(productId: string) {
+  return db
+    .select({
+      id: categories.id,
+      name: categories.name,
+      slug: categories.slug,
+      description: categories.description,
+      image: categories.image,
+      metaTitle: categories.metaTitle,
+      metaDescription: categories.metaDescription,
+      parentId: categories.parentId,
+      sortOrder: categories.sortOrder,
+      isActive: categories.isActive,
+      createdAt: categories.createdAt,
+      updatedAt: categories.updatedAt,
+    })
+    .from(productCategoryAssignments)
+    .innerJoin(
+      categories,
+      eq(productCategoryAssignments.categoryId, categories.id),
+    )
+    .where(eq(productCategoryAssignments.productId, productId))
+    .orderBy(asc(categories.sortOrder), asc(categories.name))
+}
+
 export async function getProducts(options?: {
   page?: number
   limit?: number
   search?: string
   status?: string
   categoryId?: string
+  brandId?: string
 }) {
   const page = options?.page || 1
   const limit = options?.limit || 20
@@ -97,7 +347,12 @@ export async function getProducts(options?: {
   const conditions = []
 
   if (options?.search) {
-    conditions.push(ilike(products.name, `%${options.search}%`))
+    conditions.push(
+      or(
+        ilike(products.name, `%${options.search}%`),
+        ilike(products.slug, `%${options.search}%`),
+      )!,
+    )
   }
 
   if (options?.status) {
@@ -107,15 +362,53 @@ export async function getProducts(options?: {
   }
 
   if (options?.categoryId) {
-    conditions.push(eq(products.categoryId, options.categoryId))
+    const productIds = await db
+      .select({ productId: productCategoryAssignments.productId })
+      .from(productCategoryAssignments)
+      .where(eq(productCategoryAssignments.categoryId, options.categoryId))
+
+    if (productIds.length === 0) {
+      return {
+        products: [],
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+      }
+    }
+
+    conditions.push(
+      inArray(
+        products.id,
+        productIds.map((row) => row.productId),
+      ),
+    )
+  }
+
+  if (options?.brandId) {
+    conditions.push(eq(products.brandId, options.brandId))
   }
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined
 
   const [productsList, countResult] = await Promise.all([
     db
-      .select()
+      .select({
+        id: products.id,
+        name: products.name,
+        slug: products.slug,
+        basePrice: products.basePrice,
+        status: products.status,
+        isFeatured: products.isFeatured,
+        createdAt: products.createdAt,
+        brandId: products.brandId,
+        brandName: brands.name,
+        primaryCategoryId: products.primaryCategoryId,
+        primaryCategoryName: categories.name,
+      })
       .from(products)
+      .leftJoin(brands, eq(products.brandId, brands.id))
+      .leftJoin(categories, eq(products.primaryCategoryId, categories.id))
       .where(whereClause)
       .orderBy(desc(products.createdAt))
       .limit(limit)
@@ -135,9 +428,6 @@ export async function getProducts(options?: {
   }
 }
 
-/**
- * Get a single product by ID with variants and images
- */
 export async function getProduct(id: string) {
   const [product] = await db
     .select()
@@ -149,27 +439,35 @@ export async function getProduct(id: string) {
     return null
   }
 
-  const [variants, images, category] = await Promise.all([
-    db
-      .select()
-      .from(productVariants)
-      .where(eq(productVariants.productId, id))
-      .orderBy(asc(productVariants.sortOrder)),
-    db
-      .select()
-      .from(productImages)
-      .where(eq(productImages.productId, id))
-      .orderBy(asc(productImages.sortOrder)),
-    product.categoryId
-      ? db
-          .select()
-          .from(categories)
-          .where(eq(categories.id, product.categoryId))
-          .limit(1)
-      : Promise.resolve([]),
-  ])
+  const [variants, images, brand, primaryCategory, assignedCategories] =
+    await Promise.all([
+      db
+        .select()
+        .from(productVariants)
+        .where(eq(productVariants.productId, id))
+        .orderBy(asc(productVariants.sortOrder)),
+      db
+        .select()
+        .from(productImages)
+        .where(eq(productImages.productId, id))
+        .orderBy(asc(productImages.sortOrder)),
+      product.brandId
+        ? db
+            .select()
+            .from(brands)
+            .where(eq(brands.id, product.brandId))
+            .limit(1)
+        : Promise.resolve([]),
+      product.primaryCategoryId
+        ? db
+            .select()
+            .from(categories)
+            .where(eq(categories.id, product.primaryCategoryId))
+            .limit(1)
+        : Promise.resolve([]),
+      getAssignedCategories(id),
+    ])
 
-  // Get inventory for each variant
   const variantsWithInventory = await Promise.all(
     variants.map(async (variant) => {
       const [inventory] = await db
@@ -185,38 +483,142 @@ export async function getProduct(id: string) {
     }),
   )
 
+  const resolvedPrimaryCategory = primaryCategory[0] || null
+
   return {
     ...product,
+    brand: brand[0] || null,
+    primaryCategory: resolvedPrimaryCategory,
+    category: resolvedPrimaryCategory,
+    categories: assignedCategories,
     variants: variantsWithInventory,
     images,
-    category: category[0] || null,
   }
 }
 
-/**
- * Get a product by slug (for storefront)
- */
 export async function getProductBySlug(slug: string) {
-  const [product] = await db
-    .select()
-    .from(products)
-    .where(and(eq(products.slug, slug), eq(products.status, "active")))
-    .limit(1)
+  return withStorefrontCatalogFallback(
+    "products:getProductBySlug",
+    null,
+    async () => {
+      const [product] = await db
+        .select()
+        .from(products)
+        .where(and(eq(products.slug, slug), eq(products.status, "active")))
+        .limit(1)
 
-  if (!product) {
-    return null
-  }
+      if (!product) {
+        return null
+      }
 
-  return getProduct(product.id)
+      const [
+        variants,
+        images,
+        brandRecords,
+        primaryCategoryRecords,
+        assignedCategories,
+      ] = await Promise.all([
+        withStorefrontCatalogFallback(
+          "products:getProductBySlug:variants",
+          [] as (typeof productVariants.$inferSelect)[],
+          () =>
+            db
+              .select()
+              .from(productVariants)
+              .where(eq(productVariants.productId, product.id))
+              .orderBy(asc(productVariants.sortOrder)),
+        ),
+        withStorefrontCatalogFallback(
+          "products:getProductBySlug:images",
+          [] as (typeof productImages.$inferSelect)[],
+          () =>
+            db
+              .select()
+              .from(productImages)
+              .where(eq(productImages.productId, product.id))
+              .orderBy(asc(productImages.sortOrder)),
+        ),
+        product.brandId
+          ? withStorefrontCatalogFallback(
+              "products:getProductBySlug:brand",
+              [] as (typeof brands.$inferSelect)[],
+              () =>
+                db
+                  .select()
+                  .from(brands)
+                  .where(eq(brands.id, product.brandId!))
+                  .limit(1),
+            )
+          : Promise.resolve([] as (typeof brands.$inferSelect)[]),
+        product.primaryCategoryId
+          ? withStorefrontCatalogFallback(
+              "products:getProductBySlug:primaryCategory",
+              [] as (typeof categories.$inferSelect)[],
+              () =>
+                db
+                  .select()
+                  .from(categories)
+                  .where(eq(categories.id, product.primaryCategoryId!))
+                  .limit(1),
+            )
+          : Promise.resolve([] as (typeof categories.$inferSelect)[]),
+        withStorefrontCatalogFallback(
+          "products:getProductBySlug:categories",
+          [] as Awaited<ReturnType<typeof getAssignedCategories>>,
+          () => getAssignedCategories(product.id),
+        ),
+      ])
+
+      const inventoryMap =
+        variants.length > 0
+          ? await withStorefrontCatalogFallback(
+              "products:getProductBySlug:inventory",
+              new Map<string, typeof inventoryItems.$inferSelect>(),
+              async () => {
+                const inventoryRows = await db
+                  .select()
+                  .from(inventoryItems)
+                  .where(
+                    inArray(
+                      inventoryItems.variantId,
+                      variants.map((variant) => variant.id),
+                    ),
+                  )
+
+                return new Map(
+                  inventoryRows.map((inventory) => [
+                    inventory.variantId,
+                    inventory,
+                  ]),
+                )
+              },
+            )
+          : new Map<string, typeof inventoryItems.$inferSelect>()
+
+      const resolvedPrimaryCategory = primaryCategoryRecords[0] || null
+
+      return {
+        ...product,
+        brand: brandRecords[0] || null,
+        primaryCategory: resolvedPrimaryCategory,
+        category: resolvedPrimaryCategory,
+        categories: assignedCategories,
+        variants: variants.map((variant) => ({
+          ...variant,
+          inventory: inventoryMap.get(variant.id) || null,
+        })),
+        images,
+      }
+    },
+  )
 }
 
-/**
- * Get products for storefront with filtering and pagination
- */
 export async function getStorefrontProducts(options?: {
   page?: number
   limit?: number
-  categoryId?: string
+  categorySlug?: string
+  brandSlug?: string
+  primaryCategoryId?: string
   search?: string
   sortBy?: "newest" | "price-low" | "price-high" | "name"
   featured?: boolean
@@ -225,189 +627,302 @@ export async function getStorefrontProducts(options?: {
   const limit = options?.limit || 12
   const offset = (page - 1) * limit
 
-  const conditions = [eq(products.status, "active")]
+  return withStorefrontCatalogFallback(
+    "products:getStorefrontProducts",
+    () => createEmptyStorefrontProductsResult(page, limit),
+    async () => {
+      const conditions = [eq(products.status, "active")]
 
-  if (options?.categoryId) {
-    conditions.push(eq(products.categoryId, options.categoryId))
-  }
+      if (options?.primaryCategoryId) {
+        conditions.push(
+          eq(products.primaryCategoryId, options.primaryCategoryId),
+        )
+      }
 
-  if (options?.search) {
-    conditions.push(ilike(products.name, `%${options.search}%`))
-  }
+      if (options?.search) {
+        conditions.push(
+          or(
+            ilike(products.name, `%${options.search}%`),
+            ilike(products.shortDescription, `%${options.search}%`),
+          )!,
+        )
+      }
 
-  if (options?.featured) {
-    conditions.push(eq(products.isFeatured, true))
-  }
+      if (options?.featured) {
+        conditions.push(eq(products.isFeatured, true))
+      }
 
-  const whereClause = and(...conditions)
+      if (options?.brandSlug) {
+        const [brand] = await db
+          .select({ id: brands.id })
+          .from(brands)
+          .where(
+            and(eq(brands.slug, options.brandSlug), eq(brands.isActive, true)),
+          )
+          .limit(1)
 
-  // Determine sort order
-  let orderBy
-  switch (options?.sortBy) {
-    case "price-low":
-      orderBy = asc(products.basePrice)
-      break
-    case "price-high":
-      orderBy = desc(products.basePrice)
-      break
-    case "name":
-      orderBy = asc(products.name)
-      break
-    case "newest":
-    default:
-      orderBy = desc(products.createdAt)
-  }
+        if (!brand) {
+          return createEmptyStorefrontProductsResult(page, limit)
+        }
 
-  const [productsList, countResult] = await Promise.all([
-    db
-      .select({
-        id: products.id,
-        name: products.name,
-        slug: products.slug,
-        shortDescription: products.shortDescription,
-        basePrice: products.basePrice,
-        compareAtPrice: products.compareAtPrice,
-        isFeatured: products.isFeatured,
-        createdAt: products.createdAt,
-      })
-      .from(products)
-      .where(whereClause)
-      .orderBy(orderBy)
-      .limit(limit)
-      .offset(offset),
-    db
-      .select({ count: sql<number>`count(*)` })
-      .from(products)
-      .where(whereClause),
-  ])
+        conditions.push(eq(products.brandId, brand.id))
+      }
 
-  // Get primary image for each product
-  const productsWithImages = await Promise.all(
-    productsList.map(async (product) => {
-      const [image] = await db
-        .select()
-        .from(productImages)
-        .where(
-          and(
-            eq(productImages.productId, product.id),
-            eq(productImages.isPrimary, true),
+      if (options?.categorySlug) {
+        const [category] = await db
+          .select({ id: categories.id })
+          .from(categories)
+          .where(
+            and(
+              eq(categories.slug, options.categorySlug),
+              eq(categories.isActive, true),
+            ),
+          )
+          .limit(1)
+
+        if (!category) {
+          return createEmptyStorefrontProductsResult(page, limit)
+        }
+
+        const assignedRows = await db
+          .select({ productId: productCategoryAssignments.productId })
+          .from(productCategoryAssignments)
+          .where(eq(productCategoryAssignments.categoryId, category.id))
+
+        if (assignedRows.length === 0) {
+          return createEmptyStorefrontProductsResult(page, limit)
+        }
+
+        conditions.push(
+          inArray(
+            products.id,
+            assignedRows.map((row) => row.productId),
           ),
         )
-        .limit(1)
+      }
+
+      const whereClause = and(...conditions)
+
+      let orderBy
+      switch (options?.sortBy) {
+        case "price-low":
+          orderBy = asc(products.basePrice)
+          break
+        case "price-high":
+          orderBy = desc(products.basePrice)
+          break
+        case "name":
+          orderBy = asc(products.name)
+          break
+        case "newest":
+        default:
+          orderBy = desc(products.createdAt)
+      }
+
+      const [productsList, countResult] = await Promise.all([
+        db
+          .select({
+            id: products.id,
+            name: products.name,
+            slug: products.slug,
+            shortDescription: products.shortDescription,
+            basePrice: products.basePrice,
+            compareAtPrice: products.compareAtPrice,
+            isFeatured: products.isFeatured,
+            createdAt: products.createdAt,
+            brand: {
+              id: brands.id,
+              name: brands.name,
+              slug: brands.slug,
+            },
+          })
+          .from(products)
+          .leftJoin(brands, eq(products.brandId, brands.id))
+          .where(whereClause)
+          .orderBy(orderBy)
+          .limit(limit)
+          .offset(offset),
+        db
+          .select({ count: sql<number>`count(*)` })
+          .from(products)
+          .where(whereClause),
+      ])
+
+      const imageMap = await withStorefrontCatalogFallback(
+        "products:getStorefrontProducts:images",
+        new Map<string, string>(),
+        () => getPrimaryImageMap(productsList.map((product) => product.id)),
+      )
 
       return {
-        ...product,
-        image: image?.url || null,
+        products: productsList.map((product) => ({
+          ...product,
+          image: imageMap.get(product.id) || null,
+        })),
+        total: Number(countResult[0]?.count || 0),
+        page,
+        limit,
+        totalPages: Math.ceil(Number(countResult[0]?.count || 0) / limit),
       }
-    }),
+    },
   )
-
-  return {
-    products: productsWithImages,
-    total: Number(countResult[0]?.count || 0),
-    page,
-    limit,
-    totalPages: Math.ceil(Number(countResult[0]?.count || 0) / limit),
-  }
 }
 
-/**
- * Create a new product (Admin/Manager only)
- */
-export async function createProduct(data: z.infer<typeof createProductSchema>) {
+export async function createProduct(
+  data: z.infer<typeof productMutationSchema>,
+) {
   try {
-    const session = await requirePermission("product.write")
-    const validated = createProductSchema.parse(data)
-
+    await requireResourcePermission("product", "create")
+    const validated = productMutationSchema.parse(data)
     const slug = validated.slug || generateSlug(validated.name)
 
-    // Check for duplicate slug
-    const existing = await db
-      .select()
+    const [existing] = await db
+      .select({ id: products.id })
       .from(products)
       .where(eq(products.slug, slug))
       .limit(1)
 
-    if (existing.length > 0) {
+    if (existing) {
       return {
         success: false as const,
         error: "A product with this slug already exists",
       }
     }
 
-    const [product] = await db
-      .insert(products)
-      .values({
+    const categoryIds = await validateCatalogRefs(validated)
+
+    const product = await db.transaction(async (tx) => {
+      const [createdProduct] = await tx
+        .insert(products)
+        .values({
+          name: validated.name,
+          slug,
+          description: validated.description,
+          shortDescription: validated.shortDescription,
+          brandId: validated.brandId,
+          categoryId: validated.primaryCategoryId,
+          primaryCategoryId: validated.primaryCategoryId,
+          basePrice: validated.basePrice,
+          compareAtPrice: validated.compareAtPrice || null,
+          costPrice: validated.costPrice || null,
+          status: validated.status,
+          isFeatured: validated.isFeatured,
+          metaTitle: validated.metaTitle,
+          metaDescription: validated.metaDescription,
+        })
+        .returning()
+
+      await syncProductCategories(tx, createdProduct.id, categoryIds)
+      await syncProductVariants(
+        tx,
+        createdProduct.id,
+        validated.name,
+        validated.variants,
+      )
+
+      return createdProduct
+    })
+
+    revalidatePath("/ops/products")
+    revalidateProductCaches()
+    revalidateBrandCaches()
+    revalidateCategoryCaches()
+    return { success: true as const, data: product }
+  } catch (error) {
+    console.error("Failed to create product:", error)
+    return {
+      success: false as const,
+      error:
+        error instanceof Error ? error.message : "Failed to create product",
+    }
+  }
+}
+
+export async function updateProduct(
+  id: string,
+  data: z.infer<typeof productMutationSchema>,
+) {
+  await requireResourcePermission("product", "update")
+  const validated = productMutationSchema.parse(data)
+
+  const [existingProduct] = await db
+    .select({ id: products.id, slug: products.slug })
+    .from(products)
+    .where(eq(products.id, id))
+    .limit(1)
+
+  if (!existingProduct) {
+    throw new Error("Product not found")
+  }
+
+  if (validated.slug) {
+    const [slugConflict] = await db
+      .select({ id: products.id })
+      .from(products)
+      .where(eq(products.slug, validated.slug))
+      .limit(1)
+
+    if (slugConflict && slugConflict.id !== id) {
+      throw new Error("A product with this slug already exists")
+    }
+  }
+
+  const categoryIds = await validateCatalogRefs(validated)
+
+  const [updatedProduct] = await db.transaction(async (tx) => {
+    const [product] = await tx
+      .update(products)
+      .set({
         name: validated.name,
-        slug,
+        slug: validated.slug || existingProduct.slug,
         description: validated.description,
         shortDescription: validated.shortDescription,
-        categoryId: validated.categoryId,
+        brandId: validated.brandId,
+        categoryId: validated.primaryCategoryId,
+        primaryCategoryId: validated.primaryCategoryId,
         basePrice: validated.basePrice,
-        compareAtPrice: validated.compareAtPrice,
-        costPrice: validated.costPrice,
+        compareAtPrice: validated.compareAtPrice || null,
+        costPrice: validated.costPrice || null,
         status: validated.status,
         isFeatured: validated.isFeatured,
         metaTitle: validated.metaTitle,
         metaDescription: validated.metaDescription,
+        updatedAt: new Date(),
       })
+      .where(eq(products.id, id))
       .returning()
 
-    revalidatePath("/ops/products")
-    revalidateProductCaches() // Invalidate cached product data
-    return { success: true as const, data: product }
-  } catch (error) {
-    console.error("Failed to create product:", error)
-    return { success: false as const, error: "Failed to create product" }
-  }
-}
+    await syncProductCategories(tx, id, categoryIds)
+    await syncProductVariants(tx, id, validated.name, validated.variants)
 
-/**
- * Update a product (Admin/Manager only)
- */
-export async function updateProduct(
-  id: string,
-  data: Partial<z.infer<typeof createProductSchema>>,
-) {
-  await requirePermission("product.write")
-
-  const [product] = await db
-    .update(products)
-    .set({
-      ...data,
-      updatedAt: new Date(),
-    })
-    .where(eq(products.id, id))
-    .returning()
+    return [product]
+  })
 
   revalidatePath("/ops/products")
   revalidatePath(`/ops/products/${id}`)
-  revalidatePath(`/products/${product.slug}`)
-  revalidateProductCaches() // Invalidate cached product data
-  return product
+  revalidatePath(`/products/${updatedProduct.slug}`)
+  revalidateProductCaches()
+  revalidateBrandCaches()
+  revalidateCategoryCaches()
+  return updatedProduct
 }
 
-/**
- * Delete a product (Admin only)
- */
 export async function deleteProduct(id: string) {
-  await requirePermission("product.delete")
+  await requireResourcePermission("product", "delete")
 
   await db.delete(products).where(eq(products.id, id))
 
   revalidatePath("/ops/products")
-  revalidateProductCaches() // Invalidate cached product data
+  revalidateProductCaches()
+  revalidateBrandCaches()
+  revalidateCategoryCaches()
   return { success: true }
 }
 
-/**
- * Create a product variant (Admin/Manager only)
- */
 export async function createVariant(data: z.infer<typeof createVariantSchema>) {
-  const session = await requirePermission("product.write")
+  const session = await requireResourcePermission("product", "update")
   const validated = createVariantSchema.parse(data)
 
-  // Get the product for SKU generation
   const [product] = await db
     .select()
     .from(products)
@@ -419,19 +934,8 @@ export async function createVariant(data: z.infer<typeof createVariantSchema>) {
   }
 
   const sku = validated.sku || generateSku(product.name, validated.name)
+  await ensureUniqueVariantSku(sku)
 
-  // Check for duplicate SKU
-  const existingSku = await db
-    .select()
-    .from(productVariants)
-    .where(eq(productVariants.sku, sku))
-    .limit(1)
-
-  if (existingSku.length > 0) {
-    throw new Error("A variant with this SKU already exists")
-  }
-
-  // Create variant
   const [variant] = await db
     .insert(productVariants)
     .values({
@@ -439,15 +943,14 @@ export async function createVariant(data: z.infer<typeof createVariantSchema>) {
       sku,
       name: validated.name,
       price: validated.price,
-      compareAtPrice: validated.compareAtPrice,
-      costPrice: validated.costPrice,
-      weight: validated.weight,
+      compareAtPrice: validated.compareAtPrice || null,
+      costPrice: validated.costPrice || null,
+      weight: validated.weight || null,
       isDefault: validated.isDefault,
       isActive: validated.isActive,
     })
     .returning()
 
-  // Create inventory item
   const [inventory] = await db
     .insert(inventoryItems)
     .values({
@@ -456,7 +959,6 @@ export async function createVariant(data: z.infer<typeof createVariantSchema>) {
     })
     .returning()
 
-  // Create initial inventory movement if stock > 0
   if (validated.initialStock > 0) {
     await db.insert(inventoryMovements).values({
       inventoryItemId: inventory.id,
@@ -473,14 +975,10 @@ export async function createVariant(data: z.infer<typeof createVariantSchema>) {
   return variant
 }
 
-/**
- * Update stock for a variant (Admin/Manager only)
- */
 export async function updateStock(data: z.infer<typeof updateStockSchema>) {
-  const session = await requirePermission("inventory.write")
+  const session = await requireResourcePermission("inventory", "adjust")
   const validated = updateStockSchema.parse(data)
 
-  // Get current inventory
   const [inventory] = await db
     .select()
     .from(inventoryItems)
@@ -498,7 +996,6 @@ export async function updateStock(data: z.infer<typeof updateStockSchema>) {
     throw new Error("Cannot reduce stock below zero")
   }
 
-  // Update inventory
   await db
     .update(inventoryItems)
     .set({
@@ -507,7 +1004,6 @@ export async function updateStock(data: z.infer<typeof updateStockSchema>) {
     })
     .where(eq(inventoryItems.id, inventory.id))
 
-  // Create movement record
   await db.insert(inventoryMovements).values({
     inventoryItemId: inventory.id,
     type: validated.type,
@@ -522,18 +1018,6 @@ export async function updateStock(data: z.infer<typeof updateStockSchema>) {
   return { success: true, newQuantity }
 }
 
-// Schema for adding product images
-const addImageSchema = z.object({
-  productId: z.string().uuid(),
-  url: z.string().url(),
-  altText: z.string().max(255).optional(),
-  isPrimary: z.boolean().default(false),
-  sortOrder: z.number().int().min(0).default(0),
-})
-
-/**
- * Add images to a product (Admin/Manager only)
- */
 export async function addProductImages(
   productId: string,
   images: Array<{
@@ -542,9 +1026,8 @@ export async function addProductImages(
     isPrimary?: boolean
   }>,
 ) {
-  await requirePermission("product.write")
+  await requireResourcePermission("product", "update")
 
-  // Verify product exists
   const [product] = await db
     .select()
     .from(products)
@@ -555,7 +1038,6 @@ export async function addProductImages(
     return { success: false as const, error: "Product not found" }
   }
 
-  // Get existing images count for sort order
   const existingImages = await db
     .select()
     .from(productImages)
@@ -563,16 +1045,13 @@ export async function addProductImages(
 
   const sortOrder = existingImages.length
 
-  // If any image is set as primary, remove primary from others
-  const hasPrimary = images.some((img) => img.isPrimary)
-  if (hasPrimary) {
+  if (images.some((image) => image.isPrimary)) {
     await db
       .update(productImages)
       .set({ isPrimary: false })
       .where(eq(productImages.productId, productId))
   }
 
-  // Add new images
   const newImages = await Promise.all(
     images.map(async (image, index) => {
       const [inserted] = await db
@@ -585,6 +1064,7 @@ export async function addProductImages(
           sortOrder: sortOrder + index,
         })
         .returning()
+
       return inserted
     }),
   )
@@ -594,9 +1074,6 @@ export async function addProductImages(
   return { success: true as const, data: newImages }
 }
 
-/**
- * Update product images (replace all images)
- */
 export async function updateProductImages(
   productId: string,
   images: Array<{
@@ -606,9 +1083,8 @@ export async function updateProductImages(
     isPrimary?: boolean
   }>,
 ) {
-  await requirePermission("product.write")
+  await requireResourcePermission("product", "update")
 
-  // Verify product exists
   const [product] = await db
     .select()
     .from(products)
@@ -619,44 +1095,47 @@ export async function updateProductImages(
     return { success: false as const, error: "Product not found" }
   }
 
-  // Get existing images
   const existingImages = await db
     .select()
     .from(productImages)
     .where(eq(productImages.productId, productId))
 
-  const existingUrls = new Set(existingImages.map((img) => img.url))
-  const newUrls = new Set(images.map((img) => img.url))
+  const newUrls = new Set(images.map((image) => image.url))
+  const imagesToDelete = existingImages.filter(
+    (image) => !newUrls.has(image.url),
+  )
 
-  // Delete images that are no longer present
-  const imagesToDelete = existingImages.filter((img) => !newUrls.has(img.url))
-  for (const img of imagesToDelete) {
-    await db.delete(productImages).where(eq(productImages.id, img.id))
+  for (const image of imagesToDelete) {
+    await db.delete(productImages).where(eq(productImages.id, image.id))
   }
 
-  // Update or insert images
-  for (let i = 0; i < images.length; i++) {
-    const image = images[i]
-    const existing = existingImages.find((e) => e.url === image.url)
+  if (images.some((image) => image.isPrimary)) {
+    await db
+      .update(productImages)
+      .set({ isPrimary: false })
+      .where(eq(productImages.productId, productId))
+  }
+
+  for (let index = 0; index < images.length; index++) {
+    const image = images[index]
+    const existing = existingImages.find((current) => current.url === image.url)
 
     if (existing) {
-      // Update existing image
       await db
         .update(productImages)
         .set({
           altText: image.altText,
           isPrimary: image.isPrimary ?? false,
-          sortOrder: i,
+          sortOrder: index,
         })
         .where(eq(productImages.id, existing.id))
     } else {
-      // Insert new image
       await db.insert(productImages).values({
         productId,
         url: image.url,
         altText: image.altText,
         isPrimary: image.isPrimary ?? false,
-        sortOrder: i,
+        sortOrder: index,
       })
     }
   }
@@ -666,11 +1145,8 @@ export async function updateProductImages(
   return { success: true as const }
 }
 
-/**
- * Delete a product image
- */
 export async function deleteProductImage(imageId: string) {
-  await requirePermission("product.write")
+  await requireResourcePermission("product", "update")
 
   const [image] = await db
     .select()
@@ -684,7 +1160,6 @@ export async function deleteProductImage(imageId: string) {
 
   await db.delete(productImages).where(eq(productImages.id, imageId))
 
-  // If this was the primary image, make the first remaining image primary
   if (image.isPrimary) {
     const [firstImage] = await db
       .select()

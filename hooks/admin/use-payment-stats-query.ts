@@ -29,7 +29,6 @@ export function usePaymentStatsQuery() {
       const body = await response.json()
       return body.data as PaymentStats
     },
-    retry: 2,
     staleTime: 60_000,
   })
 }

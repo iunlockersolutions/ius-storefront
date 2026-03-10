@@ -9,28 +9,56 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 
 interface SearchFiltersProps {
+  categories: { id: string; name: string; slug: string }[]
+  brands: { id: string; name: string; slug: string }[]
   currentCategory?: string
+  currentBrand?: string
   minPrice?: string
   maxPrice?: string
 }
 
 export function SearchFilters({
+  categories,
+  brands,
   currentCategory,
+  currentBrand,
   minPrice: initialMinPrice,
   maxPrice: initialMaxPrice,
 }: SearchFiltersProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const [category, setCategory] = useState(currentCategory || "all-categories")
+  const [brand, setBrand] = useState(currentBrand || "all-brands")
   const [minPrice, setMinPrice] = useState(initialMinPrice || "")
   const [maxPrice, setMaxPrice] = useState(initialMaxPrice || "")
 
-  const hasFilters = currentCategory || initialMinPrice || initialMaxPrice
+  const hasFilters =
+    currentCategory || currentBrand || initialMinPrice || initialMaxPrice
 
   const applyFilters = () => {
     const params = new URLSearchParams(searchParams.toString())
+
+    if (category !== "all-categories") {
+      params.set("category", category)
+    } else {
+      params.delete("category")
+    }
+
+    if (brand !== "all-brands") {
+      params.set("brand", brand)
+    } else {
+      params.delete("brand")
+    }
 
     if (minPrice) {
       params.set("minPrice", minPrice)
@@ -52,6 +80,10 @@ export function SearchFilters({
     const params = new URLSearchParams()
     const q = searchParams.get("q")
     if (q) params.set("q", q)
+    setCategory("all-categories")
+    setBrand("all-brands")
+    setMinPrice("")
+    setMaxPrice("")
     router.push(`/search?${params.toString()}`)
   }
 
@@ -59,6 +91,15 @@ export function SearchFilters({
     const params = new URLSearchParams(searchParams.toString())
     params.delete("category")
     params.set("page", "1")
+    setCategory("all-categories")
+    router.push(`/search?${params.toString()}`)
+  }
+
+  const removeBrand = () => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete("brand")
+    params.set("page", "1")
+    setBrand("all-brands")
     router.push(`/search?${params.toString()}`)
   }
 
@@ -88,8 +129,18 @@ export function SearchFilters({
             <div className="flex flex-wrap gap-2">
               {currentCategory && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-                  {currentCategory}
+                  {categories.find((item) => item.slug === currentCategory)
+                    ?.name || currentCategory}
                   <button onClick={removeCategory}>
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              )}
+              {currentBrand && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                  {brands.find((item) => item.slug === currentBrand)?.name ||
+                    currentBrand}
+                  <button onClick={removeBrand}>
                     <X className="h-3 w-3" />
                   </button>
                 </span>
@@ -107,6 +158,44 @@ export function SearchFilters({
             <Separator className="mt-4" />
           </div>
         )}
+
+        <div className="space-y-3">
+          <div>
+            <Label className="text-sm font-medium mb-2 block">Category</Label>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger>
+                <SelectValue placeholder="All categories" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all-categories">All categories</SelectItem>
+                {categories.map((category) => (
+                  <SelectItem key={category.id} value={category.slug}>
+                    {category.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label className="text-sm font-medium mb-2 block">Brand</Label>
+            <Select value={brand} onValueChange={setBrand}>
+              <SelectTrigger>
+                <SelectValue placeholder="All brands" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all-brands">All brands</SelectItem>
+                {brands.map((brand) => (
+                  <SelectItem key={brand.id} value={brand.slug}>
+                    {brand.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <Separator />
 
         {/* Price Range */}
         <div>
@@ -164,6 +253,16 @@ export function SearchFilters({
                   else params.delete("minPrice")
                   if (range.max) params.set("maxPrice", range.max)
                   else params.delete("maxPrice")
+                  if (category !== "all-categories") {
+                    params.set("category", category)
+                  } else {
+                    params.delete("category")
+                  }
+                  if (brand !== "all-brands") {
+                    params.set("brand", brand)
+                  } else {
+                    params.delete("brand")
+                  }
                   params.set("page", "1")
                   router.push(`/search?${params.toString()}`)
                 }}

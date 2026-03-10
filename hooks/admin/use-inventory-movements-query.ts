@@ -64,7 +64,6 @@ export function useInventoryMovementsQuery(params: {
       return body.data as MovementsResponse
     },
     enabled: Boolean(params.inventoryItemId),
-    retry: 2,
     staleTime: 60_000,
   })
 }

@@ -19,6 +19,11 @@ interface Product {
   compareAtPrice: string | null
   isFeatured: boolean
   image: string | null
+  brand?: {
+    id: string | null
+    name: string | null
+    slug: string | null
+  } | null
 }
 
 interface ProductCardProps {
@@ -87,6 +92,11 @@ export function ProductCard({ product }: ProductCardProps) {
 
         {/* Content */}
         <CardContent className="p-4">
+          {product.brand?.name && (
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {product.brand.name}
+            </p>
+          )}
           <h3 className="font-medium text-sm line-clamp-2 group-hover:text-primary transition-colors min-h-10">
             {product.name}
           </h3>

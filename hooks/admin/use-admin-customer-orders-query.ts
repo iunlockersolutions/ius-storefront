@@ -61,7 +61,6 @@ export function useAdminCustomerOrdersQuery(params: CustomerOrdersParams) {
       return body.data as CustomerOrdersResponse
     },
     enabled: Boolean(params.customerId),
-    retry: 2,
     staleTime: 60_000,
   })
 }

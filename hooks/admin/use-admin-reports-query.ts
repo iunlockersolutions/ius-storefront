@@ -84,7 +84,6 @@ export function useAdminReportsQuery(params?: AdminReportsParams) {
       const body = await response.json()
       return body.data as AdminReportsResponse
     },
-    retry: 2,
     staleTime: 60_000,
   })
 }

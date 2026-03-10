@@ -10,9 +10,14 @@ export interface AdminCategory {
   slug: string
   description: string | null
   image: string | null
+  metaTitle: string | null
+  metaDescription: string | null
   parentId: string | null
   sortOrder: number
   isActive: boolean
+  productCount: number
+  level?: number
+  path?: string
 }
 
 export function useAdminCategoriesQuery() {
@@ -33,7 +38,6 @@ export function useAdminCategoriesQuery() {
       const body = await response.json()
       return body.data as AdminCategory[]
     },
-    retry: 2,
     staleTime: 60_000,
   })
 }

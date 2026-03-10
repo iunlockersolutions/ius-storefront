@@ -4,7 +4,14 @@ import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
-import { Heart, LogOut, Menu, Package, Search, User } from "lucide-react"
+import {
+  Heart,
+  LogOut,
+  Menu,
+  Package,
+  Search,
+  User,
+} from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -84,6 +91,12 @@ export function StorefrontHeader({
               Categories
             </Link>
             <Link
+              href="/brands"
+              className="text-sm font-medium transition-colors hover:text-primary"
+            >
+              Brands
+            </Link>
+            <Link
               href="/deals"
               className="text-sm font-medium transition-colors hover:text-primary"
             >
@@ -98,6 +111,7 @@ export function StorefrontHeader({
               variant="ghost"
               size="icon"
               onClick={() => setSearchOpen(true)}
+              aria-label="Search"
             >
               <Search className="h-5 w-5" />
               <span className="sr-only">Search</span>

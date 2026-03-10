@@ -13,6 +13,7 @@ import {
   LogOut,
   Package,
   ShoppingBag,
+  Store,
   Tag,
   User,
   X,
@@ -34,6 +35,7 @@ const navLinks = [
   { href: "/", label: "Home", icon: Home },
   { href: "/products", label: "Products", icon: Package },
   { href: "/categories", label: "Categories", icon: Grid3X3 },
+  { href: "/brands", label: "Brands", icon: Store },
   { href: "/deals", label: "Deals", icon: Tag },
 ]
 
@@ -60,10 +62,10 @@ export function MobileNav({
     router.refresh()
   }
 
-  // Close on route change
-  useEffect(() => {
-    onClose()
-  }, [pathname, onClose])
+  // // Close on route change
+  // useEffect(() => {
+  //   onClose()
+  // }, [pathname, onClose])
 
   // Prevent scroll when open
   useEffect(() => {
@@ -85,6 +87,13 @@ export function MobileNav({
       <div
         className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
         onClick={onClose}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            onClose()
+          }
+        }}
+        role="button"
+        tabIndex={0}
       />
 
       {/* Drawer */}

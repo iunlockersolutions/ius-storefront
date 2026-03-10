@@ -1,12 +1,21 @@
 import { Suspense } from "react"
 
+import { getActiveBrands } from "@/lib/actions/brand"
+import { getActiveCategoriesFlat } from "@/lib/actions/category"
+
 import { SearchFilters } from "./search-filters"
 import { SearchResults } from "./search-results"
+
+export const metadata = {
+  title: "Search | IUS Shop",
+  description: "Search products, brands, and categories.",
+}
 
 interface SearchPageProps {
   searchParams: Promise<{
     q?: string
     category?: string
+    brand?: string
     minPrice?: string
     maxPrice?: string
     sort?: string
@@ -17,6 +26,10 @@ interface SearchPageProps {
 export default async function SearchPage({ searchParams }: SearchPageProps) {
   const params = await searchParams
   const query = params.q || ""
+  const [categories, brands] = await Promise.all([
+    getActiveCategoriesFlat(),
+    getActiveBrands({ failSoft: true }),
+  ])
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -29,11 +42,27 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         {/* Filters Sidebar */}
         <aside className="lg:col-span-1">
-          <SearchFilters
-            currentCategory={params.category}
-            minPrice={params.minPrice}
-            maxPrice={params.maxPrice}
-          />
+          <Suspense
+            fallback={<div className="h-96 rounded-lg border bg-muted/30" />}
+          >
+            <SearchFilters
+              key={`${params.category || ""}:${params.brand || ""}:${params.minPrice || ""}:${params.maxPrice || ""}:${params.q || ""}`}
+              categories={categories.map((category) => ({
+                id: category.id,
+                name: category.name,
+                slug: category.slug,
+              }))}
+              brands={brands.map((brand) => ({
+                id: brand.id,
+                name: brand.name,
+                slug: brand.slug,
+              }))}
+              currentCategory={params.category}
+              currentBrand={params.brand}
+              minPrice={params.minPrice}
+              maxPrice={params.maxPrice}
+            />
+          </Suspense>
         </aside>
 
         {/* Results */}
@@ -53,6 +82,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
             <SearchResults
               query={query}
               category={params.category}
+              brand={params.brand}
               minPrice={
                 params.minPrice ? parseFloat(params.minPrice) : undefined
               }

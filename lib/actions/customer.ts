@@ -10,9 +10,7 @@ import {
   customerAddresses,
   customerProfiles,
   orders,
-  roles,
   user,
-  userRoles,
 } from "@/lib/db/schema"
 
 // ============================================
@@ -58,7 +56,11 @@ export async function getCustomers(input: CustomerFilterInput = {}) {
             )`.as("total_spent"),
     })
     .from(user)
-    .where(whereClause)
+    .where(
+      whereClause
+        ? and(eq(user.role, "customer"), whereClause)
+        : eq(user.role, "customer"),
+    )
     .orderBy(desc(user.createdAt))
     .limit(limit)
     .offset(offset)
@@ -67,7 +69,11 @@ export async function getCustomers(input: CustomerFilterInput = {}) {
   const [totalResult] = await db
     .select({ count: count() })
     .from(user)
-    .where(whereClause)
+    .where(
+      whereClause
+        ? and(eq(user.role, "customer"), whereClause)
+        : eq(user.role, "customer"),
+    )
   const total = totalResult?.count || 0
 
   return {
@@ -91,7 +97,7 @@ export async function getCustomer(customerId: string) {
   // Get user info
   const [userData] = await db.select().from(user).where(eq(user.id, customerId))
 
-  if (!userData) {
+  if (!userData || userData.role !== "customer") {
     return null
   }
 
@@ -109,16 +115,6 @@ export async function getCustomer(customerId: string) {
       .where(eq(customerAddresses.customerId, profile.id))
       .orderBy(desc(customerAddresses.isDefault))
   }
-
-  // Get roles
-  const userRolesList = await db
-    .select({
-      roleId: roles.id,
-      roleName: roles.name,
-    })
-    .from(userRoles)
-    .innerJoin(roles, eq(userRoles.roleId, roles.id))
-    .where(eq(userRoles.userId, customerId))
 
   // Get order stats
   const [orderStats] = await db
@@ -138,7 +134,6 @@ export async function getCustomer(customerId: string) {
     user: userData,
     profile: profile || null,
     addresses,
-    roles: userRolesList,
     stats: {
       totalOrders: orderStats?.totalOrders || 0,
       totalSpent: orderStats?.totalSpent || 0,
@@ -187,66 +182,4 @@ export async function getCustomerOrders(
       totalPages: Math.ceil((totalResult?.count || 0) / limit),
     },
   }
-}
-
-// ============================================
-// Assign Role to User
-// ============================================
-
-export async function assignRole(userId: string, roleId: string) {
-  await requireAdmin()
-
-  try {
-    // Check if role assignment already exists
-    const existing = await db
-      .select()
-      .from(userRoles)
-      .where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, roleId)))
-
-    if (existing.length > 0) {
-      return { success: false, error: "User already has this role" }
-    }
-
-    await db.insert(userRoles).values({
-      userId,
-      roleId,
-    })
-
-    revalidatePath(`/ops/customers/${userId}`)
-    return { success: true }
-  } catch (error) {
-    console.error("Failed to assign role:", error)
-    return { success: false, error: "Failed to assign role" }
-  }
-}
-
-// ============================================
-// Remove Role from User
-// ============================================
-
-export async function removeRole(userId: string, roleId: string) {
-  await requireAdmin()
-
-  try {
-    await db
-      .delete(userRoles)
-      .where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, roleId)))
-
-    revalidatePath(`/ops/customers/${userId}`)
-    return { success: true }
-  } catch (error) {
-    console.error("Failed to remove role:", error)
-    return { success: false, error: "Failed to remove role" }
-  }
-}
-
-// ============================================
-// Get All Roles
-// ============================================
-
-export async function getAllRoles() {
-  await requireStaff()
-
-  const allRoles = await db.select().from(roles).orderBy(roles.name)
-  return allRoles
 }

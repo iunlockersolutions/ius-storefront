@@ -42,9 +42,12 @@ const categorySchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
   slug: z.string().min(1, "Slug is required").max(100),
   description: z.string().max(1000).optional(),
+  image: z.string().url().optional().or(z.literal("")),
   parentId: z.string().optional(),
   sortOrder: z.number().int().min(0).default(0),
   isActive: z.boolean().default(true),
+  metaTitle: z.string().max(200).optional(),
+  metaDescription: z.string().max(500).optional(),
 })
 
 type CategoryFormData = z.infer<typeof categorySchema>
@@ -55,9 +58,12 @@ interface Category {
   slug: string
   description: string | null
   image: string | null
+  metaTitle: string | null
+  metaDescription: string | null
   parentId: string | null
   sortOrder: number
   isActive: boolean
+  productCount: number
 }
 
 interface ParentOption {
@@ -89,9 +95,12 @@ export function EditCategoryForm({
       name: category.name,
       slug: category.slug,
       description: category.description || "",
+      image: category.image || "",
       parentId: category.parentId || "",
       sortOrder: category.sortOrder,
       isActive: category.isActive,
+      metaTitle: category.metaTitle || "",
+      metaDescription: category.metaDescription || "",
     },
   })
 
@@ -99,8 +108,8 @@ export function EditCategoryForm({
     register,
     setValue,
     watch,
-    formState: { errors, isDirty },
     handleSubmit,
+    formState: { errors, isDirty },
   } = form
 
   const watchedValues = watch()
@@ -112,9 +121,12 @@ export function EditCategoryForm({
           name: data.name,
           slug: data.slug,
           description: data.description || undefined,
+          image: data.image || null,
           parentId: data.parentId || null,
           sortOrder: data.sortOrder,
           isActive: data.isActive,
+          metaTitle: data.metaTitle || undefined,
+          metaDescription: data.metaDescription || undefined,
         })
 
         toast.success("Category updated successfully!")
@@ -151,13 +163,13 @@ export function EditCategoryForm({
           <CardTitle>Category Details</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
+          <div className="rounded-lg border bg-muted/30 p-4 text-sm">
+            Assigned products: <span className="font-medium">{category.productCount}</span>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="name">Category Name *</Label>
-            <Input
-              id="name"
-              placeholder="e.g., Electronics"
-              {...register("name")}
-            />
+            <Input id="name" {...register("name")} />
             {errors.name && (
               <p className="text-sm text-red-500">{errors.name.message}</p>
             )}
@@ -165,17 +177,18 @@ export function EditCategoryForm({
 
           <div className="space-y-2">
             <Label htmlFor="slug">URL Slug *</Label>
-            <Input
-              id="slug"
-              placeholder="e.g., electronics"
-              {...register("slug")}
-            />
+            <Input id="slug" {...register("slug")} />
             {errors.slug && (
               <p className="text-sm text-red-500">{errors.slug.message}</p>
             )}
-            <p className="text-xs text-neutral-500">
-              URL: /categories/{watchedValues.slug || "your-slug"}
-            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="image">Image URL</Label>
+            <Input id="image" {...register("image")} />
+            {errors.image && (
+              <p className="text-sm text-red-500">{errors.image.message}</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -203,12 +216,7 @@ export function EditCategoryForm({
 
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              placeholder="Brief description of this category..."
-              rows={4}
-              {...register("description")}
-            />
+            <Textarea id="description" rows={4} {...register("description")} />
           </div>
 
           <div className="space-y-2">
@@ -219,13 +227,10 @@ export function EditCategoryForm({
               min={0}
               {...register("sortOrder", { valueAsNumber: true })}
             />
-            <p className="text-xs text-neutral-500">
-              Lower numbers appear first
-            </p>
           </div>
 
           <div className="flex items-center justify-between rounded-lg border p-4">
-            <div className="space-y-0.5">
+            <div>
               <Label htmlFor="isActive">Active</Label>
               <p className="text-sm text-neutral-500">
                 Inactive categories won&apos;t be shown on the storefront
@@ -235,6 +240,27 @@ export function EditCategoryForm({
               id="isActive"
               checked={watchedValues.isActive}
               onCheckedChange={(checked) => setValue("isActive", checked)}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>SEO Settings</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="metaTitle">Meta Title</Label>
+            <Input id="metaTitle" {...register("metaTitle")} />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="metaDescription">Meta Description</Label>
+            <Textarea
+              id="metaDescription"
+              rows={3}
+              {...register("metaDescription")}
             />
           </div>
         </CardContent>
@@ -252,20 +278,11 @@ export function EditCategoryForm({
             <AlertDialogHeader>
               <AlertDialogTitle>Are you sure?</AlertDialogTitle>
               <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete the
-                category &quot;{category.name}&quot;.
-                {category.parentId === null && (
-                  <span className="block mt-2 font-medium text-amber-600">
-                    Note: This is a root category. Any child categories will
-                    need to be reassigned.
-                  </span>
-                )}
+                This will permanently delete the category &quot;{category.name}&quot;.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={isDeleting}>
-                Cancel
-              </AlertDialogCancel>
+              <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleDelete}
                 disabled={isDeleting}

@@ -14,6 +14,7 @@ import {
 } from "@/lib/db/schema"
 
 import { addToCart } from "./cart"
+import { withStorefrontCatalogFallback } from "./storefront-catalog-read"
 
 // ============================================
 // Get User Favorites
@@ -25,49 +26,60 @@ export async function getUserFavorites() {
     return []
   }
 
-  const userFavorites = await db
-    .select({
-      id: favorites.id,
-      productId: favorites.productId,
-      createdAt: favorites.createdAt,
-      product: {
-        id: products.id,
-        name: products.name,
-        slug: products.slug,
-        shortDescription: products.shortDescription,
-        basePrice: products.basePrice,
-        compareAtPrice: products.compareAtPrice,
-        isFeatured: products.isFeatured,
-        status: products.status,
-      },
-    })
-    .from(favorites)
-    .innerJoin(products, eq(favorites.productId, products.id))
-    .where(eq(favorites.userId, session.user.id))
-    .orderBy(desc(favorites.createdAt))
+  return withStorefrontCatalogFallback(
+    "favorites:getUserFavorites",
+    [],
+    async () => {
+      const userFavorites = await db
+        .select({
+          id: favorites.id,
+          productId: favorites.productId,
+          createdAt: favorites.createdAt,
+          product: {
+            id: products.id,
+            name: products.name,
+            slug: products.slug,
+            shortDescription: products.shortDescription,
+            basePrice: products.basePrice,
+            compareAtPrice: products.compareAtPrice,
+            isFeatured: products.isFeatured,
+            status: products.status,
+          },
+        })
+        .from(favorites)
+        .innerJoin(products, eq(favorites.productId, products.id))
+        .where(eq(favorites.userId, session.user.id))
+        .orderBy(desc(favorites.createdAt))
 
-  // Get images for each product
-  const productIds = userFavorites.map((f) => f.productId)
-  const images =
-    productIds.length > 0
-      ? await db
-          .select({
-            productId: productImages.productId,
-            url: productImages.url,
-          })
-          .from(productImages)
-          .where(and(eq(productImages.isPrimary, true)))
-      : []
+      const imageMap = await withStorefrontCatalogFallback(
+        "favorites:getUserFavorites:images",
+        new Map<string, string>(),
+        async () => {
+          const productIds = userFavorites.map((favorite) => favorite.productId)
+          const images =
+            productIds.length > 0
+              ? await db
+                  .select({
+                    productId: productImages.productId,
+                    url: productImages.url,
+                  })
+                  .from(productImages)
+                  .where(and(eq(productImages.isPrimary, true)))
+              : []
 
-  const imageMap = new Map(images.map((img) => [img.productId, img.url]))
+          return new Map(images.map((image) => [image.productId, image.url]))
+        },
+      )
 
-  return userFavorites.map((f) => ({
-    ...f,
-    product: {
-      ...f.product,
-      image: imageMap.get(f.productId) || null,
+      return userFavorites.map((favorite) => ({
+        ...favorite,
+        product: {
+          ...favorite.product,
+          image: imageMap.get(favorite.productId) || null,
+        },
+      }))
     },
-  }))
+  )
 }
 
 // ============================================
@@ -80,18 +92,24 @@ export async function isProductFavorited(productId: string) {
     return false
   }
 
-  const [favorite] = await db
-    .select({ id: favorites.id })
-    .from(favorites)
-    .where(
-      and(
-        eq(favorites.userId, session.user.id),
-        eq(favorites.productId, productId),
-      ),
-    )
-    .limit(1)
+  return withStorefrontCatalogFallback(
+    "favorites:isProductFavorited",
+    false,
+    async () => {
+      const [favorite] = await db
+        .select({ id: favorites.id })
+        .from(favorites)
+        .where(
+          and(
+            eq(favorites.userId, session.user.id),
+            eq(favorites.productId, productId),
+          ),
+        )
+        .limit(1)
 
-  return !!favorite
+      return !!favorite
+    },
+  )
 }
 
 // ============================================
@@ -200,12 +218,18 @@ export async function getFavoritesCount() {
     return 0
   }
 
-  const result = await db
-    .select({ id: favorites.id })
-    .from(favorites)
-    .where(eq(favorites.userId, session.user.id))
+  return withStorefrontCatalogFallback(
+    "favorites:getFavoritesCount",
+    0,
+    async () => {
+      const result = await db
+        .select({ id: favorites.id })
+        .from(favorites)
+        .where(eq(favorites.userId, session.user.id))
 
-  return result.length
+      return result.length
+    },
+  )
 }
 
 // ============================================

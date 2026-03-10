@@ -18,6 +18,7 @@
     "db:studio": "drizzle-kit studio",
     "db:audit:uuid": "tsx scripts/audit-schema-uuid.ts",
     "db:seed": "tsx lib/db/seed.ts",
+    "db:seed:catalog": "tsx lib/db/seed-catalog.ts",
     "db:clean": "tsx lib/db/seed-clean.ts"
   },
   "dependencies": {

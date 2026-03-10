@@ -7,11 +7,9 @@ import { and, count, desc, eq, ilike, or } from "drizzle-orm"
 import { auth } from "@/lib/auth"
 import { requireAdmin, requireRole } from "@/lib/auth/rbac"
 import { db } from "@/lib/db"
-import { session as sessionTable, user } from "@/lib/db/schema/auth"
+import { user } from "@/lib/db/schema/auth"
 import { sendEmail } from "@/lib/email/send"
 import { generateSecurePassword } from "@/lib/utils/password-requirements"
-
-import { logActivity } from "./activity-log"
 
 type StaffRole = "admin" | "manager" | "support"
 
@@ -34,22 +32,21 @@ interface ListStaffOptions {
   limit?: number
 }
 
+function staffRoleCondition() {
+  return or(
+    eq(user.role, "admin"),
+    eq(user.role, "manager"),
+    eq(user.role, "support"),
+  )
+}
+
 export async function listStaffUsers(options: ListStaffOptions = {}) {
   const { search, role, page = 1, limit = 10 } = options
 
-  // Only admins and managers can view staff list
   await requireRole(["admin", "manager"])
 
   const offset = (page - 1) * limit
-
-  // Build where conditions for staff users (not customers)
-  const conditions = [
-    or(
-      eq(user.role, "admin"),
-      eq(user.role, "manager"),
-      eq(user.role, "support"),
-    ),
-  ]
+  const conditions = [staffRoleCondition()]
 
   if (search) {
     conditions.push(
@@ -77,6 +74,7 @@ export async function listStaffUsers(options: ListStaffOptions = {}) {
         banReason: true,
         createdAt: true,
         emailVerified: true,
+        twoFactorEnabled: true,
       },
     }),
     db
@@ -99,18 +97,10 @@ export async function listStaffUsers(options: ListStaffOptions = {}) {
 }
 
 export async function getStaffUser(userId: string) {
-  // Only admins and managers can view staff details
   await requireRole(["admin", "manager"])
 
   const staffUser = await db.query.user.findFirst({
-    where: and(
-      eq(user.id, userId),
-      or(
-        eq(user.role, "admin"),
-        eq(user.role, "manager"),
-        eq(user.role, "support"),
-      ),
-    ),
+    where: and(eq(user.id, userId), staffRoleCondition()),
     columns: {
       id: true,
       name: true,
@@ -126,6 +116,7 @@ export async function getStaffUser(userId: string) {
       invitedAt: true,
       lastPasswordChange: true,
       mustChangePassword: true,
+      twoFactorEnabled: true,
     },
   })
 
@@ -133,7 +124,6 @@ export async function getStaffUser(userId: string) {
     return null
   }
 
-  // Get inviter info if available
   let inviter = null
   if (staffUser.invitedBy) {
     inviter = await db.query.user.findFirst({
@@ -153,7 +143,6 @@ export async function getStaffUser(userId: string) {
 }
 
 export async function createStaffUser(input: CreateStaffInput) {
-  // Only admins can create staff users
   let session
   try {
     session = await requireAdmin()
@@ -164,53 +153,46 @@ export async function createStaffUser(input: CreateStaffInput) {
     }
   }
 
-  const currentUser = await db.query.user.findFirst({
-    where: eq(user.id, session.user.id),
-    columns: { id: true, name: true },
-  })
-
-  const inviterName = currentUser?.name || "An administrator"
-
-  // Check if email already exists
   const existingUser = await db.query.user.findFirst({
     where: eq(user.email, input.email.toLowerCase()),
+    columns: { id: true },
   })
 
   if (existingUser) {
     return { success: false, error: "A user with this email already exists" }
   }
 
-  // Generate a temporary password
+  const currentUser = await db.query.user.findFirst({
+    where: eq(user.id, session.user.id),
+    columns: { name: true },
+  })
+
   const temporaryPassword = generateSecurePassword()
 
   try {
-    // Create user via BetterAuth API
-    const result = await auth.api.signUpEmail({
+    const result = await auth.api.createUser({
       body: {
         name: input.name,
         email: input.email.toLowerCase(),
         password: temporaryPassword,
+        role: input.role,
       },
       headers: await headers(),
     })
 
-    if (!result?.user) {
-      return { success: false, error: "Failed to create user" }
-    }
+    await auth.api.adminUpdateUser({
+      body: {
+        userId: result.user.id,
+        data: {
+          emailVerified: true,
+          mustChangePassword: true,
+          invitedBy: session.user.id,
+          invitedAt: new Date(),
+        },
+      },
+      headers: await headers(),
+    })
 
-    // Update user with staff-specific fields
-    await db
-      .update(user)
-      .set({
-        role: input.role,
-        mustChangePassword: true,
-        invitedBy: session.user.id,
-        invitedAt: new Date(),
-        emailVerified: true, // Staff accounts are pre-verified
-      })
-      .where(eq(user.id, result.user.id))
-
-    // Send invitation email with temporary password
     await sendEmail({
       to: input.email,
       template: "staff-invitation",
@@ -219,21 +201,9 @@ export async function createStaffUser(input: CreateStaffInput) {
         name: input.name,
         email: input.email,
         role: input.role,
-        invitedByName: inviterName,
+        invitedByName: currentUser?.name || "An administrator",
         temporaryPassword,
         loginUrl: `${process.env.NEXT_PUBLIC_APP_URL}/auth/login`,
-      },
-    })
-
-    // Log activity
-    await logActivity({
-      action: "user.create",
-      entityType: "user",
-      entityId: result.user.id,
-      details: {
-        email: input.email,
-        name: input.name,
-        role: input.role,
       },
     })
 
@@ -253,7 +223,6 @@ export async function createStaffUser(input: CreateStaffInput) {
 }
 
 export async function updateStaffUser(input: UpdateStaffInput) {
-  // Only admins can update staff users
   let session
   try {
     session = await requireAdmin()
@@ -264,7 +233,6 @@ export async function updateStaffUser(input: UpdateStaffInput) {
     }
   }
 
-  // Can't modify yourself
   if (input.id === session.user.id) {
     return {
       success: false,
@@ -272,16 +240,12 @@ export async function updateStaffUser(input: UpdateStaffInput) {
     }
   }
 
-  // Check target user exists and is staff
   const targetUser = await db.query.user.findFirst({
-    where: and(
-      eq(user.id, input.id),
-      or(
-        eq(user.role, "admin"),
-        eq(user.role, "manager"),
-        eq(user.role, "support"),
-      ),
-    ),
+    where: and(eq(user.id, input.id), staffRoleCondition()),
+    columns: {
+      id: true,
+      role: true,
+    },
   })
 
   if (!targetUser) {
@@ -289,35 +253,31 @@ export async function updateStaffUser(input: UpdateStaffInput) {
   }
 
   try {
-    const updateData: Record<string, unknown> = {}
-
     if (input.name !== undefined) {
-      updateData.name = input.name
+      await auth.api.adminUpdateUser({
+        body: {
+          userId: input.id,
+          data: {
+            name: input.name,
+          },
+        },
+        headers: await headers(),
+      })
     }
 
-    if (input.role !== undefined) {
-      updateData.role = input.role
+    if (input.role !== undefined && input.role !== targetUser.role) {
+      await auth.api.setRole({
+        body: {
+          userId: input.id,
+          role: input.role,
+        },
+        headers: await headers(),
+      })
     }
 
-    if (Object.keys(updateData).length === 0) {
+    if (input.name === undefined && input.role === undefined) {
       return { success: false, error: "No changes provided" }
     }
-
-    updateData.updatedAt = new Date()
-
-    await db.update(user).set(updateData).where(eq(user.id, input.id))
-
-    // Log activity
-    await logActivity({
-      action: input.role ? "user.role_change" : "user.update",
-      entityType: "user",
-      entityId: input.id,
-      details: {
-        changes: updateData,
-        previousRole: targetUser.role,
-        newRole: input.role,
-      },
-    })
 
     return { success: true, message: "Staff user updated" }
   } catch (error) {
@@ -335,7 +295,6 @@ export async function banStaffUser(
   reason?: string,
   expiresAt?: Date,
 ) {
-  // Only admins can ban users
   let session
   try {
     session = await requireAdmin()
@@ -343,34 +302,22 @@ export async function banStaffUser(
     return { success: false, error: "Only administrators can ban users" }
   }
 
-  // Can't ban yourself
   if (userId === session.user.id) {
     return { success: false, error: "You cannot ban yourself" }
   }
 
   try {
-    await db
-      .update(user)
-      .set({
-        banned: true,
-        banReason: reason || null,
-        banExpires: expiresAt || null,
-        updatedAt: new Date(),
-      })
-      .where(eq(user.id, userId))
+    const banExpiresIn = expiresAt
+      ? Math.max(Math.floor((expiresAt.getTime() - Date.now()) / 1000), 1)
+      : undefined
 
-    // Revoke all sessions for the banned user
-    await db.delete(sessionTable).where(eq(sessionTable.userId, userId))
-
-    // Log activity
-    await logActivity({
-      action: "user.ban",
-      entityType: "user",
-      entityId: userId,
-      details: {
-        reason: reason || "No reason provided",
-        expiresAt: expiresAt?.toISOString() || "permanent",
+    await auth.api.banUser({
+      body: {
+        userId,
+        ...(reason ? { banReason: reason } : {}),
+        ...(banExpiresIn ? { banExpiresIn } : {}),
       },
+      headers: await headers(),
     })
 
     return { success: true, message: "User banned and sessions revoked" }
@@ -384,7 +331,6 @@ export async function banStaffUser(
 }
 
 export async function unbanStaffUser(userId: string) {
-  // Only admins can unban users
   try {
     await requireAdmin()
   } catch {
@@ -392,21 +338,9 @@ export async function unbanStaffUser(userId: string) {
   }
 
   try {
-    await db
-      .update(user)
-      .set({
-        banned: false,
-        banReason: null,
-        banExpires: null,
-        updatedAt: new Date(),
-      })
-      .where(eq(user.id, userId))
-
-    // Log activity
-    await logActivity({
-      action: "user.unban",
-      entityType: "user",
-      entityId: userId,
+    await auth.api.unbanUser({
+      body: { userId },
+      headers: await headers(),
     })
 
     return { success: true, message: "User unbanned" }
@@ -420,7 +354,6 @@ export async function unbanStaffUser(userId: string) {
 }
 
 export async function resetStaffPassword(userId: string) {
-  // Only admins can reset passwords
   let session
   try {
     session = await requireAdmin()
@@ -428,13 +361,6 @@ export async function resetStaffPassword(userId: string) {
     return { success: false, error: "Only administrators can reset passwords" }
   }
 
-  // Get current user info for email
-  const currentUser = await db.query.user.findFirst({
-    where: eq(user.id, session.user.id),
-    columns: { id: true, name: true },
-  })
-
-  // Can't reset your own password through this method
   if (userId === session.user.id) {
     return {
       success: false,
@@ -442,40 +368,44 @@ export async function resetStaffPassword(userId: string) {
     }
   }
 
-  // Check target user exists and is staff
   const targetUser = await db.query.user.findFirst({
-    where: and(
-      eq(user.id, userId),
-      or(
-        eq(user.role, "admin"),
-        eq(user.role, "manager"),
-        eq(user.role, "support"),
-      ),
-    ),
+    where: and(eq(user.id, userId), staffRoleCondition()),
+    columns: {
+      email: true,
+      name: true,
+    },
   })
 
   if (!targetUser) {
     return { success: false, error: "Staff user not found" }
   }
 
+  const currentUser = await db.query.user.findFirst({
+    where: eq(user.id, session.user.id),
+    columns: { name: true },
+  })
+
   try {
-    // Generate a new temporary password
     const temporaryPassword = generateSecurePassword()
 
-    // Update password via BetterAuth or direct hash
-    // For now, we'll need to use the change password flow
-    // This requires integration with BetterAuth's admin API
+    await auth.api.setUserPassword({
+      body: {
+        userId,
+        newPassword: temporaryPassword,
+      },
+      headers: await headers(),
+    })
 
-    // Update user to require password change
-    await db
-      .update(user)
-      .set({
-        mustChangePassword: true,
-        updatedAt: new Date(),
-      })
-      .where(eq(user.id, userId))
+    await auth.api.adminUpdateUser({
+      body: {
+        userId,
+        data: {
+          mustChangePassword: true,
+        },
+      },
+      headers: await headers(),
+    })
 
-    // Send email with new temporary password
     await sendEmail({
       to: targetUser.email,
       template: "password-reset-by-admin",
@@ -485,16 +415,6 @@ export async function resetStaffPassword(userId: string) {
         temporaryPassword,
         adminName: currentUser?.name || "An administrator",
         loginUrl: `${process.env.NEXT_PUBLIC_APP_URL}/auth/login`,
-      },
-    })
-
-    // Log activity
-    await logActivity({
-      action: "user.password_reset",
-      entityType: "user",
-      entityId: userId,
-      details: {
-        targetEmail: targetUser.email,
       },
     })
 
@@ -510,7 +430,6 @@ export async function resetStaffPassword(userId: string) {
 }
 
 export async function deleteStaffUser(userId: string) {
-  // Only admins can delete users
   let session
   try {
     session = await requireAdmin()
@@ -518,21 +437,15 @@ export async function deleteStaffUser(userId: string) {
     return { success: false, error: "Only administrators can delete users" }
   }
 
-  // Can't delete yourself
   if (userId === session.user.id) {
     return { success: false, error: "You cannot delete your own account" }
   }
 
-  // Check target user exists and is staff
   const targetUser = await db.query.user.findFirst({
-    where: and(
-      eq(user.id, userId),
-      or(
-        eq(user.role, "admin"),
-        eq(user.role, "manager"),
-        eq(user.role, "support"),
-      ),
-    ),
+    where: and(eq(user.id, userId), staffRoleCondition()),
+    columns: {
+      id: true,
+    },
   })
 
   if (!targetUser) {
@@ -540,23 +453,10 @@ export async function deleteStaffUser(userId: string) {
   }
 
   try {
-    // Delete all sessions first
-    await db.delete(sessionTable).where(eq(sessionTable.userId, userId))
-
-    // Log activity before delete (while we still have user info)
-    await logActivity({
-      action: "user.delete",
-      entityType: "user",
-      entityId: userId,
-      details: {
-        deletedEmail: targetUser.email,
-        deletedName: targetUser.name,
-        deletedRole: targetUser.role,
-      },
+    await auth.api.removeUser({
+      body: { userId },
+      headers: await headers(),
     })
-
-    // Delete the user
-    await db.delete(user).where(eq(user.id, userId))
 
     return { success: true, message: "Staff user deleted" }
   } catch (error) {
@@ -568,40 +468,36 @@ export async function deleteStaffUser(userId: string) {
   }
 }
 
-/**
- * Get sessions for a specific staff user (admin action)
- */
 export async function getStaffUserSessions(userId: string) {
-  // Only admins can view other users' sessions
   try {
     await requireAdmin()
   } catch {
     return []
   }
 
-  // Get sessions for the target user
-  const sessions = await db.query.session.findMany({
-    where: eq(sessionTable.userId, userId),
-    orderBy: (sessions, { desc }) => [desc(sessions.createdAt)],
-  })
+  try {
+    const result = await auth.api.listUserSessions({
+      body: { userId },
+      headers: await headers(),
+    })
 
-  return sessions.map((s) => ({
-    id: s.id,
-    createdAt: s.createdAt,
-    expiresAt: s.expiresAt,
-    ipAddress: s.ipAddress,
-    userAgent: s.userAgent,
-  }))
+    return result.sessions.map((session) => ({
+      id: session.token,
+      createdAt: session.createdAt,
+      expiresAt: session.expiresAt,
+      ipAddress: session.ipAddress ?? null,
+      userAgent: session.userAgent ?? null,
+    }))
+  } catch (error) {
+    console.error("Failed to load staff sessions:", error)
+    return []
+  }
 }
 
-/**
- * Revoke a specific session for any user (admin action)
- */
 export async function revokeUserSession(
-  sessionId: string,
+  sessionToken: string,
   targetUserId: string,
 ) {
-  // Only admins can revoke other users' sessions
   let session
   try {
     session = await requireAdmin()
@@ -612,7 +508,6 @@ export async function revokeUserSession(
     }
   }
 
-  // Can't revoke your own session from this endpoint
   if (targetUserId === session.user.id) {
     return {
       success: false,
@@ -621,15 +516,11 @@ export async function revokeUserSession(
   }
 
   try {
-    await db.delete(sessionTable).where(eq(sessionTable.id, sessionId))
-
-    await logActivity({
-      action: "session.revoke",
-      entityType: "session",
-      entityId: sessionId,
-      details: {
-        targetUserId,
+    await auth.api.revokeUserSession({
+      body: {
+        sessionToken,
       },
+      headers: await headers(),
     })
 
     return { success: true }
@@ -639,11 +530,7 @@ export async function revokeUserSession(
   }
 }
 
-/**
- * Revoke all sessions for a user (admin action)
- */
 export async function revokeAllUserSessions(targetUserId: string) {
-  // Only admins can revoke other users' sessions
   let session
   try {
     session = await requireAdmin()
@@ -654,7 +541,6 @@ export async function revokeAllUserSessions(targetUserId: string) {
     }
   }
 
-  // Can't revoke your own sessions from this endpoint
   if (targetUserId === session.user.id) {
     return {
       success: false,
@@ -663,13 +549,11 @@ export async function revokeAllUserSessions(targetUserId: string) {
   }
 
   try {
-    await db.delete(sessionTable).where(eq(sessionTable.userId, targetUserId))
-
-    await logActivity({
-      action: "session.revoke_all",
-      entityType: "user",
-      entityId: targetUserId,
-      details: {},
+    await auth.api.revokeUserSessions({
+      body: {
+        userId: targetUserId,
+      },
+      headers: await headers(),
     })
 
     return { success: true }
@@ -679,11 +563,7 @@ export async function revokeAllUserSessions(targetUserId: string) {
   }
 }
 
-/**
- * Get activity logs for a specific user (admin action)
- */
 export async function getStaffUserActivity(userId: string, limit = 50) {
-  // Only admins and managers can view activity
   try {
     await requireRole(["admin", "manager"])
   } catch {
@@ -692,11 +572,9 @@ export async function getStaffUserActivity(userId: string, limit = 50) {
 
   const { adminActivityLogs } = await import("@/lib/db/schema/admin")
 
-  const logs = await db.query.adminActivityLogs.findMany({
+  return db.query.adminActivityLogs.findMany({
     where: eq(adminActivityLogs.userId, userId),
     orderBy: (logs, { desc: descOrder }) => [descOrder(logs.createdAt)],
     limit,
   })
-
-  return logs
 }

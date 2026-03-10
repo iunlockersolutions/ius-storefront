@@ -22,7 +22,6 @@ export function useAdminSettingsQuery() {
       const body = await response.json()
       return body.data as Record<string, string>
     },
-    retry: 2,
     staleTime: 60_000,
   })
 }

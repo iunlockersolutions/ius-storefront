@@ -8,11 +8,11 @@ import { eq } from "drizzle-orm"
 import { auth } from "@/lib/auth"
 import { requireStaff } from "@/lib/auth/rbac"
 import { db } from "@/lib/db"
-import { roles, user, userRoles } from "@/lib/db/schema"
+import { user } from "@/lib/db/schema"
 import { sendEmail } from "@/lib/email/send"
 
 /**
- * Get current staff user's profile with roles
+ * Get current staff user's profile
  */
 export async function getStaffProfile() {
   const session = await requireStaff()
@@ -25,17 +25,6 @@ export async function getStaffProfile() {
     throw new Error("User not found")
   }
 
-  // Get user roles
-  const userRolesData = await db
-    .select({
-      roleName: roles.name,
-      roleDescription: roles.description,
-      assignedAt: userRoles.assignedAt,
-    })
-    .from(userRoles)
-    .innerJoin(roles, eq(userRoles.roleId, roles.id))
-    .where(eq(userRoles.userId, session.user.id))
-
   return {
     id: userData.id,
     name: userData.name,
@@ -46,11 +35,7 @@ export async function getStaffProfile() {
     updatedAt: userData.updatedAt,
     role: userData.role,
     lastPasswordChange: userData.lastPasswordChange,
-    roles: userRolesData.map((r) => ({
-      name: r.roleName,
-      description: r.roleDescription,
-      assignedAt: r.assignedAt,
-    })),
+    twoFactorEnabled: userData.twoFactorEnabled,
   }
 }
 

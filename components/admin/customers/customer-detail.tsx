@@ -1,33 +1,18 @@
 "use client"
-
-import { useState } from "react"
 import Link from "next/link"
 
 import {
   Calendar,
   DollarSign,
-  Loader2,
   Mail,
   MapPin,
   Phone,
-  Plus,
-  Shield,
   ShoppingBag,
-  X,
 } from "lucide-react"
-import { toast } from "sonner"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import {
   Table,
   TableBody,
@@ -36,10 +21,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import {
-  useAssignCustomerRoleMutation,
-  useRemoveCustomerRoleMutation,
-} from "@/hooks/admin/use-customer-role-mutations"
 
 interface CustomerDetailProps {
   customer: {
@@ -71,7 +52,6 @@ interface CustomerDetailProps {
       postalCode: string
       country: string
     }>
-    roles: Array<{ roleId: string; roleName: string }>
     stats: {
       totalOrders: number
       totalSpent: number
@@ -90,7 +70,6 @@ interface CustomerDetailProps {
     total: number
     totalPages: number
   }
-  allRoles: Array<{ id: string; name: string }>
 }
 
 function formatCurrency(amount: number): string {
@@ -135,41 +114,7 @@ const STATUS_COLORS: Record<string, string> = {
 export function CustomerDetail({
   customer,
   orders,
-  allRoles,
 }: CustomerDetailProps) {
-  const [selectedRole, setSelectedRole] = useState<string>("")
-  const assignRoleMutation = useAssignCustomerRoleMutation(customer.user.id)
-  const removeRoleMutation = useRemoveCustomerRoleMutation(customer.user.id)
-
-  const availableRoles = allRoles.filter(
-    (role) => !customer.roles.some((r) => r.roleId === role.id),
-  )
-
-  async function handleAddRole() {
-    if (!selectedRole) return
-
-    try {
-      await assignRoleMutation.mutateAsync(selectedRole)
-      toast.success("Role assigned successfully")
-      setSelectedRole("")
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to assign role",
-      )
-    }
-  }
-
-  async function handleRemoveRole(roleId: string) {
-    try {
-      await removeRoleMutation.mutateAsync(roleId)
-      toast.success("Role removed successfully")
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to remove role",
-      )
-    }
-  }
-
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       {/* Main Info */}
@@ -297,80 +242,6 @@ export function CustomerDetail({
 
       {/* Sidebar */}
       <div className="space-y-6">
-        {/* Roles */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5" />
-              Roles
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Current Roles */}
-            <div className="flex flex-wrap gap-2">
-              {customer.roles.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No roles assigned
-                </p>
-              ) : (
-                customer.roles.map((role) => (
-                  <Badge
-                    key={role.roleId}
-                    variant="secondary"
-                    className="flex items-center gap-1"
-                  >
-                    {role.roleName}
-                    <button
-                      onClick={() => handleRemoveRole(role.roleId)}
-                      disabled={
-                        removeRoleMutation.isPending &&
-                        removeRoleMutation.variables === role.roleId
-                      }
-                      className="ml-1 hover:text-destructive"
-                    >
-                      {removeRoleMutation.isPending &&
-                      removeRoleMutation.variables === role.roleId ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <X className="h-3 w-3" />
-                      )}
-                    </button>
-                  </Badge>
-                ))
-              )}
-            </div>
-
-            {/* Add Role */}
-            {availableRoles.length > 0 && (
-              <div className="flex gap-2">
-                <Select value={selectedRole} onValueChange={setSelectedRole}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Add role..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableRoles.map((role) => (
-                      <SelectItem key={role.id} value={role.id}>
-                        {role.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  size="icon"
-                  onClick={handleAddRole}
-                  disabled={!selectedRole || assignRoleMutation.isPending}
-                >
-                  {assignRoleMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Plus className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
         {/* Addresses */}
         <Card>
           <CardHeader>

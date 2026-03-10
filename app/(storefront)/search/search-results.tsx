@@ -4,18 +4,12 @@ import { ChevronLeft, ChevronRight, SearchX } from "lucide-react"
 
 import { ProductCard } from "@/components/storefront/product-card"
 import { Button } from "@/components/ui/button"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { searchProducts } from "@/lib/actions/search"
 
 interface SearchResultsProps {
   query: string
   category?: string
+  brand?: string
   minPrice?: number
   maxPrice?: number
   sort?: "relevance" | "price-asc" | "price-desc" | "newest"
@@ -25,6 +19,7 @@ interface SearchResultsProps {
 export async function SearchResults({
   query,
   category,
+  brand,
   minPrice,
   maxPrice,
   sort = "relevance",
@@ -33,6 +28,7 @@ export async function SearchResults({
   const results = await searchProducts({
     query,
     category,
+    brand,
     minPrice,
     maxPrice,
     sort,
@@ -47,6 +43,7 @@ export async function SearchResults({
     const params = new URLSearchParams()
     if (query) params.set("q", query)
     if (category) params.set("category", category)
+    if (brand) params.set("brand", brand)
     if (minPrice) params.set("minPrice", minPrice.toString())
     if (maxPrice) params.set("maxPrice", maxPrice.toString())
 
@@ -89,24 +86,25 @@ export async function SearchResults({
           Showing {(page - 1) * 12 + 1}-{Math.min(page * 12, pagination.total)}{" "}
           of {pagination.total} results
         </p>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm text-muted-foreground">Sort by:</span>
-          <Select
-            defaultValue={sort}
-            onValueChange={(value) => {
-              window.location.href = buildUrl({ sort: value, page: 1 })
-            }}
-          >
-            <SelectTrigger className="w-45">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="relevance">Relevance</SelectItem>
-              <SelectItem value="newest">Newest</SelectItem>
-              <SelectItem value="price-asc">Price: Low to High</SelectItem>
-              <SelectItem value="price-desc">Price: High to Low</SelectItem>
-            </SelectContent>
-          </Select>
+          {[
+            { value: "relevance", label: "Relevance" },
+            { value: "newest", label: "Newest" },
+            { value: "price-asc", label: "Price: Low to High" },
+            { value: "price-desc", label: "Price: High to Low" },
+          ].map((option) => (
+            <Button
+              key={option.value}
+              variant={sort === option.value ? "default" : "outline"}
+              size="sm"
+              asChild
+            >
+              <Link href={buildUrl({ sort: option.value, page: 1 })}>
+                {option.label}
+              </Link>
+            </Button>
+          ))}
         </div>
       </div>
 

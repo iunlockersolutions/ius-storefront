@@ -1,6 +1,4 @@
-import { categories } from "@/lib/db/schema"
-
-interface QueryParams {
+export interface QueryParams {
   [key: string]: string | number | boolean | undefined
 }
 
@@ -29,10 +27,13 @@ export const routes = {
     categories: {
       root: "/categories",
     },
-    cart: "/ops/cart",
-    favorites: "/ops/favorites",
-    search: (params: QueryParams) =>
-      `/ops/search${generateQueryString(params)}`,
+    brands: {
+      root: "/brands",
+      id: (id: string) => `/brands/${id}`,
+    },
+    cart: "/cart",
+    favorites: "/favorites",
+    search: (params: QueryParams) => `/search${generateQueryString(params)}`,
   },
   ops: {
     root: "/ops",
@@ -42,6 +43,11 @@ export const routes = {
       root: "/ops/products",
       new: "/ops/products/new",
       id: (id: string) => `/ops/products/${id}`,
+    },
+    brands: {
+      root: "/ops/brands",
+      new: "/ops/brands/new",
+      id: (id: string) => `/ops/brands/${id}`,
     },
   },
   errors: {

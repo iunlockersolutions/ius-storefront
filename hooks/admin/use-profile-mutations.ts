@@ -96,7 +96,6 @@ export function useUserSessionsQuery() {
       const body = await response.json()
       return body.data as UserSession[]
     },
-    retry: 1,
     staleTime: 30_000,
   })
 }

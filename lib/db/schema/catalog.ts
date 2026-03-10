@@ -16,6 +16,35 @@ import { productStatusEnum } from "./enums"
 import { inventoryItems } from "./inventory"
 
 /**
+ * Brands - First-class catalog brands.
+ */
+export const brands = pgTable(
+  "brands",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    slug: text("slug").notNull().unique(),
+    description: text("description"),
+    logo: text("logo"),
+    websiteUrl: text("website_url"),
+    isActive: boolean("is_active").notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+    metaTitle: text("meta_title"),
+    metaDescription: text("meta_description"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("brands_slug_idx").on(table.slug),
+    index("brands_is_active_idx").on(table.isActive),
+  ],
+)
+
+/**
  * Categories - Product categories with hierarchical support.
  */
 export const categories = pgTable(
@@ -26,6 +55,8 @@ export const categories = pgTable(
     slug: text("slug").notNull().unique(),
     description: text("description"),
     image: text("image"),
+    metaTitle: text("meta_title"),
+    metaDescription: text("meta_description"),
     parentId: uuid("parent_id").references((): AnyPgColumn => categories.id, {
       onDelete: "set null",
     }),
@@ -55,9 +86,19 @@ export const products = pgTable(
     slug: text("slug").notNull().unique(),
     description: text("description"),
     shortDescription: text("short_description"),
+    brandId: uuid("brand_id").references(() => brands.id, {
+      onDelete: "set null",
+    }),
+    // Legacy single-category column kept for migration safety.
     categoryId: uuid("category_id").references(() => categories.id, {
       onDelete: "set null",
     }),
+    primaryCategoryId: uuid("primary_category_id").references(
+      () => categories.id,
+      {
+        onDelete: "set null",
+      },
+    ),
     basePrice: decimal("base_price", { precision: 10, scale: 2 }).notNull(),
     compareAtPrice: decimal("compare_at_price", { precision: 10, scale: 2 }),
     costPrice: decimal("cost_price", { precision: 10, scale: 2 }),
@@ -74,9 +115,38 @@ export const products = pgTable(
   },
   (table) => [
     index("products_slug_idx").on(table.slug),
+    index("products_brand_id_idx").on(table.brandId),
     index("products_category_id_idx").on(table.categoryId),
+    index("products_primary_category_id_idx").on(table.primaryCategoryId),
     index("products_status_idx").on(table.status),
     index("products_is_featured_idx").on(table.isFeatured),
+  ],
+)
+
+/**
+ * Product category assignments - Many-to-many category membership.
+ */
+export const productCategoryAssignments = pgTable(
+  "product_category_assignments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => categories.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("product_category_assignments_product_id_idx").on(table.productId),
+    index("product_category_assignments_category_id_idx").on(table.categoryId),
+    unique("product_category_assignments_unique").on(
+      table.productId,
+      table.categoryId,
+    ),
   ],
 )
 
@@ -182,6 +252,10 @@ export const productAttributeValues = pgTable(
 )
 
 // Relations
+export const brandsRelations = relations(brands, ({ many }) => ({
+  products: many(products),
+}))
+
 export const categoriesRelations = relations(categories, ({ one, many }) => ({
   parent: one(categories, {
     fields: [categories.parentId],
@@ -191,18 +265,41 @@ export const categoriesRelations = relations(categories, ({ one, many }) => ({
   children: many(categories, {
     relationName: "categoryHierarchy",
   }),
-  products: many(products),
+  primaryProducts: many(products, {
+    relationName: "productPrimaryCategory",
+  }),
+  productAssignments: many(productCategoryAssignments),
 }))
 
 export const productsRelations = relations(products, ({ one, many }) => ({
-  category: one(categories, {
-    fields: [products.categoryId],
-    references: [categories.id],
+  brand: one(brands, {
+    fields: [products.brandId],
+    references: [brands.id],
   }),
+  primaryCategory: one(categories, {
+    fields: [products.primaryCategoryId],
+    references: [categories.id],
+    relationName: "productPrimaryCategory",
+  }),
+  categoryAssignments: many(productCategoryAssignments),
   variants: many(productVariants),
   images: many(productImages),
   attributeValues: many(productAttributeValues),
 }))
+
+export const productCategoryAssignmentsRelations = relations(
+  productCategoryAssignments,
+  ({ one }) => ({
+    product: one(products, {
+      fields: [productCategoryAssignments.productId],
+      references: [products.id],
+    }),
+    category: one(categories, {
+      fields: [productCategoryAssignments.categoryId],
+      references: [categories.id],
+    }),
+  }),
+)
 
 export const productVariantsRelations = relations(
   productVariants,

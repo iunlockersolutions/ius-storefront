@@ -30,7 +30,6 @@ export function useReviewStatsQuery() {
       const body = await response.json()
       return body.data as ReviewStats
     },
-    retry: 2,
     staleTime: 60_000,
   })
 }

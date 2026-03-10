@@ -1,10 +1,12 @@
 import { headers } from "next/headers"
 
+import type { Role as BetterAuthRole } from "better-auth/plugins/access"
 import { eq } from "drizzle-orm"
 
 import { auth } from "@/lib/auth"
+import { roles as accessRoles } from "@/lib/auth/permissions"
 import { db } from "@/lib/db"
-import { roles, userRoles } from "@/lib/db/schema"
+import { user } from "@/lib/db/schema"
 
 /**
  * User Role Type
@@ -15,6 +17,7 @@ export type UserRole = "customer" | "admin" | "manager" | "support"
  * Resource types for permission checks
  */
 export type Resource =
+  | "brand"
   | "product"
   | "category"
   | "order"
@@ -49,6 +52,44 @@ export type Action =
  * Permission format: resource.action
  */
 export type Permission = `${Resource}.${Action}`
+
+const VALID_ROLES = ["customer", "admin", "manager", "support"] as const
+const STAFF_ROLES = new Set<UserRole>(["admin", "manager", "support"])
+const adminAccessRoles = accessRoles as Record<UserRole, BetterAuthRole>
+
+function isValidUserRole(value: string): value is UserRole {
+  return (VALID_ROLES as readonly string[]).includes(value)
+}
+
+export function normalizeUserRoles(roleValue?: string | null): UserRole[] {
+  const parsed = (roleValue ?? "customer")
+    .split(",")
+    .map((role) => role.trim())
+    .filter(isValidUserRole)
+
+  return parsed.length > 0 ? parsed : ["customer"]
+}
+
+export function getPrimaryUserRole(roleValue?: string | null): UserRole {
+  const roles = normalizeUserRoles(roleValue)
+
+  if (roles.includes("admin")) return "admin"
+  if (roles.includes("manager")) return "manager"
+  if (roles.includes("support")) return "support"
+  return "customer"
+}
+
+function toPermissionObject(permission: string) {
+  const [resource, action] = permission.split(".")
+
+  if (!resource || !action) {
+    return null
+  }
+
+  return {
+    [resource]: [action],
+  } as Record<string, string[]>
+}
 
 /**
  * Permission definitions for each role.
@@ -85,6 +126,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "customer.list",
   ],
   manager: [
+    // Brands
+    "brand.create",
+    "brand.read",
+    "brand.update",
+    "brand.delete",
+    "brand.list",
     // Products
     "product.create",
     "product.read",
@@ -136,15 +183,14 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
  * Get roles for a user by their ID.
  */
 export async function getUserRoles(userId: string): Promise<UserRole[]> {
-  const result = await db
-    .select({
-      roleName: roles.name,
-    })
-    .from(userRoles)
-    .innerJoin(roles, eq(userRoles.roleId, roles.id))
-    .where(eq(userRoles.userId, userId))
+  const existingUser = await db.query.user.findFirst({
+    where: eq(user.id, userId),
+    columns: {
+      role: true,
+    },
+  })
 
-  return result.map((r) => r.roleName as UserRole)
+  return normalizeUserRoles(existingUser?.role)
 }
 
 /**
@@ -177,10 +223,14 @@ export async function hasPermission(
   permission: string,
 ): Promise<boolean> {
   const userRolesList = await getUserRoles(userId)
+  const permissionObject = toPermissionObject(permission)
+
+  if (!permissionObject) {
+    return false
+  }
 
   for (const role of userRolesList) {
-    const permissions = ROLE_PERMISSIONS[role]
-    if (permissions.includes("*") || permissions.includes(permission)) {
+    if (adminAccessRoles[role]?.authorize(permissionObject).success) {
       return true
     }
   }
@@ -211,7 +261,8 @@ export async function isAdmin(userId: string): Promise<boolean> {
  * Check if a user is staff (admin, manager, or support).
  */
 export async function isStaff(userId: string): Promise<boolean> {
-  return hasAnyRole(userId, ["admin", "manager", "support"])
+  const roles = await getUserRoles(userId)
+  return roles.some((role) => STAFF_ROLES.has(role))
 }
 
 /**
@@ -245,7 +296,8 @@ export async function requireRole(requiredRoles: UserRole | UserRole[]) {
   const session = await requireAuth()
 
   const roles = Array.isArray(requiredRoles) ? requiredRoles : [requiredRoles]
-  const hasRequiredRole = await hasAnyRole(session.user.id, roles)
+  const sessionRoles = normalizeUserRoles(session.user.role)
+  const hasRequiredRole = roles.some((role) => sessionRoles.includes(role))
 
   if (!hasRequiredRole) {
     throw new Error("Insufficient permissions")
@@ -259,7 +311,13 @@ export async function requireRole(requiredRoles: UserRole | UserRole[]) {
  */
 export async function requirePermission(permission: string) {
   const session = await requireAuth()
-  const permitted = await hasPermission(session.user.id, permission)
+  const permissionObject = toPermissionObject(permission)
+  const sessionRoles = normalizeUserRoles(session.user.role)
+  const permitted =
+    permissionObject !== null &&
+    sessionRoles.some(
+      (role) => adminAccessRoles[role]?.authorize(permissionObject).success,
+    )
 
   if (!permitted) {
     throw new Error("Insufficient permissions")

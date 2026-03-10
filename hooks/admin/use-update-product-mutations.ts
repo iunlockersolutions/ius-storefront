@@ -5,18 +5,31 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { invalidateMutationCaches } from "@/lib/utils/query-invalidation-map"
 
 type UpdateProductPayload = {
-  name?: string
+  name: string
   slug?: string
   description?: string
   shortDescription?: string
-  categoryId?: string
-  basePrice?: string
+  brandId: string
+  primaryCategoryId: string
+  categoryIds: string[]
+  basePrice: string
   compareAtPrice?: string
   costPrice?: string
-  status?: "draft" | "active" | "archived"
-  isFeatured?: boolean
+  status: "draft" | "active" | "archived"
+  isFeatured: boolean
   metaTitle?: string
   metaDescription?: string
+  variants: Array<{
+    id?: string
+    sku?: string
+    name: string
+    price: string
+    compareAtPrice?: string
+    costPrice?: string
+    weight?: string
+    isDefault?: boolean
+    isActive?: boolean
+  }>
 }
 
 type ProductImagePayload = {

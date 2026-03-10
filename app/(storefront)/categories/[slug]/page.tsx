@@ -27,8 +27,11 @@ export async function generateMetadata({ params }: CategoryPageProps) {
   }
 
   return {
-    title: `${category.name} | IUS Shop`,
-    description: category.description || `Browse ${category.name} products`,
+    title: category.metaTitle || `${category.name} | IUS Shop`,
+    description:
+      category.metaDescription ||
+      category.description ||
+      `Browse ${category.name} products`,
   }
 }
 
@@ -36,8 +39,10 @@ export default async function CategoryPage({
   params,
   searchParams,
 }: CategoryPageProps) {
-  const { slug } = await params
-  const { page: pageStr, sort } = await searchParams
+  const [{ slug }, { page: pageStr, sort }] = await Promise.all([
+    params,
+    searchParams,
+  ])
 
   const category = await getCategoryBySlug(slug)
 
@@ -50,7 +55,7 @@ export default async function CategoryPage({
     (sort as "newest" | "price-low" | "price-high" | "name") || "newest"
 
   const { products, total, totalPages } = await getStorefrontProducts({
-    categoryId: category.id,
+    categorySlug: category.slug,
     page,
     limit: 12,
     sortBy,

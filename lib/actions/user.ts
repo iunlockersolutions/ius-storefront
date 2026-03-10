@@ -2,12 +2,12 @@
 
 import { revalidatePath } from "next/cache"
 
-import { and, eq } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 import { z } from "zod"
 
-import { getServerSession, requireAdmin, requireAuth } from "@/lib/auth/rbac"
+import { getServerSession, requireAuth } from "@/lib/auth/rbac"
 import { db } from "@/lib/db"
-import { customerProfiles, roles, userRoles, users } from "@/lib/db/schema"
+import { customerProfiles, users } from "@/lib/db/schema"
 
 // Schema for customer profile updates
 const updateProfileSchema = z.object({
@@ -76,74 +76,5 @@ export async function updateUserProfile(
   }
 
   revalidatePath("/profile")
-  return { success: true }
-}
-
-/**
- * Assign a role to a user (Admin only)
- */
-export async function assignUserRole(userId: string, roleName: string) {
-  const session = await requireAdmin()
-
-  // Get the role
-  const [role] = await db
-    .select()
-    .from(roles)
-    .where(
-      eq(roles.name, roleName as "customer" | "admin" | "manager" | "support"),
-    )
-    .limit(1)
-
-  if (!role) {
-    throw new Error("Role not found")
-  }
-
-  // Check if user already has this role
-  const existing = await db
-    .select()
-    .from(userRoles)
-    .where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, role.id)))
-    .limit(1)
-
-  if (existing.length > 0) {
-    return { success: true, message: "Role already assigned" }
-  }
-
-  // Assign role
-  await db.insert(userRoles).values({
-    userId,
-    roleId: role.id,
-    assignedBy: session.user.id,
-  })
-
-  revalidatePath("/ops/customers")
-  return { success: true }
-}
-
-/**
- * Remove a role from a user (Admin only)
- */
-export async function removeUserRole(userId: string, roleName: string) {
-  await requireAdmin()
-
-  // Get the role
-  const [role] = await db
-    .select()
-    .from(roles)
-    .where(
-      eq(roles.name, roleName as "customer" | "admin" | "manager" | "support"),
-    )
-    .limit(1)
-
-  if (!role) {
-    throw new Error("Role not found")
-  }
-
-  // Remove role
-  await db
-    .delete(userRoles)
-    .where(and(eq(userRoles.userId, userId), eq(userRoles.roleId, role.id)))
-
-  revalidatePath("/ops/customers")
   return { success: true }
 }

@@ -10,10 +10,11 @@ export function CategoriesPageClient() {
     id: category.id,
     name: category.name,
     slug: category.slug,
-    level: 0,
-    path: category.name,
+    level: category.level || 0,
+    path: category.path || category.name,
     isActive: category.isActive,
     sortOrder: category.sortOrder,
+    productCount: category.productCount,
   }))
 
   return (

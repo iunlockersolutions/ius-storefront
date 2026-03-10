@@ -9,10 +9,13 @@ import {
   categories,
   orderItems,
   orders,
+  productCategoryAssignments,
   productImages,
   products,
   productVariants,
 } from "@/lib/db/schema"
+
+import { withStorefrontCatalogFallback } from "./storefront-catalog-read"
 
 // ============================================
 // Get Featured Products
@@ -21,46 +24,56 @@ import {
 export async function getFeaturedProducts(limit: number = 8) {
   return unstable_cache(
     async () => {
-      const featuredProducts = await db
-        .select({
-          id: products.id,
-          name: products.name,
-          slug: products.slug,
-          shortDescription: products.shortDescription,
-          basePrice: products.basePrice,
-          compareAtPrice: products.compareAtPrice,
-          isFeatured: products.isFeatured,
-        })
-        .from(products)
-        .where(
-          and(eq(products.status, "active"), eq(products.isFeatured, true)),
-        )
-        .orderBy(desc(products.createdAt))
-        .limit(limit)
+      const featuredProducts = await withStorefrontCatalogFallback(
+        "storefront:getFeaturedProducts:products",
+        [],
+        () =>
+          db
+            .select({
+              id: products.id,
+              name: products.name,
+              slug: products.slug,
+              shortDescription: products.shortDescription,
+              basePrice: products.basePrice,
+              compareAtPrice: products.compareAtPrice,
+              isFeatured: products.isFeatured,
+            })
+            .from(products)
+            .where(
+              and(eq(products.status, "active"), eq(products.isFeatured, true)),
+            )
+            .orderBy(desc(products.createdAt))
+            .limit(limit),
+      )
 
-      // Get primary images
-      const productIds = featuredProducts.map((p) => p.id)
-      const images =
-        productIds.length > 0
-          ? await db
-              .select({
-                productId: productImages.productId,
-                url: productImages.url,
-              })
-              .from(productImages)
-              .where(
-                and(
-                  inArray(productImages.productId, productIds),
-                  eq(productImages.isPrimary, true),
-                ),
-              )
-          : []
+      const imageMap = await withStorefrontCatalogFallback(
+        "storefront:getFeaturedProducts:images",
+        new Map<string, string>(),
+        async () => {
+          const productIds = featuredProducts.map((product) => product.id)
+          const images =
+            productIds.length > 0
+              ? await db
+                  .select({
+                    productId: productImages.productId,
+                    url: productImages.url,
+                  })
+                  .from(productImages)
+                  .where(
+                    and(
+                      inArray(productImages.productId, productIds),
+                      eq(productImages.isPrimary, true),
+                    ),
+                  )
+              : []
 
-      const imageMap = new Map(images.map((img) => [img.productId, img.url]))
+          return new Map(images.map((image) => [image.productId, image.url]))
+        },
+      )
 
-      return featuredProducts.map((p) => ({
-        ...p,
-        image: imageMap.get(p.id) || null,
+      return featuredProducts.map((product) => ({
+        ...product,
+        image: imageMap.get(product.id) || null,
       }))
     },
     [`featured-products-${limit}`],
@@ -82,50 +95,60 @@ export async function getNewArrivals(limit: number = 8) {
       const thirtyDaysAgo = new Date()
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
-      const newProducts = await db
-        .select({
-          id: products.id,
-          name: products.name,
-          slug: products.slug,
-          shortDescription: products.shortDescription,
-          basePrice: products.basePrice,
-          compareAtPrice: products.compareAtPrice,
-          isFeatured: products.isFeatured,
-          createdAt: products.createdAt,
-        })
-        .from(products)
-        .where(
-          and(
-            eq(products.status, "active"),
-            gte(products.createdAt, thirtyDaysAgo),
-          ),
-        )
-        .orderBy(desc(products.createdAt))
-        .limit(limit)
+      const newProducts = await withStorefrontCatalogFallback(
+        "storefront:getNewArrivals:products",
+        [],
+        () =>
+          db
+            .select({
+              id: products.id,
+              name: products.name,
+              slug: products.slug,
+              shortDescription: products.shortDescription,
+              basePrice: products.basePrice,
+              compareAtPrice: products.compareAtPrice,
+              isFeatured: products.isFeatured,
+              createdAt: products.createdAt,
+            })
+            .from(products)
+            .where(
+              and(
+                eq(products.status, "active"),
+                gte(products.createdAt, thirtyDaysAgo),
+              ),
+            )
+            .orderBy(desc(products.createdAt))
+            .limit(limit),
+      )
 
-      // Get primary images
-      const productIds = newProducts.map((p) => p.id)
-      const images =
-        productIds.length > 0
-          ? await db
-              .select({
-                productId: productImages.productId,
-                url: productImages.url,
-              })
-              .from(productImages)
-              .where(
-                and(
-                  inArray(productImages.productId, productIds),
-                  eq(productImages.isPrimary, true),
-                ),
-              )
-          : []
+      const imageMap = await withStorefrontCatalogFallback(
+        "storefront:getNewArrivals:images",
+        new Map<string, string>(),
+        async () => {
+          const productIds = newProducts.map((product) => product.id)
+          const images =
+            productIds.length > 0
+              ? await db
+                  .select({
+                    productId: productImages.productId,
+                    url: productImages.url,
+                  })
+                  .from(productImages)
+                  .where(
+                    and(
+                      inArray(productImages.productId, productIds),
+                      eq(productImages.isPrimary, true),
+                    ),
+                  )
+              : []
 
-      const imageMap = new Map(images.map((img) => [img.productId, img.url]))
+          return new Map(images.map((image) => [image.productId, image.url]))
+        },
+      )
 
-      return newProducts.map((p) => ({
-        ...p,
-        image: imageMap.get(p.id) || null,
+      return newProducts.map((product) => ({
+        ...product,
+        image: imageMap.get(product.id) || null,
       }))
     },
     [`new-arrivals-${limit}`],
@@ -148,23 +171,31 @@ export async function getBestSellers(limit: number = 8) {
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
       // Get top selling product IDs
-      const topSelling = await db
-        .select({
-          productId: productVariants.productId,
-          totalSold: sql<number>`SUM(${orderItems.quantity})::int`,
-        })
-        .from(orderItems)
-        .innerJoin(orders, eq(orderItems.orderId, orders.id))
-        .innerJoin(
-          productVariants,
-          eq(orderItems.variantId, productVariants.id),
-        )
-        .where(
-          and(eq(orders.status, "paid"), gte(orders.createdAt, thirtyDaysAgo)),
-        )
-        .groupBy(productVariants.productId)
-        .orderBy(desc(sql`SUM(${orderItems.quantity})`))
-        .limit(limit)
+      const topSelling = await withStorefrontCatalogFallback(
+        "storefront:getBestSellers:sales",
+        [] as Array<{ productId: string; totalSold: number }>,
+        () =>
+          db
+            .select({
+              productId: productVariants.productId,
+              totalSold: sql<number>`SUM(${orderItems.quantity})::int`,
+            })
+            .from(orderItems)
+            .innerJoin(orders, eq(orderItems.orderId, orders.id))
+            .innerJoin(
+              productVariants,
+              eq(orderItems.variantId, productVariants.id),
+            )
+            .where(
+              and(
+                eq(orders.status, "paid"),
+                gte(orders.createdAt, thirtyDaysAgo),
+              ),
+            )
+            .groupBy(productVariants.productId)
+            .orderBy(desc(sql`SUM(${orderItems.quantity})`))
+            .limit(limit),
+      )
 
       if (topSelling.length === 0) {
         // Fall back to featured products if no sales yet
@@ -173,46 +204,59 @@ export async function getBestSellers(limit: number = 8) {
 
       const productIds = topSelling.map((p) => p.productId)
 
-      const bestSellerProducts = await db
-        .select({
-          id: products.id,
-          name: products.name,
-          slug: products.slug,
-          shortDescription: products.shortDescription,
-          basePrice: products.basePrice,
-          compareAtPrice: products.compareAtPrice,
-          isFeatured: products.isFeatured,
-        })
-        .from(products)
-        .where(
-          and(eq(products.status, "active"), inArray(products.id, productIds)),
-        )
+      const bestSellerProducts = await withStorefrontCatalogFallback(
+        "storefront:getBestSellers:products",
+        [],
+        () =>
+          db
+            .select({
+              id: products.id,
+              name: products.name,
+              slug: products.slug,
+              shortDescription: products.shortDescription,
+              basePrice: products.basePrice,
+              compareAtPrice: products.compareAtPrice,
+              isFeatured: products.isFeatured,
+            })
+            .from(products)
+            .where(
+              and(
+                eq(products.status, "active"),
+                inArray(products.id, productIds),
+              ),
+            ),
+      )
 
-      // Get primary images
-      const images = await db
-        .select({
-          productId: productImages.productId,
-          url: productImages.url,
-        })
-        .from(productImages)
-        .where(
-          and(
-            inArray(productImages.productId, productIds),
-            eq(productImages.isPrimary, true),
-          ),
-        )
+      const imageMap = await withStorefrontCatalogFallback(
+        "storefront:getBestSellers:images",
+        new Map<string, string>(),
+        async () => {
+          const images = await db
+            .select({
+              productId: productImages.productId,
+              url: productImages.url,
+            })
+            .from(productImages)
+            .where(
+              and(
+                inArray(productImages.productId, productIds),
+                eq(productImages.isPrimary, true),
+              ),
+            )
 
-      const imageMap = new Map(images.map((img) => [img.productId, img.url]))
+          return new Map(images.map((image) => [image.productId, image.url]))
+        },
+      )
       const salesMap = new Map(
-        topSelling.map((p) => [p.productId, p.totalSold]),
+        topSelling.map((product) => [product.productId, product.totalSold]),
       )
 
       // Sort by sales count
       return bestSellerProducts
-        .map((p) => ({
-          ...p,
-          image: imageMap.get(p.id) || null,
-          totalSold: salesMap.get(p.id) || 0,
+        .map((product) => ({
+          ...product,
+          image: imageMap.get(product.id) || null,
+          totalSold: salesMap.get(product.id) || 0,
         }))
         .sort((a, b) => b.totalSold - a.totalSold)
     },
@@ -231,45 +275,58 @@ export async function getBestSellers(limit: number = 8) {
 export async function getFeaturedCategories(limit: number = 6) {
   return unstable_cache(
     async () => {
-      const featuredCats = await db
-        .select({
-          id: categories.id,
-          name: categories.name,
-          slug: categories.slug,
-          description: categories.description,
-          image: categories.image,
-        })
-        .from(categories)
-        .where(eq(categories.isActive, true))
-        .orderBy(categories.sortOrder)
-        .limit(limit)
+      const featuredCats = await withStorefrontCatalogFallback(
+        "storefront:getFeaturedCategories:categories",
+        [],
+        () =>
+          db
+            .select({
+              id: categories.id,
+              name: categories.name,
+              slug: categories.slug,
+              description: categories.description,
+              image: categories.image,
+            })
+            .from(categories)
+            .where(eq(categories.isActive, true))
+            .orderBy(categories.sortOrder)
+            .limit(limit),
+      )
 
-      // Get product count for each category
-      const catIds = featuredCats.map((c) => c.id)
+      const catIds = featuredCats.map((category) => category.id)
       const productCounts =
         catIds.length > 0
-          ? await db
-              .select({
-                categoryId: products.categoryId,
-                count: sql<number>`count(*)::int`,
-              })
-              .from(products)
-              .where(
-                and(
-                  eq(products.status, "active"),
-                  inArray(products.categoryId, catIds),
-                ),
-              )
-              .groupBy(products.categoryId)
+          ? await withStorefrontCatalogFallback(
+              "storefront:getFeaturedCategories:counts",
+              [] as Array<{ categoryId: string; count: number }>,
+              () =>
+                db
+                  .select({
+                    categoryId: productCategoryAssignments.categoryId,
+                    count: sql<number>`count(*)::int`,
+                  })
+                  .from(productCategoryAssignments)
+                  .innerJoin(
+                    products,
+                    eq(productCategoryAssignments.productId, products.id),
+                  )
+                  .where(
+                    and(
+                      eq(products.status, "active"),
+                      inArray(productCategoryAssignments.categoryId, catIds),
+                    ),
+                  )
+                  .groupBy(productCategoryAssignments.categoryId),
+            )
           : []
 
       const countMap = new Map(
-        productCounts.map((c) => [c.categoryId, c.count]),
+        productCounts.map((category) => [category.categoryId, category.count]),
       )
 
-      return featuredCats.map((c) => ({
-        ...c,
-        productCount: countMap.get(c.id) || 0,
+      return featuredCats.map((category) => ({
+        ...category,
+        productCount: countMap.get(category.id) || 0,
       }))
     },
     [`featured-categories-${limit}`],
@@ -287,53 +344,63 @@ export async function getFeaturedCategories(limit: number = 6) {
 export async function getDealProducts(limit: number = 8) {
   return unstable_cache(
     async () => {
-      const deals = await db
-        .select({
-          id: products.id,
-          name: products.name,
-          slug: products.slug,
-          shortDescription: products.shortDescription,
-          basePrice: products.basePrice,
-          compareAtPrice: products.compareAtPrice,
-          isFeatured: products.isFeatured,
-        })
-        .from(products)
-        .where(
-          and(
-            eq(products.status, "active"),
-            sql`${products.compareAtPrice} IS NOT NULL AND ${products.compareAtPrice}::numeric > ${products.basePrice}::numeric`,
-          ),
-        )
-        .orderBy(
-          desc(
-            sql`(${products.compareAtPrice}::numeric - ${products.basePrice}::numeric) / ${products.compareAtPrice}::numeric`,
-          ),
-        )
-        .limit(limit)
+      const deals = await withStorefrontCatalogFallback(
+        "storefront:getDealProducts:products",
+        [],
+        () =>
+          db
+            .select({
+              id: products.id,
+              name: products.name,
+              slug: products.slug,
+              shortDescription: products.shortDescription,
+              basePrice: products.basePrice,
+              compareAtPrice: products.compareAtPrice,
+              isFeatured: products.isFeatured,
+            })
+            .from(products)
+            .where(
+              and(
+                eq(products.status, "active"),
+                sql`${products.compareAtPrice} IS NOT NULL AND ${products.compareAtPrice}::numeric > ${products.basePrice}::numeric`,
+              ),
+            )
+            .orderBy(
+              desc(
+                sql`(${products.compareAtPrice}::numeric - ${products.basePrice}::numeric) / ${products.compareAtPrice}::numeric`,
+              ),
+            )
+            .limit(limit),
+      )
 
-      // Get primary images
-      const productIds = deals.map((p) => p.id)
-      const images =
-        productIds.length > 0
-          ? await db
-              .select({
-                productId: productImages.productId,
-                url: productImages.url,
-              })
-              .from(productImages)
-              .where(
-                and(
-                  inArray(productImages.productId, productIds),
-                  eq(productImages.isPrimary, true),
-                ),
-              )
-          : []
+      const imageMap = await withStorefrontCatalogFallback(
+        "storefront:getDealProducts:images",
+        new Map<string, string>(),
+        async () => {
+          const productIds = deals.map((product) => product.id)
+          const images =
+            productIds.length > 0
+              ? await db
+                  .select({
+                    productId: productImages.productId,
+                    url: productImages.url,
+                  })
+                  .from(productImages)
+                  .where(
+                    and(
+                      inArray(productImages.productId, productIds),
+                      eq(productImages.isPrimary, true),
+                    ),
+                  )
+              : []
 
-      const imageMap = new Map(images.map((img) => [img.productId, img.url]))
+          return new Map(images.map((image) => [image.productId, image.url]))
+        },
+      )
 
-      return deals.map((p) => ({
-        ...p,
-        image: imageMap.get(p.id) || null,
+      return deals.map((product) => ({
+        ...product,
+        image: imageMap.get(product.id) || null,
       }))
     },
     [`deal-products-${limit}`],

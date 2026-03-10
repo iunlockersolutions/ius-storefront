@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useTransition } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 
 import {
@@ -59,11 +60,21 @@ interface Product {
   compareAtPrice: string | null
   isFeatured: boolean
   variants: ProductVariant[]
-  category: {
+  brand: {
     id: string
     name: string
     slug: string
   } | null
+  primaryCategory: {
+    id: string
+    name: string
+    slug: string
+  } | null
+  categories: {
+    id: string
+    name: string
+    slug: string
+  }[]
 }
 
 interface ProductInfoProps {
@@ -148,6 +159,16 @@ export function ProductInfo({
       {/* Header */}
       <div>
         {product.isFeatured && <Badge className="mb-2">Featured</Badge>}
+        {product.brand && (
+          <div className="mb-2">
+            <Link
+              href={`/brands/${product.brand.slug}`}
+              className="text-sm font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground"
+            >
+              {product.brand.name}
+            </Link>
+          </div>
+        )}
         <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
           {product.name}
         </h1>
@@ -155,6 +176,15 @@ export function ProductInfo({
           <p className="mt-2 text-muted-foreground">
             {product.shortDescription}
           </p>
+        )}
+        {(product.primaryCategory || product.categories.length > 0) && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {product.categories.map((category) => (
+              <Link key={category.id} href={`/categories/${category.slug}`}>
+                <Badge variant="secondary">{category.name}</Badge>
+              </Link>
+            ))}
+          </div>
         )}
       </div>
 

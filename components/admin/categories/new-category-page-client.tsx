@@ -36,8 +36,8 @@ export function NewCategoryPageClient() {
     id: cat.id,
     name: cat.name,
     slug: cat.slug,
-    level: 0,
-    path: cat.name,
+    level: cat.level || 0,
+    path: cat.path || cat.name,
   }))
 
   return <NewCategoryForm categories={categories} />

@@ -60,7 +60,6 @@ export function useAdminCustomersQuery(params?: CustomersParams) {
       const body = await response.json()
       return body.data as CustomersResponse
     },
-    retry: 2,
     staleTime: 60_000,
   })
 }

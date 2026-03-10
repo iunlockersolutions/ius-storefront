@@ -43,6 +43,7 @@ interface Category {
   path: string
   isActive: boolean
   sortOrder: number
+  productCount: number
 }
 
 interface CategoriesTableProps {
@@ -98,6 +99,7 @@ export function CategoriesTable({
               <TableHead>Slug</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Sort Order</TableHead>
+              <TableHead>Products</TableHead>
               <TableHead className="w-17.5"></TableHead>
             </TableRow>
           </TableHeader>
@@ -105,7 +107,7 @@ export function CategoriesTable({
             {isLoading ? (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={6}
                   className="text-center py-8 text-neutral-500"
                 >
                   Loading categories...
@@ -114,7 +116,7 @@ export function CategoriesTable({
             ) : categories.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={6}
                   className="text-center py-8 text-neutral-500"
                 >
                   No categories found
@@ -149,6 +151,7 @@ export function CategoriesTable({
                     </Badge>
                   </TableCell>
                   <TableCell>{category.sortOrder}</TableCell>
+                  <TableCell>{category.productCount}</TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

@@ -3,11 +3,12 @@ import { QueryClient } from "@tanstack/react-query"
 import { queryKeys } from "@/lib/utils/query-keys"
 
 export type AdminMutationKey =
+  | "brand.create"
+  | "brand.update"
+  | "brand.delete"
   | "category.create"
   | "category.update"
   | "category.delete"
-  | "customerRole.assign"
-  | "customerRole.remove"
   | "review.moderate"
   | "review.bulkModerate"
   | "review.delete"
@@ -31,6 +32,7 @@ export type AdminMutationKey =
   | "staff.delete"
 
 export interface MutationInvalidationContext {
+  brandId?: string
   categoryId?: string
   customerId?: string
   orderId?: string
@@ -41,6 +43,15 @@ function getInvalidationTargets(
   context: MutationInvalidationContext,
 ) {
   switch (mutation) {
+    case "brand.create":
+    case "brand.delete":
+      return [queryKeys.admin.brands()]
+
+    case "brand.update":
+      return context.brandId
+        ? [queryKeys.admin.brands(), queryKeys.admin.brand(context.brandId)]
+        : [queryKeys.admin.brands()]
+
     case "category.create":
     case "category.delete":
       return [queryKeys.admin.categories()]
@@ -52,15 +63,6 @@ function getInvalidationTargets(
             queryKeys.admin.category(context.categoryId),
           ]
         : [queryKeys.admin.categories()]
-
-    case "customerRole.assign":
-    case "customerRole.remove":
-      return context.customerId
-        ? [
-            queryKeys.admin.customer(context.customerId),
-            queryKeys.admin.customerOrders(context.customerId),
-          ]
-        : []
 
     case "review.moderate":
     case "review.bulkModerate":

@@ -67,7 +67,6 @@ export function useStaffUsersQuery(params?: StaffUsersParams) {
       const body = await response.json()
       return body.data as StaffUsersResponse
     },
-    retry: 2,
     staleTime: 60_000,
   })
 }

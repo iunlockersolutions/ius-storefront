@@ -29,12 +29,12 @@ const categorySchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
   slug: z.string().min(1, "Slug is required").max(100),
   description: z.string().max(1000).optional(),
+  image: z.string().url().optional().or(z.literal("")),
   parentId: z.string().optional(),
   sortOrder: z.number().int().min(0).default(0),
   isActive: z.boolean().default(true),
   metaTitle: z.string().max(200).optional(),
   metaDescription: z.string().max(500).optional(),
-  metaKeywords: z.string().max(500).optional(),
 })
 
 type CategoryFormData = z.infer<typeof categorySchema>
@@ -62,12 +62,12 @@ export function NewCategoryForm({ categories }: NewCategoryFormProps) {
       name: "",
       slug: "",
       description: "",
+      image: "",
       parentId: "",
       sortOrder: 0,
       isActive: true,
       metaTitle: "",
       metaDescription: "",
-      metaKeywords: "",
     },
   })
 
@@ -75,17 +75,16 @@ export function NewCategoryForm({ categories }: NewCategoryFormProps) {
     register,
     setValue,
     watch,
-    formState: { errors },
     handleSubmit,
+    formState: { errors },
   } = form
   const watchedValues = watch()
 
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const name = e.target.value
+  const handleNameChange = (name: string) => {
     setValue("name", name)
     if (
       !watchedValues.slug ||
-      watchedValues.slug === slugify(watchedValues.name)
+      watchedValues.slug === slugify(watchedValues.name || "")
     ) {
       setValue("slug", slugify(name))
     }
@@ -96,7 +95,10 @@ export function NewCategoryForm({ categories }: NewCategoryFormProps) {
       try {
         await createCategoryMutation.mutateAsync({
           ...data,
+          image: data.image || null,
           parentId: data.parentId || null,
+          metaTitle: data.metaTitle || undefined,
+          metaDescription: data.metaDescription || undefined,
         })
 
         toast.success("Category created successfully!")
@@ -121,9 +123,8 @@ export function NewCategoryForm({ categories }: NewCategoryFormProps) {
             <Label htmlFor="name">Category Name *</Label>
             <Input
               id="name"
-              placeholder="e.g., Electronics"
-              {...register("name")}
-              onChange={handleNameChange}
+              value={watchedValues.name}
+              onChange={(event) => handleNameChange(event.target.value)}
             />
             {errors.name && (
               <p className="text-sm text-red-500">{errors.name.message}</p>
@@ -132,18 +133,18 @@ export function NewCategoryForm({ categories }: NewCategoryFormProps) {
 
           <div className="space-y-2">
             <Label htmlFor="slug">URL Slug *</Label>
-            <Input
-              id="slug"
-              placeholder="e.g., electronics"
-              {...register("slug")}
-            />
+            <Input id="slug" {...register("slug")} />
             {errors.slug && (
               <p className="text-sm text-red-500">{errors.slug.message}</p>
             )}
-            <p className="text-xs text-neutral-500">
-              This will be used in the category URL: /categories/
-              {watchedValues.slug || "your-slug"}
-            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="image">Image URL</Label>
+            <Input id="image" {...register("image")} />
+            {errors.image && (
+              <p className="text-sm text-red-500">{errors.image.message}</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -158,9 +159,7 @@ export function NewCategoryForm({ categories }: NewCategoryFormProps) {
                 <SelectValue placeholder="No parent (top-level category)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">
-                  No parent (top-level category)
-                </SelectItem>
+                <SelectItem value="none">No parent (top-level category)</SelectItem>
                 {categories.map((category) => (
                   <SelectItem key={category.id} value={category.id}>
                     {category.level > 0 && "— ".repeat(category.level)}
@@ -173,12 +172,7 @@ export function NewCategoryForm({ categories }: NewCategoryFormProps) {
 
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              placeholder="Describe this category..."
-              rows={4}
-              {...register("description")}
-            />
+            <Textarea id="description" rows={4} {...register("description")} />
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
@@ -190,13 +184,10 @@ export function NewCategoryForm({ categories }: NewCategoryFormProps) {
                 min="0"
                 {...register("sortOrder", { valueAsNumber: true })}
               />
-              <p className="text-xs text-neutral-500">
-                Lower numbers appear first
-              </p>
             </div>
 
             <div className="flex items-center justify-between rounded-lg border p-4">
-              <div className="space-y-0.5">
+              <div>
                 <Label htmlFor="isActive">Active</Label>
                 <p className="text-xs text-neutral-500">Show in storefront</p>
               </div>
@@ -217,29 +208,15 @@ export function NewCategoryForm({ categories }: NewCategoryFormProps) {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="metaTitle">Meta Title</Label>
-            <Input
-              id="metaTitle"
-              placeholder="SEO optimized title"
-              {...register("metaTitle")}
-            />
+            <Input id="metaTitle" {...register("metaTitle")} />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="metaDescription">Meta Description</Label>
             <Textarea
               id="metaDescription"
-              placeholder="Brief description for search engines..."
-              rows={2}
+              rows={3}
               {...register("metaDescription")}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="metaKeywords">Meta Keywords</Label>
-            <Input
-              id="metaKeywords"
-              placeholder="keyword1, keyword2, keyword3"
-              {...register("metaKeywords")}
             />
           </div>
         </CardContent>

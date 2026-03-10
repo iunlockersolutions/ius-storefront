@@ -8,6 +8,9 @@ type CategoryPayload = {
   name?: string
   slug?: string
   description?: string
+  image?: string | null
+  metaTitle?: string
+  metaDescription?: string
   parentId?: string | null
   sortOrder?: number
   isActive?: boolean

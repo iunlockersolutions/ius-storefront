@@ -30,8 +30,9 @@ export async function generateMetadata({ params }: ProductPageProps) {
   }
 
   return {
-    title: `${product.name} | IUS Shop`,
+    title: product.metaTitle || `${product.name} | IUS Shop`,
     description:
+      product.metaDescription ||
       product.shortDescription ||
       product.description?.slice(0, 160) ||
       `Buy ${product.name}`,
@@ -65,8 +66,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
     reviewPermission,
   ] = await Promise.all([
     isProductFavorited(product.id),
-    product.categoryId
-      ? getStorefrontProducts({ categoryId: product.categoryId, limit: 4 })
+    product.primaryCategoryId
+      ? getStorefrontProducts({
+          primaryCategoryId: product.primaryCategoryId,
+          limit: 4,
+        })
       : Promise.resolve(null),
     getProductReviews(product.id),
     getProductReviewStats(product.id),
@@ -88,14 +92,14 @@ export default async function ProductPage({ params }: ProductPageProps) {
         <Link href="/products" className="hover:text-foreground">
           Products
         </Link>
-        {product.category && (
+        {product.primaryCategory && (
           <>
             <ChevronRight className="h-4 w-4" />
             <Link
-              href={`/categories/${product.category.slug}`}
+              href={`/categories/${product.primaryCategory.slug}`}
               className="hover:text-foreground"
             >
-              {product.category.name}
+              {product.primaryCategory.name}
             </Link>
           </>
         )}
@@ -131,20 +135,47 @@ export default async function ProductPage({ params }: ProductPageProps) {
         <h2 className="text-xl font-semibold mb-4">Product Details</h2>
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="border rounded-lg p-4">
-            <dt className="text-sm text-muted-foreground">Category</dt>
+            <dt className="text-sm text-muted-foreground">Brand</dt>
             <dd className="mt-1 font-medium">
-              {product.category ? (
+              {product.brand ? (
                 <Link
-                  href={`/categories/${product.category.slug}`}
+                  href={`/brands/${product.brand.slug}`}
                   className="text-primary hover:underline"
                 >
-                  {product.category.name}
+                  {product.brand.name}
+                </Link>
+              ) : (
+                "Unbranded"
+              )}
+            </dd>
+          </div>
+          <div className="border rounded-lg p-4">
+            <dt className="text-sm text-muted-foreground">Primary Category</dt>
+            <dd className="mt-1 font-medium">
+              {product.primaryCategory ? (
+                <Link
+                  href={`/categories/${product.primaryCategory.slug}`}
+                  className="text-primary hover:underline"
+                >
+                  {product.primaryCategory.name}
                 </Link>
               ) : (
                 "Uncategorized"
               )}
             </dd>
           </div>
+          {product.categories.length > 0 && (
+            <div className="border rounded-lg p-4 sm:col-span-2">
+              <dt className="text-sm text-muted-foreground">Browse In</dt>
+              <dd className="mt-2 flex flex-wrap gap-2">
+                {product.categories.map((category) => (
+                  <Link key={category.id} href={`/categories/${category.slug}`}>
+                    <Badge variant="secondary">{category.name}</Badge>
+                  </Link>
+                ))}
+              </dd>
+            </div>
+          )}
           {product.variants.length > 0 && (
             <div className="border rounded-lg p-4">
               <dt className="text-sm text-muted-foreground">Variants</dt>
@@ -164,7 +195,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
               </dd>
             </div>
           )}
-          {product.metaTitle && (
+          {product.variants.length > 0 && (
             <div className="border rounded-lg p-4 sm:col-span-2">
               <dt className="text-sm text-muted-foreground">SKU</dt>
               <dd className="mt-1 font-mono text-sm">
@@ -180,9 +211,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
         <div className="mt-16">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold">Related Products</h2>
-            {product.category && (
+            {product.primaryCategory && (
               <Link
-                href={`/categories/${product.category.slug}`}
+                href={`/categories/${product.primaryCategory.slug}`}
                 className="text-sm text-primary hover:underline flex items-center gap-1"
               >
                 View All

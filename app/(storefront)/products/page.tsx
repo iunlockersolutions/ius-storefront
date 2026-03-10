@@ -7,7 +7,8 @@ import { ProductsFilter } from "@/components/storefront/products-filter"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { getActiveCategories } from "@/lib/actions/category"
+import { getActiveBrands } from "@/lib/actions/brand"
+import { getActiveCategoriesFlat } from "@/lib/actions/category"
 import { getStorefrontProducts } from "@/lib/actions/product"
 
 export const metadata = {
@@ -21,39 +22,64 @@ interface ProductsPageProps {
     sort?: string
     search?: string
     category?: string
+    brand?: string
+    featured?: string
   }>
 }
 
 export default async function ProductsPage({
   searchParams,
 }: ProductsPageProps) {
-  const { page: pageStr, sort, search, category } = await searchParams
+  const {
+    page: pageStr,
+    sort,
+    search,
+    category,
+    brand,
+    featured,
+  } = await searchParams
 
   const page = pageStr ? parseInt(pageStr) : 1
   const sortBy =
     (sort as "newest" | "price-low" | "price-high" | "name") || "newest"
+  const featuredOnly = featured === "true"
 
-  const [productsResult, categories] = await Promise.all([
+  const [productsResult, categories, brands] = await Promise.all([
     getStorefrontProducts({
       page,
       limit: 12,
       sortBy,
       search: search || undefined,
-      categoryId: category || undefined,
+      categorySlug: category || undefined,
+      brandSlug: brand || undefined,
+      featured: featuredOnly,
     }),
-    getActiveCategories(),
+    getActiveCategoriesFlat(),
+    getActiveBrands({ failSoft: true }),
   ])
 
   const { products, total, totalPages } = productsResult
 
-  // Build query string for pagination
-  const buildQueryString = (newPage: number) => {
+  const buildProductsHref = (overrides: Record<string, string | undefined>) => {
     const params = new URLSearchParams()
-    params.set("page", newPage.toString())
-    if (sort) params.set("sort", sort)
-    if (search) params.set("search", search)
-    if (category) params.set("category", category)
-    return params.toString()
+    const nextValues = {
+      page: undefined,
+      sort,
+      search,
+      category,
+      brand,
+      featured: featuredOnly ? "true" : undefined,
+      ...overrides,
+    }
+
+    Object.entries(nextValues).forEach(([key, value]) => {
+      if (value) {
+        params.set(key, value)
+      }
+    })
+
+    const query = params.toString()
+    return query ? `/products?${query}` : "/products"
   }
 
   return (
@@ -81,14 +107,14 @@ export default async function ProductsPage({
           </div>
           {sort && <input type="hidden" name="sort" value={sort} />}
           {category && <input type="hidden" name="category" value={category} />}
+          {brand && <input type="hidden" name="brand" value={brand} />}
+          {featuredOnly && <input type="hidden" name="featured" value="true" />}
           <Button type="submit">Search</Button>
         </form>
 
         {/* Category Filter Pills */}
         <div className="flex flex-wrap gap-2">
-          <Link
-            href={`/products${sort ? `?sort=${sort}` : ""}${search ? `${sort ? "&" : "?"}search=${search}` : ""}`}
-          >
+          <Link href={buildProductsHref({ category: undefined })}>
             <Badge
               variant={!category ? "default" : "outline"}
               className="cursor-pointer hover:bg-primary/10"
@@ -97,12 +123,9 @@ export default async function ProductsPage({
             </Badge>
           </Link>
           {categories.slice(0, 5).map((cat) => (
-            <Link
-              key={cat.id}
-              href={`/products?category=${cat.id}${sort ? `&sort=${sort}` : ""}${search ? `&search=${search}` : ""}`}
-            >
+            <Link key={cat.id} href={buildProductsHref({ category: cat.slug })}>
               <Badge
-                variant={category === cat.id ? "default" : "outline"}
+                variant={category === cat.slug ? "default" : "outline"}
                 className="cursor-pointer hover:bg-primary/10"
               >
                 {cat.name}
@@ -119,19 +142,80 @@ export default async function ProductsPage({
         </div>
       </div>
 
-      {/* Active Search Badge */}
-      {search && (
-        <div className="mb-4 flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Searching for:</span>
-          <Badge variant="secondary" className="flex items-center gap-1">
-            &quot;{search}&quot;
-            <Link
-              href={`/products${sort ? `?sort=${sort}` : ""}${category ? `${sort ? "&" : "?"}category=${category}` : ""}`}
-              className="ml-1 hover:text-destructive"
-            >
-              ×
-            </Link>
+      <div className="mb-6 flex flex-wrap gap-2">
+        <Badge variant="secondary">Brands</Badge>
+        <Link href={buildProductsHref({ brand: undefined })}>
+          <Badge
+            variant={!brand ? "default" : "outline"}
+            className="cursor-pointer hover:bg-primary/10"
+          >
+            All Brands
           </Badge>
+        </Link>
+        {brands.slice(0, 6).map((brandOption) => (
+          <Link
+            key={brandOption.id}
+            href={buildProductsHref({ brand: brandOption.slug })}
+          >
+            <Badge
+              variant={brand === brandOption.slug ? "default" : "outline"}
+              className="cursor-pointer hover:bg-primary/10"
+            >
+              {brandOption.name}
+            </Badge>
+          </Link>
+        ))}
+      </div>
+
+      {/* Active Search Badge */}
+      {(search || category || brand || featuredOnly) && (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          {search && (
+            <Badge variant="secondary" className="flex items-center gap-1">
+              Search: &quot;{search}&quot;
+              <Link
+                href={buildProductsHref({ search: undefined })}
+                className="ml-1 hover:text-destructive"
+              >
+                ×
+              </Link>
+            </Badge>
+          )}
+          {category && (
+            <Badge variant="secondary" className="flex items-center gap-1">
+              Category:{" "}
+              {categories.find((item) => item.slug === category)?.name ||
+                category}
+              <Link
+                href={buildProductsHref({ category: undefined })}
+                className="ml-1 hover:text-destructive"
+              >
+                ×
+              </Link>
+            </Badge>
+          )}
+          {brand && (
+            <Badge variant="secondary" className="flex items-center gap-1">
+              Brand: {brands.find((item) => item.slug === brand)?.name || brand}
+              <Link
+                href={buildProductsHref({ brand: undefined })}
+                className="ml-1 hover:text-destructive"
+              >
+                ×
+              </Link>
+            </Badge>
+          )}
+          {featuredOnly && (
+            <Badge variant="secondary" className="flex items-center gap-1">
+              Featured
+              <Link
+                href={buildProductsHref({ featured: undefined })}
+                className="ml-1 hover:text-destructive"
+              >
+                ×
+              </Link>
+            </Badge>
+          )}
         </div>
       )}
 
@@ -167,7 +251,7 @@ export default async function ProductsPage({
             <div className="mt-8 flex items-center justify-center gap-2">
               <Button variant="outline" size="sm" asChild disabled={page <= 1}>
                 <Link
-                  href={`/products?${buildQueryString(page - 1)}`}
+                  href={buildProductsHref({ page: (page - 1).toString() })}
                   className={page <= 1 ? "pointer-events-none opacity-50" : ""}
                 >
                   <ChevronLeft className="h-4 w-4 mr-1" />
@@ -184,7 +268,7 @@ export default async function ProductsPage({
                 disabled={page >= totalPages}
               >
                 <Link
-                  href={`/products?${buildQueryString(page + 1)}`}
+                  href={buildProductsHref({ page: (page + 1).toString() })}
                   className={
                     page >= totalPages ? "pointer-events-none opacity-50" : ""
                   }

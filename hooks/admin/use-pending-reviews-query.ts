@@ -37,7 +37,6 @@ export function usePendingReviewsQuery() {
       const body = await response.json()
       return body.data as PendingReview[]
     },
-    retry: 2,
     staleTime: 60_000,
   })
 }

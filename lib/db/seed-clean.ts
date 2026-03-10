@@ -2,11 +2,13 @@ import { drizzle } from "drizzle-orm/postgres-js"
 import postgres from "postgres"
 
 import {
+  brands,
   categories,
   inventoryItems,
   inventoryMovements,
   productAttributes,
   productAttributeValues,
+  productCategoryAssignments,
   productImages,
   products,
   productVariants,
@@ -39,6 +41,14 @@ async function cleanSeed() {
     const deletedImages = await db.delete(productImages).returning()
     console.log(`  ✅ Deleted ${deletedImages.length} product images`)
 
+    console.log("🗑️  Deleting product category assignments...")
+    const deletedAssignments = await db
+      .delete(productCategoryAssignments)
+      .returning()
+    console.log(
+      `  ✅ Deleted ${deletedAssignments.length} product category assignments`,
+    )
+
     console.log("🗑️  Deleting product attribute values...")
     const deletedAttrValues = await db
       .delete(productAttributeValues)
@@ -63,11 +73,14 @@ async function cleanSeed() {
     const deletedCategories = await db.delete(categories).returning()
     console.log(`  ✅ Deleted ${deletedCategories.length} categories`)
 
+    console.log("🗑️  Deleting brands...")
+    const deletedBrands = await db.delete(brands).returning()
+    console.log(`  ✅ Deleted ${deletedBrands.length} brands`)
+
     console.log("\n✅ Database cleanup completed successfully!")
     console.log("\n📌 Preserved data:")
     console.log("  - Admin user (admin@example.com)")
-    console.log("  - All roles (customer, admin, manager, support)")
-    console.log("  - User role assignments")
+    console.log("  - Better Auth identity data")
   } catch (error) {
     console.error("\n❌ Cleanup failed:", error)
     process.exit(1)

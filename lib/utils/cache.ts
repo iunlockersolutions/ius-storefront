@@ -21,6 +21,7 @@ export function revalidateProductCaches() {
   revalidateStorefrontTag("new-arrivals")
   revalidateStorefrontTag("best-sellers")
   revalidateStorefrontTag("deals")
+  revalidateStorefrontTag("search")
 }
 
 /**
@@ -29,6 +30,15 @@ export function revalidateProductCaches() {
  */
 export function revalidateCategoryCaches() {
   revalidateStorefrontTag("categories")
+  revalidateStorefrontTag("category-products")
+}
+
+/**
+ * Revalidate brand-related caches.
+ */
+export function revalidateBrandCaches() {
+  revalidateStorefrontTag("brands")
+  revalidateStorefrontTag("brand-products")
 }
 
 /**
@@ -47,5 +57,6 @@ export function revalidateOrderCaches() {
 export function revalidateAllStorefrontCaches() {
   revalidateProductCaches()
   revalidateCategoryCaches()
+  revalidateBrandCaches()
   revalidateOrderCaches()
 }

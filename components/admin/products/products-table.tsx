@@ -40,6 +40,8 @@ interface Product {
   basePrice: string
   status: "draft" | "active" | "archived"
   isFeatured: boolean
+  brandName: string | null
+  primaryCategoryName: string | null
   createdAt: string | Date
 }
 
@@ -153,6 +155,8 @@ export function ProductsTable({
             <TableRow>
               <TableHead>Product</TableHead>
               <TableHead>Price</TableHead>
+              <TableHead>Brand</TableHead>
+              <TableHead>Primary Category</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Featured</TableHead>
               <TableHead className="w-20"></TableHead>
@@ -162,7 +166,7 @@ export function ProductsTable({
             {isLoading ? (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={7}
                   className="text-center py-8 text-neutral-500"
                 >
                   Loading products...
@@ -171,7 +175,7 @@ export function ProductsTable({
             ) : products.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={7}
                   className="text-center py-8 text-neutral-500"
                 >
                   No products found
@@ -190,6 +194,10 @@ export function ProductsTable({
                   </TableCell>
                   <TableCell>
                     {formatCurrency(parseFloat(product.basePrice))}
+                  </TableCell>
+                  <TableCell>{product.brandName || "Unbranded"}</TableCell>
+                  <TableCell>
+                    {product.primaryCategoryName || "Uncategorized"}
                   </TableCell>
                   <TableCell>
                     <Badge className={statusColors[product.status]}>

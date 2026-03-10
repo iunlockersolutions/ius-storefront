@@ -14,11 +14,7 @@ export interface AdminProfile {
   updatedAt: string | Date
   role: "admin" | "manager" | "support"
   lastPasswordChange: string | Date | null
-  roles: Array<{
-    name: string
-    description: string | null
-    assignedAt: string | Date
-  }>
+  twoFactorEnabled: boolean
 }
 
 export function useAdminProfileQuery() {
@@ -39,7 +35,6 @@ export function useAdminProfileQuery() {
       const body = await response.json()
       return body.data as AdminProfile
     },
-    retry: 2,
     staleTime: 60_000,
   })
 }

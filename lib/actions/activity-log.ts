@@ -20,6 +20,10 @@ export type ActivityAction =
   | "product.update"
   | "product.delete"
   | "product.status_change"
+  // Brand actions
+  | "brand.create"
+  | "brand.update"
+  | "brand.delete"
   // Category actions
   | "category.create"
   | "category.update"

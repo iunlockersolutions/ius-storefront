@@ -79,7 +79,6 @@ export function useAdminOrdersQuery(params?: OrdersParams) {
       const body = await response.json()
       return body.data as OrdersResponse
     },
-    retry: 2,
     staleTime: 60_000,
   })
 }

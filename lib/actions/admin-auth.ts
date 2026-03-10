@@ -1,47 +1,14 @@
 "use server"
 
-import { cookies, headers } from "next/headers"
+import { headers } from "next/headers"
 import { redirect } from "next/navigation"
 
 import { eq } from "drizzle-orm"
 
 import { auth } from "@/lib/auth"
-import { getUserRoles, type UserRole } from "@/lib/auth/rbac"
+import { getPrimaryUserRole, normalizeUserRoles } from "@/lib/auth/rbac"
 import { db } from "@/lib/db"
 import { user } from "@/lib/db/schema/auth"
-import { getCookieName } from "@/lib/utils/cookies"
-
-/**
- * Check if a user should be treated as a staff user (has staff role)
- */
-export async function checkStaffLogin(email: string) {
-  const staffUser = await db.query.user.findFirst({
-    where: eq(user.email, email.toLowerCase()),
-    columns: {
-      id: true,
-      mustChangePassword: true,
-      banned: true,
-      banReason: true,
-    },
-  })
-
-  if (!staffUser) {
-    return { isStaff: false }
-  }
-
-  // Check roles via RBAC system
-  const roles = await getUserRoles(staffUser.id)
-  const isStaff = roles.some((role) =>
-    ["admin", "manager", "support"].includes(role),
-  )
-
-  return {
-    isStaff,
-    mustChangePassword: staffUser.mustChangePassword,
-    banned: staffUser.banned,
-    banReason: staffUser.banReason,
-  }
-}
 
 /**
  * Check the current user's role after login to determine redirect
@@ -60,6 +27,7 @@ export async function checkUserRoleAfterLogin() {
     where: eq(user.id, session.user.id),
     columns: {
       id: true,
+      role: true,
       mustChangePassword: true,
       banned: true,
       banReason: true,
@@ -70,17 +38,9 @@ export async function checkUserRoleAfterLogin() {
     return { isStaff: false }
   }
 
-  // Check roles via RBAC system (uses userRoles junction table)
-  const roles = await getUserRoles(currentUser.id)
-  const isStaff = roles.some((role) =>
-    ["admin", "manager", "support"].includes(role),
-  )
-
-  // Get the highest priority role for display purposes
-  let primaryRole: UserRole = "customer"
-  if (roles.includes("admin")) primaryRole = "admin"
-  else if (roles.includes("manager")) primaryRole = "manager"
-  else if (roles.includes("support")) primaryRole = "support"
+  const roles = normalizeUserRoles(currentUser.role)
+  const isStaff = roles.some((role) => role !== "customer")
+  const primaryRole = getPrimaryUserRole(currentUser.role)
 
   return {
     isStaff,
@@ -112,6 +72,7 @@ export async function handlePostLoginRedirect(callbackUrl: string = "/") {
     where: eq(user.id, session.user.id),
     columns: {
       id: true,
+      role: true,
       mustChangePassword: true,
       banned: true,
       banReason: true,
@@ -122,14 +83,8 @@ export async function handlePostLoginRedirect(callbackUrl: string = "/") {
     redirect("/auth/login")
   }
 
-  // Check roles via RBAC system
-  const roles = await getUserRoles(currentUser.id)
-  const isStaff = roles.some((role) =>
-    ["admin", "manager", "support"].includes(role),
-  )
-
-  // Set is-staff cookie for middleware route masking
-  await setIsStaffCookie(isStaff)
+  const roles = normalizeUserRoles(currentUser.role)
+  const isStaff = roles.some((role) => role !== "customer")
 
   if (isStaff) {
     // Staff member - check for banned
@@ -143,7 +98,6 @@ export async function handlePostLoginRedirect(callbackUrl: string = "/") {
 
     // Check must change password
     if (currentUser.mustChangePassword) {
-      await setMustChangePasswordCookie(true)
       redirect("/ops/change-password")
     }
 
@@ -153,63 +107,6 @@ export async function handlePostLoginRedirect(callbackUrl: string = "/") {
     // Regular customer - go to their destination
     redirect(callbackUrl)
   }
-}
-
-/**
- * Set the must-change-password cookie after successful staff login
- */
-export async function setMustChangePasswordCookie(mustChange: boolean) {
-  const cookieStore = await cookies()
-  const cookieName = getCookieName("must-change-password")
-
-  if (mustChange) {
-    cookieStore.set(cookieName, "true", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24, // 24 hours
-    })
-  } else {
-    cookieStore.delete(cookieName)
-  }
-}
-
-/**
- * Clear the must-change-password cookie (after password change)
- */
-export async function clearMustChangePasswordCookie() {
-  const cookieStore = await cookies()
-  cookieStore.delete(getCookieName("must-change-password"))
-}
-
-/**
- * Set the is-staff cookie to indicate user has staff role.
- * This is used by proxy to mask admin routes from non-staff users.
- */
-export async function setIsStaffCookie(isStaffUser: boolean) {
-  const cookieStore = await cookies()
-  const cookieName = getCookieName("is-staff")
-
-  if (isStaffUser) {
-    cookieStore.set(cookieName, "true", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      // Cookie expires with session (no maxAge = session cookie)
-    })
-  } else {
-    cookieStore.delete(cookieName)
-  }
-}
-
-/**
- * Clear the is-staff cookie (on logout or role change)
- */
-export async function clearIsStaffCookie() {
-  const cookieStore = await cookies()
-  cookieStore.delete(getCookieName("is-staff"))
 }
 
 /**
@@ -264,9 +161,6 @@ export async function changeFirstTimePassword(
       })
       .where(eq(user.id, session.user.id))
 
-    // Clear the cookie
-    await clearMustChangePasswordCookie()
-
     return { success: true }
   } catch (error) {
     console.error("Error changing password:", error)
@@ -279,11 +173,8 @@ export async function changeFirstTimePassword(
 }
 
 /**
- * Clear all auth-related cookies on sign out.
- * Call this server action before signOut() to clean up custom cookies.
+ * Legacy no-op retained so existing sign-out UI does not need a separate refactor.
  */
 export async function clearAuthCookies() {
-  const cookieStore = await cookies()
-  cookieStore.delete(getCookieName("is-staff"))
-  cookieStore.delete(getCookieName("must-change-password"))
+  return
 }
