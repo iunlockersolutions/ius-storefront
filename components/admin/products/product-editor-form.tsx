@@ -10,6 +10,7 @@ import { toast } from "sonner"
 import { z } from "zod"
 
 import { ImageUpload } from "@/components/admin/image-upload"
+import { CreatableEntityCombobox } from "@/components/admin/products/creatable-entity-combobox"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,6 +37,7 @@ import {
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { slugify } from "@/lib/utils"
+import { normalizeEntityName } from "@/lib/utils/catalog"
 
 const productSchema = z.object({
   name: z.string().min(1, "Name is required").max(200),
@@ -251,7 +253,7 @@ export function ProductEditorForm({
 }: ProductEditorFormProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
-  const [categoryIds, setCategoryIds] = useState<string[]>(
+  const [categoryIds, setCategoryIds] = useState<string[]>(() =>
     Array.from(
       new Set(
         initialData?.categories?.map((category) => category.id) ??
@@ -261,7 +263,7 @@ export function ProductEditorForm({
       ),
     ),
   )
-  const [images, setImages] = useState<UploadedImage[]>(
+  const [images, setImages] = useState<UploadedImage[]>(() =>
     (initialData?.images ?? []).map((image) => ({
       id: image.id,
       url: image.url,
@@ -270,13 +272,14 @@ export function ProductEditorForm({
     })),
   )
   const [options, setOptions] = useState<OptionEditorValue[]>(
-    initialData?.options?.map((option) => ({
-      key: option.id,
-      name: option.name,
-      values: option.values.map((value) => value.value),
-    })) ?? [],
+    () =>
+      initialData?.options?.map((option) => ({
+        key: option.id,
+        name: option.name,
+        values: option.values.map((value) => value.value),
+      })) ?? [],
   )
-  const [variants, setVariants] = useState<VariantEditorValue[]>(
+  const [variants, setVariants] = useState<VariantEditorValue[]>(() =>
     initialData?.variants?.length
       ? initialData.variants.map((variant) => ({
           key: variant.id,
@@ -298,6 +301,10 @@ export function ProductEditorForm({
         }))
       : [createEmptyVariant()],
   )
+  const [createdBrands, setCreatedBrands] = useState<BrandOption[]>([])
+  const [createdModels, setCreatedModels] = useState<ModelOption[]>([])
+  const [isInlineBrandPending, setIsInlineBrandPending] = useState(false)
+  const [isInlineModelPending, setIsInlineModelPending] = useState(false)
 
   const form = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
@@ -332,9 +339,39 @@ export function ProductEditorForm({
     [categories],
   )
 
+  const brandOptions = useMemo(() => {
+    const merged = [...brands, ...createdBrands]
+    return merged.filter(
+      (brand, index) =>
+        merged.findIndex((candidate) => candidate.id === brand.id) === index,
+    )
+  }, [brands, createdBrands])
+
+  const modelOptions = useMemo(() => {
+    const merged = [...models, ...createdModels]
+    return merged.filter(
+      (model, index) =>
+        merged.findIndex((candidate) => candidate.id === model.id) === index,
+    )
+  }, [createdModels, models])
+
+  const topLevelCategoryMap = useMemo(
+    () =>
+      new Map(
+        topLevelCategories.map((category) => [
+          category.id,
+          {
+            name: category.name,
+            slug: category.slug,
+          },
+        ]),
+      ),
+    [topLevelCategories],
+  )
+
   const modelMap = useMemo(
-    () => new Map(models.map((model) => [model.id, model])),
-    [models],
+    () => new Map(modelOptions.map((model) => [model.id, model])),
+    [modelOptions],
   )
 
   const selectedModel = watchedValues.modelId
@@ -343,10 +380,10 @@ export function ProductEditorForm({
 
   const availableModels = useMemo(() => {
     if (selectedModel) {
-      return models
+      return modelOptions
     }
 
-    return models.filter((model) => {
+    return modelOptions.filter((model) => {
       if (watchedValues.brandId && model.brandId !== watchedValues.brandId) {
         return false
       }
@@ -361,25 +398,38 @@ export function ProductEditorForm({
       return true
     })
   }, [
-    models,
+    modelOptions,
     selectedModel,
     watchedValues.brandId,
     watchedValues.primaryCategoryId,
   ])
 
-  useEffect(() => {
-    if (!selectedModel) {
-      return
-    }
+  const brandComboboxOptions = useMemo(
+    () =>
+      brandOptions.map((brand) => ({
+        id: brand.id,
+        name: brand.name,
+      })),
+    [brandOptions],
+  )
 
-    setValue("brandId", selectedModel.brandId)
-    setValue("primaryCategoryId", selectedModel.primaryCategoryId)
-    setCategoryIds((current) =>
-      current.includes(selectedModel.primaryCategoryId)
-        ? current
-        : [selectedModel.primaryCategoryId, ...current],
-    )
-  }, [selectedModel, setValue])
+  const modelComboboxOptions = useMemo(
+    () =>
+      availableModels.map((model) => ({
+        id: model.id,
+        name: model.name,
+        description: [
+          brandOptions.find((brand) => brand.id === model.brandId)?.name,
+          topLevelCategoryMap.get(model.primaryCategoryId)?.name,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+      })),
+    [availableModels, brandOptions, topLevelCategoryMap],
+  )
+
+  const canCreateModel =
+    Boolean(watchedValues.brandId) && Boolean(watchedValues.primaryCategoryId)
 
   useEffect(() => {
     const normalizedOptions = options
@@ -572,6 +622,123 @@ export function ProductEditorForm({
     })
   }
 
+  const createBrandInline = async (name: string) => {
+    const trimmedName = name.trim()
+
+    if (!trimmedName) {
+      return
+    }
+
+    setIsInlineBrandPending(true)
+
+    try {
+      const response = await fetch("/api/admin/brands/inline", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: trimmedName,
+          primaryCategoryId: watchedValues.primaryCategoryId || null,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null)
+        throw new Error(
+          errorBody?.error?.message ||
+            errorBody?.error ||
+            "Failed to create brand",
+        )
+      }
+
+      const body = await response.json()
+      const nextBrand = body.data.brand as BrandOption
+
+      setCreatedBrands((current) => {
+        const exists = current.some((brand) => brand.id === nextBrand.id)
+        return exists ? current : [...current, nextBrand]
+      })
+      setValue("brandId", nextBrand.id, {
+        shouldDirty: true,
+        shouldValidate: true,
+      })
+
+      toast.success(
+        body.data.created
+          ? `Created brand "${nextBrand.name}"`
+          : `Using existing brand "${nextBrand.name}"`,
+      )
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to create brand",
+      )
+    } finally {
+      setIsInlineBrandPending(false)
+    }
+  }
+
+  const createModelInline = async (name: string) => {
+    const trimmedName = name.trim()
+
+    if (
+      !trimmedName ||
+      !watchedValues.brandId ||
+      !watchedValues.primaryCategoryId
+    ) {
+      return
+    }
+
+    setIsInlineModelPending(true)
+
+    try {
+      const response = await fetch("/api/admin/models/inline", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: trimmedName,
+          brandId: watchedValues.brandId,
+          primaryCategoryId: watchedValues.primaryCategoryId,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null)
+        throw new Error(
+          errorBody?.error?.message ||
+            errorBody?.error ||
+            "Failed to create model",
+        )
+      }
+
+      const body = await response.json()
+      const nextModel = body.data.model as ModelOption
+
+      setCreatedModels((current) => {
+        const exists = current.some((model) => model.id === nextModel.id)
+        return exists ? current : [...current, nextModel]
+      })
+      setValue("modelId", nextModel.id, {
+        shouldDirty: true,
+        shouldValidate: true,
+      })
+
+      toast.success(
+        body.data.created
+          ? `Created model "${nextModel.name}"`
+          : `Using existing model "${nextModel.name}"`,
+      )
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to create model",
+      )
+    } finally {
+      setIsInlineModelPending(false)
+    }
+  }
+
   return (
     <form onSubmit={handleSubmit(submit)} className="space-y-6">
       <Card>
@@ -668,25 +835,25 @@ export function ProductEditorForm({
           <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label>Brand</Label>
-              <Select
-                value={watchedValues.brandId || "__none__"}
-                onValueChange={(value) =>
-                  setValue("brandId", value === "__none__" ? "" : value)
-                }
+              <CreatableEntityCombobox
+                value={watchedValues.brandId || ""}
+                options={brandComboboxOptions}
+                placeholder="Select or create brand"
+                searchPlaceholder="Search brands..."
+                emptyLabel="No matching brands"
                 disabled={Boolean(selectedModel)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select brand" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">No brand</SelectItem>
-                  {brands.map((brand) => (
-                    <SelectItem key={brand.id} value={brand.id}>
-                      {brand.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                createLabel={(query) => `Create "${query.trim()}"`}
+                onValueChange={(value) =>
+                  setValue("brandId", value, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  })
+                }
+                onCreate={createBrandInline}
+                canCreate={(query) =>
+                  Boolean(query.trim()) && !isInlineBrandPending
+                }
+              />
             </div>
 
             <div className="space-y-2">
@@ -717,24 +884,60 @@ export function ProductEditorForm({
 
             <div className="space-y-2">
               <Label>Model</Label>
-              <Select
-                value={watchedValues.modelId || "__none__"}
-                onValueChange={(value) =>
-                  setValue("modelId", value === "__none__" ? "" : value)
+              <CreatableEntityCombobox
+                value={watchedValues.modelId || ""}
+                options={modelComboboxOptions}
+                placeholder={
+                  canCreateModel
+                    ? "Select or create model"
+                    : "Select brand and category first"
                 }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select model" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">No model</SelectItem>
-                  {availableModels.map((model) => (
-                    <SelectItem key={model.id} value={model.id}>
-                      {model.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                searchPlaceholder="Search models..."
+                emptyLabel={
+                  canCreateModel
+                    ? "No matching models for this brand and category"
+                    : "Choose a brand and top-level category first"
+                }
+                disabled={!canCreateModel && !selectedModel}
+                createLabel={(query) => `Create "${query.trim()}"`}
+                canCreate={(query) =>
+                  canCreateModel &&
+                  Boolean(query.trim()) &&
+                  !isInlineModelPending &&
+                  !availableModels.some(
+                    (model) =>
+                      normalizeEntityName(model.name) ===
+                      normalizeEntityName(query),
+                  )
+                }
+                onValueChange={(value) => {
+                  const nextModel = value ? modelMap.get(value) : undefined
+
+                  setValue("modelId", value, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  })
+
+                  if (!nextModel) {
+                    return
+                  }
+
+                  setValue("brandId", nextModel.brandId, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  })
+                  setValue("primaryCategoryId", nextModel.primaryCategoryId, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  })
+                  setCategoryIds((current) =>
+                    current.includes(nextModel.primaryCategoryId)
+                      ? current
+                      : [nextModel.primaryCategoryId, ...current],
+                  )
+                }}
+                onCreate={createModelInline}
+              />
             </div>
           </div>
 
@@ -748,25 +951,43 @@ export function ProductEditorForm({
           <div className="space-y-3">
             <Label>Additional Categories</Label>
             <div className="grid gap-3 md:grid-cols-2">
-              {categories.map((category) => (
-                <label
-                  key={category.id}
-                  className="flex items-start gap-3 rounded-lg border p-3 text-sm"
-                >
-                  <Checkbox
-                    checked={categoryIds.includes(category.id)}
-                    onCheckedChange={(checked) =>
-                      toggleCategory(category.id, Boolean(checked))
-                    }
-                  />
-                  <div>
-                    <p className="font-medium">{category.path}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {category.slug}
-                    </p>
-                  </div>
-                </label>
-              ))}
+              {categories.map((category) =>
+                (() => {
+                  const isPrimaryCategory =
+                    watchedValues.primaryCategoryId === category.id
+
+                  return (
+                    <div
+                      key={category.id}
+                      className="flex items-start gap-3 rounded-lg border p-3 text-sm"
+                    >
+                      <Checkbox
+                        id={`product-category-${category.id}`}
+                        checked={
+                          isPrimaryCategory || categoryIds.includes(category.id)
+                        }
+                        disabled={isPrimaryCategory}
+                        onCheckedChange={(checked) =>
+                          toggleCategory(category.id, Boolean(checked))
+                        }
+                      />
+                      <div>
+                        <Label
+                          htmlFor={`product-category-${category.id}`}
+                          className="font-medium"
+                        >
+                          {category.path}
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          {isPrimaryCategory
+                            ? `${category.slug} · Primary category`
+                            : category.slug}
+                        </p>
+                      </div>
+                    </div>
+                  )
+                })(),
+              )}
             </div>
           </div>
         </CardContent>

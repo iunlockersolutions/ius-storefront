@@ -20,6 +20,7 @@ import {
   revalidateCategoryCaches,
   revalidateProductCaches,
 } from "@/lib/utils/cache"
+import { normalizeEntityName } from "@/lib/utils/catalog"
 
 import { withStorefrontCatalogFallback } from "./storefront-catalog-read"
 
@@ -29,10 +30,41 @@ const modelSchema = z.object({
   description: z.string().max(1000).optional().nullable(),
   brandId: z.string().uuid(),
   primaryCategoryId: z.string().uuid(),
+  metaTitle: z.string().max(100).optional().nullable(),
+  metaDescription: z.string().max(300).optional().nullable(),
   showInProductMenu: z.boolean().default(true),
   navPriority: z.number().int().default(0),
   isActive: z.boolean().default(true),
 })
+
+async function resolveUniqueModelSlug(
+  name: string,
+  categorySlug: string,
+  brandSlug: string,
+  preferredSlug?: string,
+) {
+  const baseSlug =
+    preferredSlug ||
+    `${categorySlug}-${brandSlug}-${slugify(name)}`.slice(0, 255) ||
+    "model"
+  let nextSlug = baseSlug
+  let suffix = 2
+
+  while (true) {
+    const [existing] = await db
+      .select({ id: models.id })
+      .from(models)
+      .where(eq(models.slug, nextSlug))
+      .limit(1)
+
+    if (!existing) {
+      return nextSlug
+    }
+
+    nextSlug = `${baseSlug}-${suffix}`.slice(0, 255)
+    suffix += 1
+  }
+}
 
 async function ensureTopLevelCategory(categoryId: string) {
   const [category] = await db
@@ -123,8 +155,11 @@ export async function getModels(options?: {
     .select({
       id: models.id,
       name: models.name,
+      normalizedName: models.normalizedName,
       slug: models.slug,
       description: models.description,
+      metaTitle: models.metaTitle,
+      metaDescription: models.metaDescription,
       brandId: models.brandId,
       brandName: brands.name,
       primaryCategoryId: models.primaryCategoryId,
@@ -157,8 +192,11 @@ export async function getModel(id: string) {
     .select({
       id: models.id,
       name: models.name,
+      normalizedName: models.normalizedName,
       slug: models.slug,
       description: models.description,
+      metaTitle: models.metaTitle,
+      metaDescription: models.metaDescription,
       brandId: models.brandId,
       brandName: brands.name,
       primaryCategoryId: models.primaryCategoryId,
@@ -187,8 +225,11 @@ export async function getModelBySlug(slug: string) {
       .select({
         id: models.id,
         name: models.name,
+        normalizedName: models.normalizedName,
         slug: models.slug,
         description: models.description,
+        metaTitle: models.metaTitle,
+        metaDescription: models.metaDescription,
         brandId: models.brandId,
         brandName: brands.name,
         brandSlug: brands.slug,
@@ -253,28 +294,44 @@ export async function createModel(data: z.infer<typeof modelSchema>) {
     validated.primaryCategoryId,
   )
 
-  const slug =
-    validated.slug ||
-    `${category.slug}-${brand.slug}-${slugify(validated.name)}`.slice(0, 255)
+  const normalizedName = normalizeEntityName(validated.name)
 
   const [existing] = await db
     .select({ id: models.id })
     .from(models)
-    .where(eq(models.slug, slug))
+    .where(
+      and(
+        eq(models.brandId, validated.brandId),
+        eq(models.primaryCategoryId, validated.primaryCategoryId),
+        eq(models.normalizedName, normalizedName),
+      ),
+    )
     .limit(1)
 
   if (existing) {
-    throw new Error("A model with this slug already exists")
+    throw new Error(
+      "A model with this name already exists in the selected brand and category",
+    )
   }
+
+  const slug = await resolveUniqueModelSlug(
+    validated.name,
+    category.slug,
+    brand.slug,
+    validated.slug,
+  )
 
   const [model] = await db
     .insert(models)
     .values({
       name: validated.name,
+      normalizedName,
       slug,
       description: validated.description || null,
       brandId: validated.brandId,
       primaryCategoryId: validated.primaryCategoryId,
+      metaTitle: validated.metaTitle || null,
+      metaDescription: validated.metaDescription || null,
       showInProductMenu: validated.showInProductMenu,
       navPriority: validated.navPriority,
       isActive: validated.isActive,
@@ -302,19 +359,32 @@ export async function updateModel(
     validated.primaryCategoryId,
   )
 
-  const slug =
-    validated.slug ||
-    `${category.slug}-${brand.slug}-${slugify(validated.name)}`.slice(0, 255)
+  const normalizedName = normalizeEntityName(validated.name)
 
   const [existing] = await db
     .select({ id: models.id })
     .from(models)
-    .where(eq(models.slug, slug))
+    .where(
+      and(
+        eq(models.brandId, validated.brandId),
+        eq(models.primaryCategoryId, validated.primaryCategoryId),
+        eq(models.normalizedName, normalizedName),
+      ),
+    )
     .limit(1)
 
   if (existing && existing.id !== id) {
-    throw new Error("A model with this slug already exists")
+    throw new Error(
+      "A model with this name already exists in the selected brand and category",
+    )
   }
+
+  const slug = await resolveUniqueModelSlug(
+    validated.name,
+    category.slug,
+    brand.slug,
+    validated.slug,
+  )
 
   const linkedProducts = await db
     .select({
@@ -352,10 +422,13 @@ export async function updateModel(
     .update(models)
     .set({
       name: validated.name,
+      normalizedName,
       slug,
       description: validated.description || null,
       brandId: validated.brandId,
       primaryCategoryId: validated.primaryCategoryId,
+      metaTitle: validated.metaTitle || null,
+      metaDescription: validated.metaDescription || null,
       showInProductMenu: validated.showInProductMenu,
       navPriority: validated.navPriority,
       isActive: validated.isActive,
@@ -400,4 +473,110 @@ export async function deleteModel(id: string) {
   revalidateCategoryCaches()
 
   return { success: true as const }
+}
+
+const inlineModelSchema = z.object({
+  name: z.string().min(1).max(255),
+  brandId: z.string().uuid(),
+  primaryCategoryId: z.string().uuid(),
+})
+
+export async function createModelInline(
+  data: z.infer<typeof inlineModelSchema>,
+) {
+  await requireResourcePermission("product", "create")
+  const validated = inlineModelSchema.parse(data)
+  const category = await ensureTopLevelCategory(validated.primaryCategoryId)
+  const brand = await ensureBrand(validated.brandId)
+  const normalizedName = normalizeEntityName(validated.name)
+
+  const [assignment] = await db
+    .select({ id: brandCategoryAssignments.id })
+    .from(brandCategoryAssignments)
+    .where(
+      and(
+        eq(brandCategoryAssignments.brandId, validated.brandId),
+        eq(brandCategoryAssignments.categoryId, validated.primaryCategoryId),
+      ),
+    )
+    .limit(1)
+
+  if (!assignment) {
+    await db.insert(brandCategoryAssignments).values({
+      brandId: validated.brandId,
+      categoryId: validated.primaryCategoryId,
+      navPriority: 0,
+      showInProductMenu: false,
+    })
+  }
+
+  const [existing] = await db
+    .select({
+      id: models.id,
+      name: models.name,
+      slug: models.slug,
+      brandId: models.brandId,
+      primaryCategoryId: models.primaryCategoryId,
+      isActive: models.isActive,
+    })
+    .from(models)
+    .where(
+      and(
+        eq(models.brandId, validated.brandId),
+        eq(models.primaryCategoryId, validated.primaryCategoryId),
+        eq(models.normalizedName, normalizedName),
+      ),
+    )
+    .limit(1)
+
+  if (existing) {
+    revalidateBrandCaches()
+    revalidateCategoryCaches()
+    revalidateProductCaches()
+
+    return {
+      created: false as const,
+      model: existing,
+    }
+  }
+
+  const slug = await resolveUniqueModelSlug(
+    validated.name,
+    category.slug,
+    brand.slug,
+  )
+
+  const [model] = await db
+    .insert(models)
+    .values({
+      name: validated.name.trim(),
+      normalizedName,
+      slug,
+      description: null,
+      brandId: validated.brandId,
+      primaryCategoryId: validated.primaryCategoryId,
+      metaTitle: null,
+      metaDescription: null,
+      showInProductMenu: false,
+      navPriority: 0,
+      isActive: true,
+    })
+    .returning({
+      id: models.id,
+      name: models.name,
+      slug: models.slug,
+      brandId: models.brandId,
+      primaryCategoryId: models.primaryCategoryId,
+      isActive: models.isActive,
+    })
+
+  revalidatePath("/ops/catalog-setup")
+  revalidateBrandCaches()
+  revalidateCategoryCaches()
+  revalidateProductCaches()
+
+  return {
+    created: true as const,
+    model,
+  }
 }

@@ -1,6 +1,7 @@
 import { drizzle } from "drizzle-orm/postgres-js"
 import postgres from "postgres"
 
+import { normalizeEntityName } from "../utils/catalog"
 import {
   brandCategoryAssignments,
   brands,
@@ -816,10 +817,13 @@ export async function seedCatalogData(logLabel: string) {
         .insert(brands)
         .values({
           name: brand.name,
+          normalizedName: normalizeEntityName(brand.name),
           slug: brand.slug,
           description: brand.description,
           isActive: true,
           sortOrder: brand.sortOrder,
+          metaTitle: null,
+          metaDescription: null,
         })
         .returning({ id: brands.id })
 
@@ -857,10 +861,13 @@ export async function seedCatalogData(logLabel: string) {
         .insert(models)
         .values({
           name: model.name,
+          normalizedName: normalizeEntityName(model.name),
           slug: model.slug,
           description: model.description,
           brandId,
           primaryCategoryId: categoryId,
+          metaTitle: null,
+          metaDescription: null,
           isActive: true,
           showInProductMenu: true,
           navPriority: model.navPriority,

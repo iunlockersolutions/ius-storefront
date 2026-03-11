@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 
-import { asc, eq, inArray, sql } from "drizzle-orm"
+import { and, asc, eq, inArray, sql } from "drizzle-orm"
 import { z } from "zod"
 
 import { requireResourcePermission } from "@/lib/auth/rbac"
@@ -19,6 +19,7 @@ import {
   revalidateCategoryCaches,
   revalidateProductCaches,
 } from "@/lib/utils/cache"
+import { normalizeEntityName } from "@/lib/utils/catalog"
 
 import { withStorefrontCatalogFallback } from "./storefront-catalog-read"
 
@@ -46,6 +47,27 @@ function generateSlug(name: string) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
+}
+
+async function resolveUniqueBrandSlug(name: string, preferredSlug?: string) {
+  const baseSlug = preferredSlug || generateSlug(name) || "brand"
+  let nextSlug = baseSlug
+  let suffix = 2
+
+  while (true) {
+    const [existing] = await db
+      .select({ id: brands.id })
+      .from(brands)
+      .where(eq(brands.slug, nextSlug))
+      .limit(1)
+
+    if (!existing) {
+      return nextSlug
+    }
+
+    nextSlug = `${baseSlug}-${suffix}`
+    suffix += 1
+  }
 }
 
 function normalizeAssignments(
@@ -175,6 +197,7 @@ export async function getBrands() {
     .select({
       id: brands.id,
       name: brands.name,
+      normalizedName: brands.normalizedName,
       slug: brands.slug,
       description: brands.description,
       logo: brands.logo,
@@ -215,6 +238,7 @@ export async function getActiveBrands(options?: { failSoft?: boolean }) {
       .select({
         id: brands.id,
         name: brands.name,
+        normalizedName: brands.normalizedName,
         slug: brands.slug,
         description: brands.description,
         logo: brands.logo,
@@ -258,6 +282,7 @@ export async function getBrand(id: string) {
     .select({
       id: brands.id,
       name: brands.name,
+      normalizedName: brands.normalizedName,
       slug: brands.slug,
       description: brands.description,
       logo: brands.logo,
@@ -303,6 +328,7 @@ export async function getBrandBySlug(slug: string) {
         .select({
           id: brands.id,
           name: brands.name,
+          normalizedName: brands.normalizedName,
           slug: brands.slug,
           description: brands.description,
           logo: brands.logo,
@@ -337,29 +363,31 @@ export async function createBrand(data: z.infer<typeof brandSchema>) {
   try {
     await requireResourcePermission("brand", "create")
     const validated = brandSchema.parse(data)
-    const slug = validated.slug || generateSlug(validated.name)
+    const normalizedName = normalizeEntityName(validated.name)
     const assignments = normalizeAssignments(validated.categoryAssignments)
 
     const [existing] = await db
       .select({ id: brands.id })
       .from(brands)
-      .where(eq(brands.slug, slug))
+      .where(eq(brands.normalizedName, normalizedName))
       .limit(1)
 
     if (existing) {
       return {
         success: false as const,
-        error: "A brand with this slug already exists",
+        error: "A brand with this name already exists",
       }
     }
 
     await ensureTopLevelCategories(assignments.map((item) => item.categoryId))
+    const slug = await resolveUniqueBrandSlug(validated.name, validated.slug)
 
     const brand = await db.transaction(async (tx) => {
       const [created] = await tx
         .insert(brands)
         .values({
           name: validated.name,
+          normalizedName,
           slug,
           description: validated.description || null,
           logo: validated.logo || null,
@@ -394,14 +422,28 @@ export async function updateBrand(
 ) {
   await requireResourcePermission("brand", "update")
 
-  if (data.slug) {
+  const normalizedName = data.name ? normalizeEntityName(data.name) : null
+
+  if (normalizedName) {
     const [existing] = await db
+      .select({ id: brands.id })
+      .from(brands)
+      .where(eq(brands.normalizedName, normalizedName))
+      .limit(1)
+
+    if (existing && existing.id !== id) {
+      throw new Error("A brand with this name already exists")
+    }
+  }
+
+  if (data.slug) {
+    const [existingSlug] = await db
       .select({ id: brands.id })
       .from(brands)
       .where(eq(brands.slug, data.slug))
       .limit(1)
 
-    if (existing && existing.id !== id) {
+    if (existingSlug && existingSlug.id !== id) {
       throw new Error("A brand with this slug already exists")
     }
   }
@@ -434,11 +476,32 @@ export async function updateBrand(
   }
 
   const brand = await db.transaction(async (tx) => {
+    const [current] = await tx
+      .select({
+        name: brands.name,
+        slug: brands.slug,
+      })
+      .from(brands)
+      .where(eq(brands.id, id))
+      .limit(1)
+
+    if (!current) {
+      throw new Error("Brand not found")
+    }
+
+    const nextName = data.name ?? current.name
+    const nextSlug =
+      data.slug ??
+      (data.name && data.name !== current.name
+        ? await resolveUniqueBrandSlug(nextName)
+        : current.slug)
+
     const [updated] = await tx
       .update(brands)
       .set({
-        name: data.name,
-        slug: data.slug,
+        name: nextName,
+        normalizedName: normalizeEntityName(nextName),
+        slug: nextSlug,
         description: data.description ?? null,
         logo: data.logo ?? null,
         websiteUrl: data.websiteUrl ?? null,
@@ -473,6 +536,112 @@ export async function updateBrand(
   revalidateProductCaches()
 
   return brand
+}
+
+const inlineBrandSchema = z.object({
+  name: z.string().min(1).max(255),
+  primaryCategoryId: z.string().uuid().optional().nullable(),
+})
+
+export async function createBrandInline(
+  data: z.infer<typeof inlineBrandSchema>,
+) {
+  await requireResourcePermission("brand", "create")
+  const validated = inlineBrandSchema.parse(data)
+  const normalizedName = normalizeEntityName(validated.name)
+
+  const [existingBrand] = await db
+    .select({
+      id: brands.id,
+      name: brands.name,
+      slug: brands.slug,
+      isActive: brands.isActive,
+    })
+    .from(brands)
+    .where(eq(brands.normalizedName, normalizedName))
+    .limit(1)
+
+  if (existingBrand) {
+    if (validated.primaryCategoryId) {
+      await ensureTopLevelCategories([validated.primaryCategoryId])
+
+      const [assignment] = await db
+        .select({ id: brandCategoryAssignments.id })
+        .from(brandCategoryAssignments)
+        .where(
+          and(
+            eq(brandCategoryAssignments.brandId, existingBrand.id),
+            eq(
+              brandCategoryAssignments.categoryId,
+              validated.primaryCategoryId,
+            ),
+          ),
+        )
+        .limit(1)
+
+      if (!assignment) {
+        await db.insert(brandCategoryAssignments).values({
+          brandId: existingBrand.id,
+          categoryId: validated.primaryCategoryId,
+          navPriority: 0,
+          showInProductMenu: false,
+        })
+      }
+    }
+
+    revalidateBrandCaches()
+    revalidateCategoryCaches()
+
+    return {
+      created: false as const,
+      brand: existingBrand,
+    }
+  }
+
+  if (validated.primaryCategoryId) {
+    await ensureTopLevelCategories([validated.primaryCategoryId])
+  }
+
+  const slug = await resolveUniqueBrandSlug(validated.name)
+
+  const [brand] = await db
+    .insert(brands)
+    .values({
+      name: validated.name.trim(),
+      normalizedName,
+      slug,
+      description: null,
+      logo: null,
+      websiteUrl: null,
+      isActive: true,
+      sortOrder: 0,
+      metaTitle: null,
+      metaDescription: null,
+    })
+    .returning({
+      id: brands.id,
+      name: brands.name,
+      slug: brands.slug,
+      isActive: brands.isActive,
+    })
+
+  if (validated.primaryCategoryId) {
+    await db.insert(brandCategoryAssignments).values({
+      brandId: brand.id,
+      categoryId: validated.primaryCategoryId,
+      navPriority: 0,
+      showInProductMenu: false,
+    })
+  }
+
+  revalidatePath("/ops/catalog-setup")
+  revalidateBrandCaches()
+  revalidateCategoryCaches()
+
+  return {
+    created: true as const,
+    brand,
+  }
 }
 
 export async function deleteBrand(id: string) {

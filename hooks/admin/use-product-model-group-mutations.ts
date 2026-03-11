@@ -10,6 +10,8 @@ type ProductModelGroupPayload = {
   description?: string | null
   primaryCategoryId?: string
   brandId?: string
+  metaTitle?: string | null
+  metaDescription?: string | null
   showInProductMenu?: boolean
   navPriority?: number
   isActive?: boolean

@@ -23,6 +23,7 @@ export const brands = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     name: text("name").notNull(),
+    normalizedName: text("normalized_name").notNull(),
     slug: text("slug").notNull().unique(),
     description: text("description"),
     logo: text("logo"),
@@ -40,7 +41,9 @@ export const brands = pgTable(
   },
   (table) => [
     index("brands_slug_idx").on(table.slug),
+    index("brands_normalized_name_idx").on(table.normalizedName),
     index("brands_is_active_idx").on(table.isActive),
+    unique("brands_normalized_name_unique").on(table.normalizedName),
   ],
 )
 
@@ -125,8 +128,11 @@ export const models = pgTable(
       .notNull()
       .references(() => categories.id, { onDelete: "restrict" }),
     name: text("name").notNull(),
+    normalizedName: text("normalized_name").notNull(),
     slug: text("slug").notNull().unique(),
     description: text("description"),
+    metaTitle: text("meta_title"),
+    metaDescription: text("meta_description"),
     isActive: boolean("is_active").notNull().default(true),
     showInProductMenu: boolean("show_in_product_menu").notNull().default(true),
     navPriority: integer("nav_priority").notNull().default(0),
@@ -140,11 +146,12 @@ export const models = pgTable(
   (table) => [
     index("models_brand_id_idx").on(table.brandId),
     index("models_primary_category_id_idx").on(table.primaryCategoryId),
+    index("models_normalized_name_idx").on(table.normalizedName),
     index("models_slug_idx").on(table.slug),
-    unique("models_brand_category_name_unique").on(
+    unique("models_brand_category_normalized_name_unique").on(
       table.brandId,
       table.primaryCategoryId,
-      table.name,
+      table.normalizedName,
     ),
   ],
 )

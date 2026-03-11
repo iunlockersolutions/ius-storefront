@@ -14,7 +14,6 @@ import {
   Settings,
   ShoppingCart,
   Store,
-  SwatchBook,
   Tags,
   Users,
 } from "lucide-react"
@@ -69,13 +68,8 @@ const items: NavItem[] = [
     icon: Package,
   },
   {
-    title: "Models",
-    url: "/ops/models",
-    icon: SwatchBook,
-  },
-  {
-    title: "Brands",
-    url: "/ops/brands",
+    title: "Catalog Setup",
+    url: "/ops/catalog-setup",
     icon: Store,
   },
   {

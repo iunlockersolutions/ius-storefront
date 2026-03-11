@@ -2,7 +2,6 @@
 
 import { useTransition } from "react"
 import { useForm, useWatch } from "react-hook-form"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -47,6 +46,8 @@ const formSchema = z.object({
   description: z.string().max(1000).optional(),
   primaryCategoryId: z.string().min(1, "Category is required"),
   brandId: z.string().min(1, "Brand is required"),
+  metaTitle: z.string().max(100).optional(),
+  metaDescription: z.string().max(300).optional(),
   showInProductMenu: z.boolean().default(true),
   navPriority: z.number().int().min(0).default(0),
   isActive: z.boolean().default(true),
@@ -76,6 +77,8 @@ interface InitialData {
   description: string | null
   primaryCategoryId: string
   brandId: string
+  metaTitle?: string | null
+  metaDescription?: string | null
   showInProductMenu: boolean
   navPriority: number
   isActive: boolean
@@ -86,6 +89,9 @@ interface ProductModelGroupFormProps {
   categories: CategoryOption[]
   brands: BrandOption[]
   initialData?: InitialData
+  redirectTo?: string | null
+  onCompleted?: () => void
+  onCancel?: () => void
 }
 
 export function ProductModelGroupForm({
@@ -93,6 +99,9 @@ export function ProductModelGroupForm({
   categories,
   brands,
   initialData,
+  redirectTo = "/ops/models",
+  onCompleted,
+  onCancel,
 }: ProductModelGroupFormProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -110,6 +119,8 @@ export function ProductModelGroupForm({
       description: initialData?.description || "",
       primaryCategoryId: initialData?.primaryCategoryId || "",
       brandId: initialData?.brandId || "",
+      metaTitle: initialData?.metaTitle || "",
+      metaDescription: initialData?.metaDescription || "",
       showInProductMenu: initialData?.showInProductMenu ?? true,
       navPriority: initialData?.navPriority ?? 0,
       isActive: initialData?.isActive ?? true,
@@ -165,11 +176,15 @@ export function ProductModelGroupForm({
           await createMutation.mutateAsync({
             ...data,
             description: data.description || null,
+            metaTitle: data.metaTitle || null,
+            metaDescription: data.metaDescription || null,
           })
         } else if (initialData) {
           await updateMutation.mutateAsync({
             ...data,
             description: data.description || null,
+            metaTitle: data.metaTitle || null,
+            metaDescription: data.metaDescription || null,
           })
         }
 
@@ -178,8 +193,11 @@ export function ProductModelGroupForm({
             ? "Model created successfully"
             : "Model updated successfully",
         )
-        router.push("/ops/models")
+        if (redirectTo) {
+          router.push(redirectTo)
+        }
         router.refresh()
+        onCompleted?.()
       } catch (error) {
         toast.error(
           error instanceof Error ? error.message : "Something went wrong",
@@ -196,8 +214,11 @@ export function ProductModelGroupForm({
     try {
       await deleteMutation.mutateAsync(initialData.id)
       toast.success("Model deleted successfully")
-      router.push("/ops/models")
+      if (redirectTo) {
+        router.push(redirectTo)
+      }
       router.refresh()
+      onCompleted?.()
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to delete model group",
@@ -313,6 +334,22 @@ export function ProductModelGroupForm({
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
+              <Label htmlFor="metaTitle">Meta Title</Label>
+              <Input id="metaTitle" {...register("metaTitle")} />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="metaDescription">Meta Description</Label>
+              <Textarea
+                id="metaDescription"
+                rows={3}
+                {...register("metaDescription")}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
               <Label htmlFor="navPriority">Navigation Priority</Label>
               <Input
                 id="navPriority"
@@ -389,8 +426,24 @@ export function ProductModelGroupForm({
         </div>
 
         <div className="flex items-center gap-3">
-          <Button type="button" variant="outline" asChild>
-            <Link href="/ops/models">Cancel</Link>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              if (onCancel) {
+                onCancel()
+                return
+              }
+
+              if (redirectTo) {
+                router.push(redirectTo)
+                return
+              }
+
+              router.back()
+            }}
+          >
+            Cancel
           </Button>
           <Button type="submit" disabled={isPending}>
             {isPending ? (

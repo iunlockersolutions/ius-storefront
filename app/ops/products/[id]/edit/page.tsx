@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation"
 
 import { EditProductForm } from "@/components/admin/products/edit-product-form"
-import { getActiveBrands } from "@/lib/actions/brand"
+import { getBrands } from "@/lib/actions/brand"
 import { getCategoriesFlat } from "@/lib/actions/category"
 import { getModels } from "@/lib/actions/model"
 import { getProduct } from "@/lib/actions/product"
@@ -23,7 +23,7 @@ export default async function EditProductPage({
   const [product, categories, brands, models] = await Promise.all([
     getProduct(id),
     getCategoriesFlat(),
-    getActiveBrands(),
+    getBrands(),
     getModels({ includeInactive: true }),
   ])
 

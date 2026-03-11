@@ -1,11 +1,4 @@
-import Link from "next/link"
-
-import { ChevronLeft } from "lucide-react"
-
-import { Button } from "@/components/ui/button"
-import { getCategoriesFlat } from "@/lib/actions/category"
-
-import { EditBrandPageClient } from "./page-client"
+import { redirect } from "next/navigation"
 
 interface EditBrandPageProps {
   params: Promise<{ id: string }>
@@ -18,32 +11,5 @@ export const metadata = {
 
 export default async function EditBrandPage({ params }: EditBrandPageProps) {
   const { id } = await params
-  const categories = await getCategoriesFlat()
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" asChild>
-          <Link href="/ops/brands">
-            <ChevronLeft className="h-4 w-4" />
-          </Link>
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold">Edit Brand</h1>
-          <p className="text-muted-foreground">Update brand details</p>
-        </div>
-      </div>
-
-      <EditBrandPageClient
-        brandId={id}
-        categories={categories
-          .filter((category) => category.level === 0)
-          .map((category) => ({
-            id: category.id,
-            name: category.name,
-            slug: category.slug,
-          }))}
-      />
-    </div>
-  )
+  redirect(`/ops/catalog-setup?tab=brands&brand=${id}`)
 }

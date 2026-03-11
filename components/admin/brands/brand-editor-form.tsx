@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState, useTransition } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { useRouter } from "next/navigation"
 
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -93,6 +93,9 @@ interface BrandEditorFormProps {
     categoryAssignments: CategoryAssignmentValue[]
   }) => Promise<unknown>
   onDelete?: () => Promise<unknown>
+  redirectTo?: string | null
+  onCompleted?: () => void
+  onCancel?: () => void
 }
 
 export function BrandEditorForm({
@@ -101,6 +104,9 @@ export function BrandEditorForm({
   initialData,
   onSave,
   onDelete,
+  redirectTo = "/ops/brands",
+  onCompleted,
+  onCancel,
 }: BrandEditorFormProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -137,12 +143,13 @@ export function BrandEditorForm({
   const {
     register,
     setValue,
-    watch,
     handleSubmit,
     formState: { errors, isDirty },
   } = form
 
-  const watchedValues = watch()
+  const watchedValues = useWatch({
+    control: form.control,
+  })
   const assignmentMap = useMemo(
     () =>
       new Map(
@@ -218,8 +225,11 @@ export function BrandEditorForm({
             ? "Brand created successfully!"
             : "Brand updated successfully!",
         )
-        router.push("/ops/brands")
+        if (redirectTo) {
+          router.push(redirectTo)
+        }
         router.refresh()
+        onCompleted?.()
       } catch (error) {
         toast.error(
           error instanceof Error ? error.message : "Something went wrong",
@@ -449,8 +459,11 @@ export function BrandEditorForm({
                     startTransition(async () => {
                       try {
                         await onDelete()
-                        router.push("/ops/brands")
+                        if (redirectTo) {
+                          router.push(redirectTo)
+                        }
                         router.refresh()
+                        onCompleted?.()
                       } catch (error) {
                         toast.error(
                           error instanceof Error
@@ -472,7 +485,23 @@ export function BrandEditorForm({
         )}
 
         <div className="flex gap-3">
-          <Button type="button" variant="outline" onClick={() => router.back()}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              if (onCancel) {
+                onCancel()
+                return
+              }
+
+              if (redirectTo) {
+                router.push(redirectTo)
+                return
+              }
+
+              router.back()
+            }}
+          >
             Cancel
           </Button>
           <Button

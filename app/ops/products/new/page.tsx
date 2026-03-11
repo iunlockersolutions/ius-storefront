@@ -6,7 +6,7 @@ import { ChevronLeft } from "lucide-react"
 import { NewProductForm } from "@/components/admin/products/new-product-form"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { getActiveBrands } from "@/lib/actions/brand"
+import { getBrands } from "@/lib/actions/brand"
 import { getCategoriesFlat } from "@/lib/actions/category"
 import { getModels } from "@/lib/actions/model"
 
@@ -18,7 +18,7 @@ export const metadata = {
 async function ProductFormWrapper() {
   const [categories, brands, models] = await Promise.all([
     getCategoriesFlat(),
-    getActiveBrands(),
+    getBrands(),
     getModels({ includeInactive: true }),
   ])
 
@@ -31,7 +31,7 @@ async function ProductFormWrapper() {
     path: cat.path,
   }))
 
-  const activeBrands = brands.map((brand) => ({
+  const catalogBrands = brands.map((brand) => ({
     id: brand.id,
     name: brand.name,
     slug: brand.slug,
@@ -40,7 +40,7 @@ async function ProductFormWrapper() {
   return (
     <NewProductForm
       categories={flatCategories}
-      brands={activeBrands}
+      brands={catalogBrands}
       models={models.map((model) => ({
         id: model.id,
         name: model.name,
