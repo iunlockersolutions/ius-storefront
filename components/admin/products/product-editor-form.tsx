@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, useTransition } from "react"
+import { useEffect, useMemo, useState, useTransition } from "react"
 import { useForm } from "react-hook-form"
 import { useRouter } from "next/navigation"
 
@@ -44,6 +44,7 @@ const productSchema = z.object({
   description: z.string().optional(),
   brandId: z.string().min(1, "Brand is required"),
   primaryCategoryId: z.string().min(1, "Primary category is required"),
+  productModelGroupId: z.string().min(1, "Model group is required"),
   basePrice: z.string().min(1, "Price is required"),
   compareAtPrice: z.string().optional(),
   costPrice: z.string().optional(),
@@ -79,6 +80,7 @@ type CategoryOption = {
   id: string
   name: string
   slug: string
+  parentId: string | null
   level: number
   path: string
 }
@@ -89,6 +91,15 @@ type BrandOption = {
   slug: string
 }
 
+type ProductModelGroupOption = {
+  id: string
+  name: string
+  slug: string
+  categoryId: string
+  brandId: string
+  isActive: boolean
+}
+
 type ProductEditorInitialData = {
   id?: string
   name: string
@@ -97,6 +108,7 @@ type ProductEditorInitialData = {
   shortDescription: string | null
   brandId: string | null
   primaryCategoryId: string | null
+  productModelGroupId: string | null
   basePrice: string
   compareAtPrice: string | null
   costPrice: string | null
@@ -128,6 +140,7 @@ interface ProductEditorFormProps {
   mode: "create" | "edit"
   categories: CategoryOption[]
   brands: BrandOption[]
+  productModelGroups: ProductModelGroupOption[]
   initialData?: ProductEditorInitialData
   onSave: (payload: {
     name: string
@@ -136,6 +149,7 @@ interface ProductEditorFormProps {
     shortDescription?: string
     brandId: string
     primaryCategoryId: string
+    productModelGroupId: string
     categoryIds: string[]
     basePrice: string
     compareAtPrice?: string
@@ -178,6 +192,7 @@ export function ProductEditorForm({
   mode,
   categories,
   brands,
+  productModelGroups,
   initialData,
   onSave,
   onDelete,
@@ -204,7 +219,9 @@ export function ProductEditorForm({
     Array.from(
       new Set(
         initialData?.categories?.map((category) => category.id) ??
-          (initialData?.primaryCategoryId ? [initialData.primaryCategoryId] : []),
+          (initialData?.primaryCategoryId
+            ? [initialData.primaryCategoryId]
+            : []),
       ),
     ),
   )
@@ -226,6 +243,7 @@ export function ProductEditorForm({
       description: initialData?.description || "",
       brandId: initialData?.brandId || "",
       primaryCategoryId: initialData?.primaryCategoryId || "",
+      productModelGroupId: initialData?.productModelGroupId || "",
       basePrice: initialData?.basePrice || "",
       compareAtPrice: initialData?.compareAtPrice || "",
       costPrice: initialData?.costPrice || "",
@@ -246,8 +264,13 @@ export function ProductEditorForm({
   } = form
 
   const watchedValues = watch()
+  const categoryMap = useMemo(
+    () => new Map(categories.map((category) => [category.id, category])),
+    [categories],
+  )
 
   const selectedPrimaryCategoryId = watchedValues.primaryCategoryId
+  const selectedBrandId = watchedValues.brandId
   const orderedCategories = useMemo(
     () =>
       categories.map((category) => ({
@@ -259,6 +282,70 @@ export function ProductEditorForm({
       })),
     [categories],
   )
+
+  const selectedMenuCategoryId = useMemo(() => {
+    if (!selectedPrimaryCategoryId) {
+      return null
+    }
+
+    let cursor = selectedPrimaryCategoryId
+    let topLevelCategoryId: string | null = null
+
+    while (cursor) {
+      const category = categoryMap.get(cursor)
+
+      if (!category) {
+        break
+      }
+
+      topLevelCategoryId = category.id
+      cursor = category.parentId!
+    }
+
+    return topLevelCategoryId
+  }, [categoryMap, selectedPrimaryCategoryId])
+
+  const filteredProductModelGroups = useMemo(
+    () =>
+      productModelGroups.filter((group) => {
+        if (selectedBrandId && group.brandId !== selectedBrandId) {
+          return false
+        }
+
+        if (
+          selectedMenuCategoryId &&
+          group.categoryId !== selectedMenuCategoryId
+        ) {
+          return false
+        }
+
+        if (group.isActive) {
+          return true
+        }
+
+        return group.id === watchedValues.productModelGroupId
+      }),
+    [
+      productModelGroups,
+      selectedBrandId,
+      selectedMenuCategoryId,
+      watchedValues.productModelGroupId,
+    ],
+  )
+
+  useEffect(() => {
+    if (!watchedValues.productModelGroupId) {
+      return
+    }
+
+    const isStillValid = filteredProductModelGroups.some(
+      (group) => group.id === watchedValues.productModelGroupId,
+    )
+
+    if (!isStillValid) {
+      setValue("productModelGroupId", "")
+    }
+  }, [filteredProductModelGroups, setValue, watchedValues.productModelGroupId])
 
   const handleNameChange = (value: string) => {
     setValue("name", value)
@@ -317,7 +404,9 @@ export function ProductEditorForm({
   const addVariant = () => {
     setVariants((current) => [
       ...current.map((variant, index) =>
-        current.length === 0 || index > 0 ? variant : { ...variant, isDefault: false },
+        current.length === 0 || index > 0
+          ? variant
+          : { ...variant, isDefault: false },
       ),
       {
         ...createEmptyVariant(),
@@ -376,6 +465,7 @@ export function ProductEditorForm({
           shortDescription: data.shortDescription || undefined,
           brandId: data.brandId,
           primaryCategoryId: data.primaryCategoryId,
+          productModelGroupId: data.productModelGroupId,
           categoryIds: Array.from(
             new Set([data.primaryCategoryId, ...categoryIds]),
           ),
@@ -511,6 +601,34 @@ export function ProductEditorForm({
             </div>
           </div>
 
+          <div className="space-y-2">
+            <Label>Product Model Group *</Label>
+            <Select
+              value={watchedValues.productModelGroupId}
+              onValueChange={(value) => setValue("productModelGroupId", value)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select a model group" />
+              </SelectTrigger>
+              <SelectContent>
+                {filteredProductModelGroups.map((group) => (
+                  <SelectItem key={group.id} value={group.id}>
+                    {group.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errors.productModelGroupId && (
+              <p className="text-sm text-red-500">
+                {errors.productModelGroupId.message}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Model groups are filtered by the selected brand and the top-level
+              menu category derived from the primary category.
+            </p>
+          </div>
+
           <div className="space-y-3">
             <Label>Additional Category Assignments</Label>
             <div className="grid gap-3 rounded-lg border p-4 md:grid-cols-2">
@@ -553,7 +671,9 @@ export function ProductEditorForm({
               <Label htmlFor="basePrice">Base Price *</Label>
               <Input id="basePrice" {...register("basePrice")} />
               {errors.basePrice && (
-                <p className="text-sm text-red-500">{errors.basePrice.message}</p>
+                <p className="text-sm text-red-500">
+                  {errors.basePrice.message}
+                </p>
               )}
             </div>
             <div className="space-y-2">
@@ -569,7 +689,12 @@ export function ProductEditorForm({
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <Label>Variants</Label>
-              <Button type="button" variant="outline" size="sm" onClick={addVariant}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addVariant}
+              >
                 <Plus className="mr-2 h-4 w-4" />
                 Add Variant
               </Button>
@@ -598,7 +723,11 @@ export function ProductEditorForm({
                         <Input
                           value={variant.name}
                           onChange={(event) =>
-                            updateVariant(variant.key, "name", event.target.value)
+                            updateVariant(
+                              variant.key,
+                              "name",
+                              event.target.value,
+                            )
                           }
                         />
                       </div>
@@ -607,7 +736,11 @@ export function ProductEditorForm({
                         <Input
                           value={variant.sku}
                           onChange={(event) =>
-                            updateVariant(variant.key, "sku", event.target.value)
+                            updateVariant(
+                              variant.key,
+                              "sku",
+                              event.target.value,
+                            )
                           }
                         />
                       </div>
@@ -619,7 +752,11 @@ export function ProductEditorForm({
                         <Input
                           value={variant.price}
                           onChange={(event) =>
-                            updateVariant(variant.key, "price", event.target.value)
+                            updateVariant(
+                              variant.key,
+                              "price",
+                              event.target.value,
+                            )
                           }
                         />
                       </div>
@@ -654,7 +791,11 @@ export function ProductEditorForm({
                         <Input
                           value={variant.weight}
                           onChange={(event) =>
-                            updateVariant(variant.key, "weight", event.target.value)
+                            updateVariant(
+                              variant.key,
+                              "weight",
+                              event.target.value,
+                            )
                           }
                         />
                       </div>

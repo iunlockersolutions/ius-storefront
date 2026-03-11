@@ -15,6 +15,8 @@ export interface AdminCategory {
   parentId: string | null
   sortOrder: number
   isActive: boolean
+  showInProductMenu: boolean
+  productMenuPriority: number
   productCount: number
   level?: number
   path?: string

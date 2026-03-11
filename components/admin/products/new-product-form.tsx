@@ -7,6 +7,7 @@ interface Category {
   id: string
   name: string
   slug: string
+  parentId: string | null
   level: number
   path: string
 }
@@ -17,12 +18,26 @@ interface Brand {
   slug: string
 }
 
+interface ProductModelGroup {
+  id: string
+  name: string
+  slug: string
+  categoryId: string
+  brandId: string
+  isActive: boolean
+}
+
 interface NewProductFormProps {
   categories: Category[]
   brands: Brand[]
+  productModelGroups: ProductModelGroup[]
 }
 
-export function NewProductForm({ categories, brands }: NewProductFormProps) {
+export function NewProductForm({
+  categories,
+  brands,
+  productModelGroups,
+}: NewProductFormProps) {
   const createProductMutation = useCreateProductMutation()
 
   return (
@@ -30,6 +45,7 @@ export function NewProductForm({ categories, brands }: NewProductFormProps) {
       mode="create"
       categories={categories}
       brands={brands}
+      productModelGroups={productModelGroups}
       onSave={async ({ images, ...payload }) => {
         const createdProduct = await createProductMutation.mutateAsync(payload)
 

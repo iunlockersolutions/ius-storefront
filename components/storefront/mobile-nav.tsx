@@ -282,7 +282,7 @@ export function MobileNav({
                                 {brand.name}
                               </span>
                               <span className="mt-1 block truncate text-xs text-muted-foreground">
-                                {brand.products.length} products
+                                {brand.models.length} models
                               </span>
                             </div>
                             <ChevronRight className="size-4 shrink-0" />
@@ -343,16 +343,16 @@ export function MobileNav({
                       </p>
                     </div>
                     <div className="space-y-0">
-                      {activeBrand.products.length > 0 ? (
-                        activeBrand.products.map((product) => (
+                      {activeBrand.models.length > 0 ? (
+                        activeBrand.models.map((model) => (
                           <Link
-                            key={product.id}
-                            href={product.href}
+                            key={model.id}
+                            href={model.href}
                             onClick={closeNav}
                             className="flex items-center justify-between border-b px-4 py-3 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
                           >
                             <span className="min-w-0 truncate pr-4">
-                              {product.name}
+                              {model.name}
                             </span>
                             <ChevronRight className="size-4 shrink-0 text-sidebar-foreground/50" />
                           </Link>

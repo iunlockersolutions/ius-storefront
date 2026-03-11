@@ -148,7 +148,9 @@ export function BrandEditorForm({
         })
 
         toast.success(
-          mode === "create" ? "Brand created successfully!" : "Brand updated successfully!",
+          mode === "create"
+            ? "Brand created successfully!"
+            : "Brand updated successfully!",
         )
         router.push("/ops/brands")
         router.refresh()
@@ -208,7 +210,9 @@ export function BrandEditorForm({
             <Label htmlFor="websiteUrl">Website URL</Label>
             <Input id="websiteUrl" {...register("websiteUrl")} />
             {errors.websiteUrl && (
-              <p className="text-sm text-red-500">{errors.websiteUrl.message}</p>
+              <p className="text-sm text-red-500">
+                {errors.websiteUrl.message}
+              </p>
             )}
           </div>
 
@@ -314,7 +318,10 @@ export function BrandEditorForm({
           <Button type="button" variant="outline" onClick={() => router.back()}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isPending || (mode === "edit" && !isDirty)}>
+          <Button
+            type="submit"
+            disabled={isPending || (mode === "edit" && !isDirty)}
+          >
             {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {mode === "create" ? "Create Brand" : "Save Changes"}
           </Button>

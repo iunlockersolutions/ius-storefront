@@ -52,6 +52,10 @@ export const queryKeys = {
     }) => ["admin", "inventory", params ?? {}] as const,
     categories: () => ["admin", "categories"] as const,
     category: (id: string) => ["admin", "categories", id] as const,
+    productModelGroups: () => ["admin", "product-model-groups"] as const,
+    productModelGroup: (id: string) =>
+      ["admin", "product-model-groups", id] as const,
+    productMenuConfigs: () => ["admin", "product-menu-configs"] as const,
     customers: (params?: { page?: number; limit?: number; search?: string }) =>
       ["admin", "customers", params ?? {}] as const,
     customer: (id: string) => ["admin", "customers", id] as const,

@@ -14,6 +14,8 @@ type CategoryPayload = {
   parentId?: string | null
   sortOrder?: number
   isActive?: boolean
+  showInProductMenu?: boolean
+  productMenuPriority?: number
 }
 
 export function useCreateCategoryMutation() {

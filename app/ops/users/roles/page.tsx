@@ -48,8 +48,7 @@ export default async function RolesPage() {
           <CardDescription>
             Each role has specific permissions that determine what actions users
             can perform in the operations area. Roles follow the principle of
-            least
-            privilege - each role only has the permissions needed for its
+            least privilege - each role only has the permissions needed for its
             function.
           </CardDescription>
         </CardHeader>

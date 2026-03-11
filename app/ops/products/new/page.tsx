@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getActiveBrands } from "@/lib/actions/brand"
 import { getCategoriesFlat } from "@/lib/actions/category"
+import { getProductModelGroups } from "@/lib/actions/product-model-group"
 
 export const metadata = {
   title: "Add New Product | Operations",
@@ -15,15 +16,17 @@ export const metadata = {
 }
 
 async function ProductFormWrapper() {
-  const [categories, brands] = await Promise.all([
+  const [categories, brands, productModelGroups] = await Promise.all([
     getCategoriesFlat(),
     getActiveBrands(),
+    getProductModelGroups({ includeInactive: true }),
   ])
 
   const flatCategories = categories.map((cat) => ({
     id: cat.id,
     name: cat.name,
     slug: cat.slug,
+    parentId: cat.parentId,
     level: cat.level,
     path: cat.path,
   }))
@@ -34,7 +37,20 @@ async function ProductFormWrapper() {
     slug: brand.slug,
   }))
 
-  return <NewProductForm categories={flatCategories} brands={activeBrands} />
+  return (
+    <NewProductForm
+      categories={flatCategories}
+      brands={activeBrands}
+      productModelGroups={productModelGroups.map((group) => ({
+        id: group.id,
+        name: group.name,
+        slug: group.slug,
+        categoryId: group.categoryId,
+        brandId: group.brandId,
+        isActive: group.isActive,
+      }))}
+    />
+  )
 }
 
 export default function NewProductPage() {

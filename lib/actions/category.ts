@@ -27,6 +27,8 @@ const categorySchema = z.object({
   parentId: z.string().uuid().optional().nullable(),
   sortOrder: z.number().int().default(0),
   isActive: z.boolean().default(true),
+  showInProductMenu: z.boolean().default(true),
+  productMenuPriority: z.number().int().default(0),
   metaTitle: z.string().max(100).optional(),
   metaDescription: z.string().max(300).optional(),
 })
@@ -47,6 +49,8 @@ type CategoryRecord = {
   parentId: string | null
   sortOrder: number
   isActive: boolean
+  showInProductMenu: boolean
+  productMenuPriority: number
   metaTitle: string | null
   metaDescription: string | null
   createdAt: Date
@@ -130,6 +134,8 @@ async function getBaseCategories(options?: { storefrontOnly?: boolean }) {
       parentId: categories.parentId,
       sortOrder: categories.sortOrder,
       isActive: categories.isActive,
+      showInProductMenu: categories.showInProductMenu,
+      productMenuPriority: categories.productMenuPriority,
       createdAt: categories.createdAt,
       updatedAt: categories.updatedAt,
       productCount: productCountSql,
@@ -184,6 +190,8 @@ export async function getCategory(id: string) {
       parentId: categories.parentId,
       sortOrder: categories.sortOrder,
       isActive: categories.isActive,
+      showInProductMenu: categories.showInProductMenu,
+      productMenuPriority: categories.productMenuPriority,
       createdAt: categories.createdAt,
       updatedAt: categories.updatedAt,
       productCount: sql<number>`(
@@ -216,6 +224,8 @@ export async function getCategoryBySlug(slug: string) {
           parentId: categories.parentId,
           sortOrder: categories.sortOrder,
           isActive: categories.isActive,
+          showInProductMenu: categories.showInProductMenu,
+          productMenuPriority: categories.productMenuPriority,
           createdAt: categories.createdAt,
           updatedAt: categories.updatedAt,
           productCount: sql<number>`(
@@ -267,6 +277,8 @@ export async function createCategory(data: z.infer<typeof categorySchema>) {
         parentId: validated.parentId,
         sortOrder: validated.sortOrder,
         isActive: validated.isActive,
+        showInProductMenu: validated.showInProductMenu,
+        productMenuPriority: validated.productMenuPriority,
       })
       .returning()
 

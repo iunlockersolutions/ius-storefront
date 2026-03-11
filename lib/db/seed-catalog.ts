@@ -5,12 +5,14 @@ import postgres from "postgres"
 import {
   brands,
   categories,
+  categoryBrandMenuConfigs,
   inventoryItems,
   inventoryMovements,
   productAttributes,
   productAttributeValues,
   productCategoryAssignments,
   productImages,
+  productModelGroups,
   products,
   productVariants,
 } from "./schema"
@@ -327,6 +329,20 @@ const seedProducts: SeedProduct[] = [
   },
 ]
 
+function getTopLevelCategorySlug(categorySlug: string) {
+  let currentSlug = categorySlug
+
+  while (true) {
+    const category = seedCategories.find((item) => item.slug === currentSlug)
+
+    if (!category?.parentSlug) {
+      return currentSlug
+    }
+
+    currentSlug = category.parentSlug
+  }
+}
+
 async function seedCatalog() {
   const connectionString = process.env.DATABASE_URL
 
@@ -473,6 +489,52 @@ async function seedCatalog() {
 
     console.log("🛍️  Upserting products and variants...")
     for (const product of seedProducts) {
+      const topLevelCategorySlug = getTopLevelCategorySlug(
+        product.primaryCategorySlug,
+      )
+      const topLevelCategoryId = categoryMap.get(topLevelCategorySlug) ?? null
+      const brandId = brandMap.get(product.brandSlug) ?? null
+
+      if (!topLevelCategoryId || !brandId) {
+        throw new Error(
+          `Missing top-level category or brand for ${product.slug}`,
+        )
+      }
+
+      const [productModelGroupRecord] = await db
+        .insert(productModelGroups)
+        .values({
+          name: product.name,
+          slug: `${topLevelCategorySlug}-${product.brandSlug}-${product.slug}`,
+          categoryId: topLevelCategoryId,
+          brandId,
+          description: product.shortDescription,
+          showInProductMenu: true,
+          menuPriority: 0,
+          isActive: true,
+        })
+        .onConflictDoUpdate({
+          target: productModelGroups.slug,
+          set: {
+            name: product.name,
+            categoryId: topLevelCategoryId,
+            brandId,
+            description: product.shortDescription,
+            showInProductMenu: true,
+            isActive: true,
+            updatedAt: new Date(),
+          },
+        })
+        .returning({ id: productModelGroups.id })
+
+      await db
+        .insert(categoryBrandMenuConfigs)
+        .values({
+          categoryId: topLevelCategoryId,
+          brandId,
+        })
+        .onConflictDoNothing()
+
       const [productRecord] = await db
         .insert(products)
         .values({
@@ -480,10 +542,11 @@ async function seedCatalog() {
           slug: product.slug,
           description: product.description,
           shortDescription: product.shortDescription,
-          brandId: brandMap.get(product.brandSlug) ?? null,
+          brandId,
           categoryId: categoryMap.get(product.primaryCategorySlug) ?? null,
           primaryCategoryId:
             categoryMap.get(product.primaryCategorySlug) ?? null,
+          productModelGroupId: productModelGroupRecord.id,
           basePrice: product.basePrice,
           compareAtPrice: product.compareAtPrice ?? null,
           costPrice: product.costPrice ?? null,
@@ -498,10 +561,11 @@ async function seedCatalog() {
             name: product.name,
             description: product.description,
             shortDescription: product.shortDescription,
-            brandId: brandMap.get(product.brandSlug) ?? null,
+            brandId,
             categoryId: categoryMap.get(product.primaryCategorySlug) ?? null,
             primaryCategoryId:
               categoryMap.get(product.primaryCategorySlug) ?? null,
+            productModelGroupId: productModelGroupRecord.id,
             basePrice: product.basePrice,
             compareAtPrice: product.compareAtPrice ?? null,
             costPrice: product.costPrice ?? null,

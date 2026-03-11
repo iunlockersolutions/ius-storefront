@@ -2,9 +2,9 @@ import Link from "next/link"
 
 import { ChevronLeft } from "lucide-react"
 
-import { EditBrandPageClient } from "./page-client"
-
 import { Button } from "@/components/ui/button"
+
+import { EditBrandPageClient } from "./page-client"
 
 interface EditBrandPageProps {
   params: Promise<{ id: string }>

@@ -33,6 +33,8 @@ const categorySchema = z.object({
   parentId: z.string().optional(),
   sortOrder: z.number().int().min(0).default(0),
   isActive: z.boolean().default(true),
+  showInProductMenu: z.boolean().default(true),
+  productMenuPriority: z.number().int().min(0).default(0),
   metaTitle: z.string().max(200).optional(),
   metaDescription: z.string().max(500).optional(),
 })
@@ -66,6 +68,8 @@ export function NewCategoryForm({ categories }: NewCategoryFormProps) {
       parentId: "",
       sortOrder: 0,
       isActive: true,
+      showInProductMenu: true,
+      productMenuPriority: 0,
       metaTitle: "",
       metaDescription: "",
     },
@@ -99,6 +103,8 @@ export function NewCategoryForm({ categories }: NewCategoryFormProps) {
           parentId: data.parentId || null,
           metaTitle: data.metaTitle || undefined,
           metaDescription: data.metaDescription || undefined,
+          showInProductMenu: data.showInProductMenu,
+          productMenuPriority: data.productMenuPriority,
         })
 
         toast.success("Category created successfully!")
@@ -159,7 +165,9 @@ export function NewCategoryForm({ categories }: NewCategoryFormProps) {
                 <SelectValue placeholder="No parent (top-level category)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">No parent (top-level category)</SelectItem>
+                <SelectItem value="none">
+                  No parent (top-level category)
+                </SelectItem>
                 {categories.map((category) => (
                   <SelectItem key={category.id} value={category.id}>
                     {category.level > 0 && "— ".repeat(category.level)}
@@ -195,6 +203,35 @@ export function NewCategoryForm({ categories }: NewCategoryFormProps) {
                 id="isActive"
                 checked={watchedValues.isActive}
                 onCheckedChange={(checked) => setValue("isActive", checked)}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="productMenuPriority">Product Menu Priority</Label>
+              <Input
+                id="productMenuPriority"
+                type="number"
+                min="0"
+                {...register("productMenuPriority", { valueAsNumber: true })}
+              />
+            </div>
+
+            <div className="flex items-center justify-between rounded-lg border p-4">
+              <div>
+                <Label htmlFor="showInProductMenu">Show In Product Menu</Label>
+                <p className="text-xs text-neutral-500">
+                  Allow this top-level category to appear in the storefront
+                  Products menu
+                </p>
+              </div>
+              <Switch
+                id="showInProductMenu"
+                checked={watchedValues.showInProductMenu}
+                onCheckedChange={(checked) =>
+                  setValue("showInProductMenu", checked)
+                }
               />
             </div>
           </div>

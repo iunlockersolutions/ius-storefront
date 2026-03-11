@@ -11,6 +11,7 @@ type UpdateProductPayload = {
   shortDescription?: string
   brandId: string
   primaryCategoryId: string
+  productModelGroupId: string
   categoryIds: string[]
   basePrice: string
   compareAtPrice?: string

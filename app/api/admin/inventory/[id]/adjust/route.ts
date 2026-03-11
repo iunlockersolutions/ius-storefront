@@ -2,62 +2,62 @@ import { NextRequest } from "next/server"
 
 import { adjustStock } from "@/lib/actions/inventory"
 import {
-    auditAdminMutation,
-    requireAdminApiPermission,
+  auditAdminMutation,
+  requireAdminApiPermission,
 } from "@/lib/auth/admin-api"
 import {
-    fail,
-    failFromMessage,
-    mapErrorToApi,
-    ok,
+  fail,
+  failFromMessage,
+  mapErrorToApi,
+  ok,
 } from "@/lib/utils/api-response"
 
 interface RouteProps {
-    params: Promise<{ id: string }>
+  params: Promise<{ id: string }>
 }
 
 export async function POST(request: NextRequest, { params }: RouteProps) {
-    try {
-        await requireAdminApiPermission("inventory", "adjust")
+  try {
+    await requireAdminApiPermission("inventory", "adjust")
 
-        const { id } = await params
-        const body = (await request.json()) as {
-            adjustment?: number
-            reason?: string
-        }
-
-        if (
-            typeof body.adjustment !== "number" ||
-            typeof body.reason !== "string"
-        ) {
-            return fail("BAD_REQUEST", "Invalid stock adjustment payload", 400)
-        }
-
-        const result = await adjustStock({
-            inventoryItemId: id,
-            adjustment: body.adjustment,
-            reason: body.reason,
-        })
-
-        if (!result.success) {
-            return failFromMessage(
-                result.error || "Failed to adjust stock",
-                "BAD_REQUEST",
-            )
-        }
-
-        await auditAdminMutation({
-            action: "inventory.adjust",
-            entityType: "inventory_item",
-            entityId: id,
-            details: {
-                adjustment: body.adjustment,
-                reason: body.reason,
-            },
-        })
-
-        return ok(result)
-    } catch (error) {
-        return mapErrorToApi(error)
+    const { id } = await params
+    const body = (await request.json()) as {
+      adjustment?: number
+      reason?: string
     }
+
+    if (
+      typeof body.adjustment !== "number" ||
+      typeof body.reason !== "string"
+    ) {
+      return fail("BAD_REQUEST", "Invalid stock adjustment payload", 400)
+    }
+
+    const result = await adjustStock({
+      inventoryItemId: id,
+      adjustment: body.adjustment,
+      reason: body.reason,
+    })
+
+    if (!result.success) {
+      return failFromMessage(
+        result.error || "Failed to adjust stock",
+        "BAD_REQUEST",
+      )
+    }
+
+    await auditAdminMutation({
+      action: "inventory.adjust",
+      entityType: "inventory_item",
+      entityId: id,
+      details: {
+        adjustment: body.adjustment,
+        reason: body.reason,
+      },
+    })
+
+    return ok(result)
+  } catch (error) {
+    return mapErrorToApi(error)
+  }
 }

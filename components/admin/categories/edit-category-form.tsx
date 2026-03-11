@@ -46,6 +46,8 @@ const categorySchema = z.object({
   parentId: z.string().optional(),
   sortOrder: z.number().int().min(0).default(0),
   isActive: z.boolean().default(true),
+  showInProductMenu: z.boolean().default(true),
+  productMenuPriority: z.number().int().min(0).default(0),
   metaTitle: z.string().max(200).optional(),
   metaDescription: z.string().max(500).optional(),
 })
@@ -63,6 +65,8 @@ interface Category {
   parentId: string | null
   sortOrder: number
   isActive: boolean
+  showInProductMenu: boolean
+  productMenuPriority: number
   productCount: number
 }
 
@@ -99,6 +103,8 @@ export function EditCategoryForm({
       parentId: category.parentId || "",
       sortOrder: category.sortOrder,
       isActive: category.isActive,
+      showInProductMenu: category.showInProductMenu,
+      productMenuPriority: category.productMenuPriority,
       metaTitle: category.metaTitle || "",
       metaDescription: category.metaDescription || "",
     },
@@ -125,6 +131,8 @@ export function EditCategoryForm({
           parentId: data.parentId || null,
           sortOrder: data.sortOrder,
           isActive: data.isActive,
+          showInProductMenu: data.showInProductMenu,
+          productMenuPriority: data.productMenuPriority,
           metaTitle: data.metaTitle || undefined,
           metaDescription: data.metaDescription || undefined,
         })
@@ -164,7 +172,8 @@ export function EditCategoryForm({
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="rounded-lg border bg-muted/30 p-4 text-sm">
-            Assigned products: <span className="font-medium">{category.productCount}</span>
+            Assigned products:{" "}
+            <span className="font-medium">{category.productCount}</span>
           </div>
 
           <div className="space-y-2">
@@ -242,6 +251,35 @@ export function EditCategoryForm({
               onCheckedChange={(checked) => setValue("isActive", checked)}
             />
           </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="productMenuPriority">Product Menu Priority</Label>
+              <Input
+                id="productMenuPriority"
+                type="number"
+                min={0}
+                {...register("productMenuPriority", { valueAsNumber: true })}
+              />
+            </div>
+
+            <div className="flex items-center justify-between rounded-lg border p-4">
+              <div>
+                <Label htmlFor="showInProductMenu">Show In Product Menu</Label>
+                <p className="text-sm text-neutral-500">
+                  Only active top-level categories marked here can appear in the
+                  storefront Products menu.
+                </p>
+              </div>
+              <Switch
+                id="showInProductMenu"
+                checked={watchedValues.showInProductMenu}
+                onCheckedChange={(checked) =>
+                  setValue("showInProductMenu", checked)
+                }
+              />
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -278,11 +316,14 @@ export function EditCategoryForm({
             <AlertDialogHeader>
               <AlertDialogTitle>Are you sure?</AlertDialogTitle>
               <AlertDialogDescription>
-                This will permanently delete the category &quot;{category.name}&quot;.
+                This will permanently delete the category &quot;{category.name}
+                &quot;.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+              <AlertDialogCancel disabled={isDeleting}>
+                Cancel
+              </AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleDelete}
                 disabled={isDeleting}

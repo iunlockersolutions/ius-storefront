@@ -5,11 +5,7 @@ import {
   auditAdminMutation,
   requireAdminApiPermission,
 } from "@/lib/auth/admin-api"
-import {
-  failFromMessage,
-  mapErrorToApi,
-  ok,
-} from "@/lib/utils/api-response"
+import { failFromMessage, mapErrorToApi, ok } from "@/lib/utils/api-response"
 
 export async function GET() {
   try {
@@ -30,7 +26,10 @@ export async function POST(request: NextRequest) {
     const result = await createBrand(body)
 
     if (!result.success) {
-      return failFromMessage(result.error || "Failed to create brand", "BAD_REQUEST")
+      return failFromMessage(
+        result.error || "Failed to create brand",
+        "BAD_REQUEST",
+      )
     }
 
     await auditAdminMutation({

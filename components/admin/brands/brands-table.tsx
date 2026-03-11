@@ -1,7 +1,7 @@
 "use client"
 
-import Link from "next/link"
 import { useState } from "react"
+import Link from "next/link"
 
 import { Eye, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 import { toast } from "sonner"
@@ -103,13 +103,19 @@ export function BrandsTable({
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-8 text-center text-neutral-500">
+                <TableCell
+                  colSpan={6}
+                  className="py-8 text-center text-neutral-500"
+                >
                   Loading brands...
                 </TableCell>
               </TableRow>
             ) : brands.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-8 text-center text-neutral-500">
+                <TableCell
+                  colSpan={6}
+                  className="py-8 text-center text-neutral-500"
+                >
                   No brands found
                 </TableCell>
               </TableRow>
@@ -117,7 +123,9 @@ export function BrandsTable({
               brands.map((brand) => (
                 <TableRow key={brand.id}>
                   <TableCell className="font-medium">{brand.name}</TableCell>
-                  <TableCell className="text-neutral-500">{brand.slug}</TableCell>
+                  <TableCell className="text-neutral-500">
+                    {brand.slug}
+                  </TableCell>
                   <TableCell>
                     <Badge
                       className={

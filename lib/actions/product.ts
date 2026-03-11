@@ -15,6 +15,7 @@ import {
   inventoryMovements,
   productCategoryAssignments,
   productImages,
+  productModelGroups,
   products,
   productVariants,
 } from "@/lib/db/schema"
@@ -47,6 +48,7 @@ const productMutationSchema = z.object({
   shortDescription: z.string().max(500).optional(),
   brandId: z.string().uuid(),
   primaryCategoryId: z.string().uuid(),
+  productModelGroupId: z.string().uuid(),
   categoryIds: z.array(z.string().uuid()).default([]),
   basePrice: z
     .string()
@@ -165,6 +167,7 @@ async function getPrimaryImageMap(productIds: string[]) {
 async function validateCatalogRefs(input: {
   brandId: string
   primaryCategoryId: string
+  productModelGroupId: string
   categoryIds: string[]
 }) {
   const [brand] = await db
@@ -191,7 +194,64 @@ async function validateCatalogRefs(input: {
     throw new Error("One or more categories do not exist")
   }
 
-  return categoryIds
+  const allCategories = await db
+    .select({
+      id: categories.id,
+      parentId: categories.parentId,
+    })
+    .from(categories)
+
+  const categoryMap = new Map(
+    allCategories.map((category) => [category.id, category]),
+  )
+
+  let cursor: string | null = input.primaryCategoryId
+  let topLevelCategoryId: string | null = null
+
+  while (cursor) {
+    const category = categoryMap.get(cursor)
+
+    if (!category) {
+      break
+    }
+
+    topLevelCategoryId = category.id
+    cursor = category.parentId
+  }
+
+  if (!topLevelCategoryId) {
+    throw new Error("Could not resolve a top-level category for this product")
+  }
+
+  const [productModelGroup] = await db
+    .select({
+      id: productModelGroups.id,
+      categoryId: productModelGroups.categoryId,
+      brandId: productModelGroups.brandId,
+      isActive: productModelGroups.isActive,
+    })
+    .from(productModelGroups)
+    .where(eq(productModelGroups.id, input.productModelGroupId))
+    .limit(1)
+
+  if (!productModelGroup || !productModelGroup.isActive) {
+    throw new Error("Product model group not found")
+  }
+
+  if (productModelGroup.brandId !== input.brandId) {
+    throw new Error("Product model group does not belong to the selected brand")
+  }
+
+  if (productModelGroup.categoryId !== topLevelCategoryId) {
+    throw new Error(
+      "Product model group does not belong to the selected top-level category",
+    )
+  }
+
+  return {
+    categoryIds,
+    topLevelCategoryId,
+  }
 }
 
 async function ensureUniqueVariantSku(sku: string, currentVariantId?: string) {
@@ -339,6 +399,7 @@ export async function getProducts(options?: {
   status?: string
   categoryId?: string
   brandId?: string
+  productModelGroupId?: string
 }) {
   const page = options?.page || 1
   const limit = options?.limit || 20
@@ -389,6 +450,12 @@ export async function getProducts(options?: {
     conditions.push(eq(products.brandId, options.brandId))
   }
 
+  if (options?.productModelGroupId) {
+    conditions.push(
+      eq(products.productModelGroupId, options.productModelGroupId),
+    )
+  }
+
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined
 
   const [productsList, countResult] = await Promise.all([
@@ -405,10 +472,16 @@ export async function getProducts(options?: {
         brandName: brands.name,
         primaryCategoryId: products.primaryCategoryId,
         primaryCategoryName: categories.name,
+        productModelGroupId: products.productModelGroupId,
+        productModelGroupName: productModelGroups.name,
       })
       .from(products)
       .leftJoin(brands, eq(products.brandId, brands.id))
       .leftJoin(categories, eq(products.primaryCategoryId, categories.id))
+      .leftJoin(
+        productModelGroups,
+        eq(products.productModelGroupId, productModelGroups.id),
+      )
       .where(whereClause)
       .orderBy(desc(products.createdAt))
       .limit(limit)
@@ -439,34 +512,41 @@ export async function getProduct(id: string) {
     return null
   }
 
-  const [variants, images, brand, primaryCategory, assignedCategories] =
-    await Promise.all([
-      db
-        .select()
-        .from(productVariants)
-        .where(eq(productVariants.productId, id))
-        .orderBy(asc(productVariants.sortOrder)),
-      db
-        .select()
-        .from(productImages)
-        .where(eq(productImages.productId, id))
-        .orderBy(asc(productImages.sortOrder)),
-      product.brandId
-        ? db
-            .select()
-            .from(brands)
-            .where(eq(brands.id, product.brandId))
-            .limit(1)
-        : Promise.resolve([]),
-      product.primaryCategoryId
-        ? db
-            .select()
-            .from(categories)
-            .where(eq(categories.id, product.primaryCategoryId))
-            .limit(1)
-        : Promise.resolve([]),
-      getAssignedCategories(id),
-    ])
+  const [
+    variants,
+    images,
+    brand,
+    primaryCategory,
+    assignedCategories,
+    productModelGroup,
+  ] = await Promise.all([
+    db
+      .select()
+      .from(productVariants)
+      .where(eq(productVariants.productId, id))
+      .orderBy(asc(productVariants.sortOrder)),
+    db
+      .select()
+      .from(productImages)
+      .where(eq(productImages.productId, id))
+      .orderBy(asc(productImages.sortOrder)),
+    product.brandId
+      ? db.select().from(brands).where(eq(brands.id, product.brandId)).limit(1)
+      : Promise.resolve([]),
+    product.primaryCategoryId
+      ? db
+          .select()
+          .from(categories)
+          .where(eq(categories.id, product.primaryCategoryId))
+          .limit(1)
+      : Promise.resolve([]),
+    getAssignedCategories(id),
+    db
+      .select()
+      .from(productModelGroups)
+      .where(eq(productModelGroups.id, product.productModelGroupId))
+      .limit(1),
+  ])
 
   const variantsWithInventory = await Promise.all(
     variants.map(async (variant) => {
@@ -490,6 +570,7 @@ export async function getProduct(id: string) {
     brand: brand[0] || null,
     primaryCategory: resolvedPrimaryCategory,
     category: resolvedPrimaryCategory,
+    productModelGroup: productModelGroup[0] || null,
     categories: assignedCategories,
     variants: variantsWithInventory,
     images,
@@ -517,6 +598,7 @@ export async function getProductBySlug(slug: string) {
         brandRecords,
         primaryCategoryRecords,
         assignedCategories,
+        productModelGroupRecords,
       ] = await Promise.all([
         withStorefrontCatalogFallback(
           "products:getProductBySlug:variants",
@@ -567,6 +649,16 @@ export async function getProductBySlug(slug: string) {
           [] as Awaited<ReturnType<typeof getAssignedCategories>>,
           () => getAssignedCategories(product.id),
         ),
+        withStorefrontCatalogFallback(
+          "products:getProductBySlug:modelGroup",
+          [] as (typeof productModelGroups.$inferSelect)[],
+          () =>
+            db
+              .select()
+              .from(productModelGroups)
+              .where(eq(productModelGroups.id, product.productModelGroupId))
+              .limit(1),
+        ),
       ])
 
       const inventoryMap =
@@ -602,6 +694,7 @@ export async function getProductBySlug(slug: string) {
         brand: brandRecords[0] || null,
         primaryCategory: resolvedPrimaryCategory,
         category: resolvedPrimaryCategory,
+        productModelGroup: productModelGroupRecords[0] || null,
         categories: assignedCategories,
         variants: variants.map((variant) => ({
           ...variant,
@@ -618,6 +711,8 @@ export async function getStorefrontProducts(options?: {
   limit?: number
   categorySlug?: string
   brandSlug?: string
+  productModelGroupId?: string
+  productModelGroupSlug?: string
   primaryCategoryId?: string
   search?: string
   sortBy?: "newest" | "price-low" | "price-high" | "name"
@@ -666,6 +761,29 @@ export async function getStorefrontProducts(options?: {
         }
 
         conditions.push(eq(products.brandId, brand.id))
+      }
+
+      if (options?.productModelGroupSlug) {
+        const [productModelGroup] = await db
+          .select({
+            id: productModelGroups.id,
+            isActive: productModelGroups.isActive,
+          })
+          .from(productModelGroups)
+          .where(eq(productModelGroups.slug, options.productModelGroupSlug))
+          .limit(1)
+
+        if (!productModelGroup || !productModelGroup.isActive) {
+          return createEmptyStorefrontProductsResult(page, limit)
+        }
+
+        conditions.push(eq(products.productModelGroupId, productModelGroup.id))
+      }
+
+      if (options?.productModelGroupId) {
+        conditions.push(
+          eq(products.productModelGroupId, options.productModelGroupId),
+        )
       }
 
       if (options?.categorySlug) {
@@ -735,9 +853,18 @@ export async function getStorefrontProducts(options?: {
               name: brands.name,
               slug: brands.slug,
             },
+            productModelGroup: {
+              id: productModelGroups.id,
+              name: productModelGroups.name,
+              slug: productModelGroups.slug,
+            },
           })
           .from(products)
           .leftJoin(brands, eq(products.brandId, brands.id))
+          .leftJoin(
+            productModelGroups,
+            eq(products.productModelGroupId, productModelGroups.id),
+          )
           .where(whereClause)
           .orderBy(orderBy)
           .limit(limit)
@@ -789,7 +916,8 @@ export async function createProduct(
       }
     }
 
-    const categoryIds = await validateCatalogRefs(validated)
+    const { categoryIds, topLevelCategoryId } =
+      await validateCatalogRefs(validated)
 
     const product = await db.transaction(async (tx) => {
       const [createdProduct] = await tx
@@ -802,6 +930,7 @@ export async function createProduct(
           brandId: validated.brandId,
           categoryId: validated.primaryCategoryId,
           primaryCategoryId: validated.primaryCategoryId,
+          productModelGroupId: validated.productModelGroupId,
           basePrice: validated.basePrice,
           compareAtPrice: validated.compareAtPrice || null,
           costPrice: validated.costPrice || null,
@@ -812,7 +941,10 @@ export async function createProduct(
         })
         .returning()
 
-      await syncProductCategories(tx, createdProduct.id, categoryIds)
+      await syncProductCategories(tx, createdProduct.id, [
+        topLevelCategoryId,
+        ...categoryIds,
+      ])
       await syncProductVariants(
         tx,
         createdProduct.id,
@@ -867,7 +999,8 @@ export async function updateProduct(
     }
   }
 
-  const categoryIds = await validateCatalogRefs(validated)
+  const { categoryIds, topLevelCategoryId } =
+    await validateCatalogRefs(validated)
 
   const [updatedProduct] = await db.transaction(async (tx) => {
     const [product] = await tx
@@ -880,6 +1013,7 @@ export async function updateProduct(
         brandId: validated.brandId,
         categoryId: validated.primaryCategoryId,
         primaryCategoryId: validated.primaryCategoryId,
+        productModelGroupId: validated.productModelGroupId,
         basePrice: validated.basePrice,
         compareAtPrice: validated.compareAtPrice || null,
         costPrice: validated.costPrice || null,
@@ -892,7 +1026,7 @@ export async function updateProduct(
       .where(eq(products.id, id))
       .returning()
 
-    await syncProductCategories(tx, id, categoryIds)
+    await syncProductCategories(tx, id, [topLevelCategoryId, ...categoryIds])
     await syncProductVariants(tx, id, validated.name, validated.variants)
 
     return [product]

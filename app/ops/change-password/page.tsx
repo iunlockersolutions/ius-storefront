@@ -4,7 +4,9 @@ import { eq } from "drizzle-orm"
 
 import { FirstTimePasswordChange } from "@/components/admin/auth/first-time-password-change"
 import { getServerSession } from "@/lib/auth/rbac"
+// eslint-disable-next-line no-restricted-imports
 import { db } from "@/lib/db"
+// eslint-disable-next-line no-restricted-imports
 import { user } from "@/lib/db/schema/auth"
 
 export const metadata = {

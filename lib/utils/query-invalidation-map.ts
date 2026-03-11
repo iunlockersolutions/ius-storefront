@@ -9,6 +9,10 @@ export type AdminMutationKey =
   | "category.create"
   | "category.update"
   | "category.delete"
+  | "productModelGroup.create"
+  | "productModelGroup.update"
+  | "productModelGroup.delete"
+  | "productMenuConfig.update"
   | "review.moderate"
   | "review.bulkModerate"
   | "review.delete"
@@ -63,6 +67,18 @@ function getInvalidationTargets(
             queryKeys.admin.category(context.categoryId),
           ]
         : [queryKeys.admin.categories()]
+
+    case "productModelGroup.create":
+    case "productModelGroup.delete":
+      return [queryKeys.admin.productModelGroups(), queryKeys.admin.products()]
+
+    case "productModelGroup.update":
+      return context.categoryId
+        ? [queryKeys.admin.productModelGroups(), queryKeys.admin.products()]
+        : [queryKeys.admin.productModelGroups(), queryKeys.admin.products()]
+
+    case "productMenuConfig.update":
+      return [queryKeys.admin.productMenuConfigs()]
 
     case "review.moderate":
     case "review.bulkModerate":

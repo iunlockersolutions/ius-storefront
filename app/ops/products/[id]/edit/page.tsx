@@ -4,6 +4,7 @@ import { EditProductForm } from "@/components/admin/products/edit-product-form"
 import { getActiveBrands } from "@/lib/actions/brand"
 import { getCategoriesFlat } from "@/lib/actions/category"
 import { getProduct } from "@/lib/actions/product"
+import { getProductModelGroups } from "@/lib/actions/product-model-group"
 
 interface EditProductPageProps {
   params: Promise<{ id: string }>
@@ -19,10 +20,11 @@ export default async function EditProductPage({
 }: EditProductPageProps) {
   const { id } = await params
 
-  const [product, categories, brands] = await Promise.all([
+  const [product, categories, brands, productModelGroups] = await Promise.all([
     getProduct(id),
     getCategoriesFlat(),
     getActiveBrands(),
+    getProductModelGroups({ includeInactive: true }),
   ])
 
   if (!product) {
@@ -44,6 +46,7 @@ export default async function EditProductPage({
           id: category.id,
           name: category.name,
           slug: category.slug,
+          parentId: category.parentId,
           level: category.level,
           path: category.path,
         }))}
@@ -51,6 +54,14 @@ export default async function EditProductPage({
           id: brand.id,
           name: brand.name,
           slug: brand.slug,
+        }))}
+        productModelGroups={productModelGroups.map((group) => ({
+          id: group.id,
+          name: group.name,
+          slug: group.slug,
+          categoryId: group.categoryId,
+          brandId: group.brandId,
+          isActive: group.isActive,
         }))}
         images={product.images}
       />

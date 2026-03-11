@@ -62,6 +62,8 @@ export const categories = pgTable(
     }),
     sortOrder: integer("sort_order").notNull().default(0),
     isActive: boolean("is_active").notNull().default(true),
+    showInProductMenu: boolean("show_in_product_menu").notNull().default(true),
+    productMenuPriority: integer("product_menu_priority").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -72,6 +74,78 @@ export const categories = pgTable(
   (table) => [
     index("categories_slug_idx").on(table.slug),
     index("categories_parent_id_idx").on(table.parentId),
+  ],
+)
+
+/**
+ * Category brand menu configs - Brand visibility/order within a top-level
+ * category's product menu.
+ */
+export const categoryBrandMenuConfigs = pgTable(
+  "category_brand_menu_configs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => categories.id, { onDelete: "cascade" }),
+    brandId: uuid("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "cascade" }),
+    showInProductMenu: boolean("show_in_product_menu").notNull().default(true),
+    menuPriority: integer("menu_priority").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("category_brand_menu_configs_category_id_idx").on(table.categoryId),
+    index("category_brand_menu_configs_brand_id_idx").on(table.brandId),
+    unique("category_brand_menu_configs_unique").on(
+      table.categoryId,
+      table.brandId,
+    ),
+  ],
+)
+
+/**
+ * Product model groups - Category/brand scoped groupings used by the product
+ * menu and model landing pages.
+ */
+export const productModelGroups = pgTable(
+  "product_model_groups",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => categories.id, { onDelete: "restrict" }),
+    brandId: uuid("brand_id")
+      .notNull()
+      .references(() => brands.id, { onDelete: "restrict" }),
+    name: text("name").notNull(),
+    slug: text("slug").notNull().unique(),
+    description: text("description"),
+    showInProductMenu: boolean("show_in_product_menu").notNull().default(true),
+    menuPriority: integer("menu_priority").notNull().default(0),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("product_model_groups_category_id_idx").on(table.categoryId),
+    index("product_model_groups_brand_id_idx").on(table.brandId),
+    index("product_model_groups_slug_idx").on(table.slug),
+    unique("product_model_groups_category_brand_name_unique").on(
+      table.categoryId,
+      table.brandId,
+      table.name,
+    ),
   ],
 )
 
@@ -99,6 +173,11 @@ export const products = pgTable(
         onDelete: "set null",
       },
     ),
+    productModelGroupId: uuid("product_model_group_id")
+      .notNull()
+      .references(() => productModelGroups.id, {
+        onDelete: "restrict",
+      }),
     basePrice: decimal("base_price", { precision: 10, scale: 2 }).notNull(),
     compareAtPrice: decimal("compare_at_price", { precision: 10, scale: 2 }),
     costPrice: decimal("cost_price", { precision: 10, scale: 2 }),
@@ -118,6 +197,7 @@ export const products = pgTable(
     index("products_brand_id_idx").on(table.brandId),
     index("products_category_id_idx").on(table.categoryId),
     index("products_primary_category_id_idx").on(table.primaryCategoryId),
+    index("products_product_model_group_id_idx").on(table.productModelGroupId),
     index("products_status_idx").on(table.status),
     index("products_is_featured_idx").on(table.isFeatured),
   ],
@@ -254,6 +334,8 @@ export const productAttributeValues = pgTable(
 // Relations
 export const brandsRelations = relations(brands, ({ many }) => ({
   products: many(products),
+  categoryMenuConfigs: many(categoryBrandMenuConfigs),
+  productModelGroups: many(productModelGroups),
 }))
 
 export const categoriesRelations = relations(categories, ({ one, many }) => ({
@@ -268,6 +350,8 @@ export const categoriesRelations = relations(categories, ({ one, many }) => ({
   primaryProducts: many(products, {
     relationName: "productPrimaryCategory",
   }),
+  categoryMenuConfigs: many(categoryBrandMenuConfigs),
+  productModelGroups: many(productModelGroups),
   productAssignments: many(productCategoryAssignments),
 }))
 
@@ -281,11 +365,44 @@ export const productsRelations = relations(products, ({ one, many }) => ({
     references: [categories.id],
     relationName: "productPrimaryCategory",
   }),
+  productModelGroup: one(productModelGroups, {
+    fields: [products.productModelGroupId],
+    references: [productModelGroups.id],
+  }),
   categoryAssignments: many(productCategoryAssignments),
   variants: many(productVariants),
   images: many(productImages),
   attributeValues: many(productAttributeValues),
 }))
+
+export const categoryBrandMenuConfigsRelations = relations(
+  categoryBrandMenuConfigs,
+  ({ one }) => ({
+    category: one(categories, {
+      fields: [categoryBrandMenuConfigs.categoryId],
+      references: [categories.id],
+    }),
+    brand: one(brands, {
+      fields: [categoryBrandMenuConfigs.brandId],
+      references: [brands.id],
+    }),
+  }),
+)
+
+export const productModelGroupsRelations = relations(
+  productModelGroups,
+  ({ one, many }) => ({
+    category: one(categories, {
+      fields: [productModelGroups.categoryId],
+      references: [categories.id],
+    }),
+    brand: one(brands, {
+      fields: [productModelGroups.brandId],
+      references: [brands.id],
+    }),
+    products: many(products),
+  }),
+)
 
 export const productCategoryAssignmentsRelations = relations(
   productCategoryAssignments,

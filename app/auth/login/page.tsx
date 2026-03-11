@@ -84,7 +84,10 @@ function LoginForm() {
         return
       }
 
-      if ((result.data as { twoFactorRedirect?: boolean } | null)?.twoFactorRedirect) {
+      if (
+        (result.data as { twoFactorRedirect?: boolean } | null)
+          ?.twoFactorRedirect
+      ) {
         return
       }
 

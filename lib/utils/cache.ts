@@ -22,6 +22,8 @@ export function revalidateProductCaches() {
   revalidateStorefrontTag("best-sellers")
   revalidateStorefrontTag("deals")
   revalidateStorefrontTag("search")
+  revalidateStorefrontTag("product-model-groups")
+  revalidateStorefrontTag("product-menu")
 }
 
 /**
@@ -31,6 +33,8 @@ export function revalidateProductCaches() {
 export function revalidateCategoryCaches() {
   revalidateStorefrontTag("categories")
   revalidateStorefrontTag("category-products")
+  revalidateStorefrontTag("product-menu")
+  revalidateStorefrontTag("category-brand-menu-configs")
 }
 
 /**
@@ -39,6 +43,8 @@ export function revalidateCategoryCaches() {
 export function revalidateBrandCaches() {
   revalidateStorefrontTag("brands")
   revalidateStorefrontTag("brand-products")
+  revalidateStorefrontTag("product-menu")
+  revalidateStorefrontTag("category-brand-menu-configs")
 }
 
 /**

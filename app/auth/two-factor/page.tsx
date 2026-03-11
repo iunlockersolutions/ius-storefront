@@ -49,7 +49,9 @@ function TwoFactorForm() {
       toast.success("Verification successful")
       await finishLogin()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Verification failed")
+      toast.error(
+        error instanceof Error ? error.message : "Verification failed",
+      )
     } finally {
       setIsPending(false)
     }
@@ -71,7 +73,9 @@ function TwoFactorForm() {
       toast.success("Verification successful")
       await finishLogin()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Verification failed")
+      toast.error(
+        error instanceof Error ? error.message : "Verification failed",
+      )
     } finally {
       setIsPending(false)
     }
@@ -87,7 +91,8 @@ function TwoFactorForm() {
           Two-Factor Verification
         </CardTitle>
         <CardDescription className="text-center">
-          Enter a code from your authenticator app or use a backup code to continue.
+          Enter a code from your authenticator app or use a backup code to
+          continue.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -108,8 +113,13 @@ function TwoFactorForm() {
                 inputMode="numeric"
               />
             </div>
-            <Button onClick={handleVerifyTotp} disabled={isPending || !totpCode}>
-              {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            <Button
+              onClick={handleVerifyTotp}
+              disabled={isPending || !totpCode}
+            >
+              {isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
               Verify code
             </Button>
           </TabsContent>
@@ -124,8 +134,13 @@ function TwoFactorForm() {
                 placeholder="Enter one of your backup codes"
               />
             </div>
-            <Button onClick={handleVerifyBackupCode} disabled={isPending || !backupCode}>
-              {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            <Button
+              onClick={handleVerifyBackupCode}
+              disabled={isPending || !backupCode}
+            >
+              {isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
               Verify backup code
             </Button>
           </TabsContent>

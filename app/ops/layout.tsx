@@ -8,8 +8,8 @@ import { db } from "@/lib/db"
 import { user } from "@/lib/db/schema/auth"
 
 import AppHeader from "./_components/app-header"
-import OpsRouteGuard from "./_components/ops-route-guard"
 import AppSidebar from "./_components/app-sidebar"
+import OpsRouteGuard from "./_components/ops-route-guard"
 
 export default async function AdminLayout({
   children,

@@ -191,17 +191,17 @@ export function StorefrontDesktopNavigation({
                           ) : null}
                         </div>
 
-                        {activeBrand?.products.length ? (
+                        {activeBrand?.models.length ? (
                           <div className="grid grid-cols-2 gap-x-10 gap-y-4">
-                            {activeBrand.products.map((product) => (
+                            {activeBrand.models.map((model) => (
                               <Link
-                                key={product.id}
-                                href={product.href}
+                                key={model.id}
+                                href={model.href}
                                 className="group flex items-start gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
                               >
                                 <Dot className="mt-0.5 size-4 shrink-0 text-border transition-colors group-hover:text-foreground" />
                                 <span className="min-w-0 truncate">
-                                  {product.name}
+                                  {model.name}
                                 </span>
                               </Link>
                             ))}

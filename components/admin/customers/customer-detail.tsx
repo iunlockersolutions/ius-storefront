@@ -111,10 +111,7 @@ const STATUS_COLORS: Record<string, string> = {
   refunded: "bg-orange-100 text-orange-800",
 }
 
-export function CustomerDetail({
-  customer,
-  orders,
-}: CustomerDetailProps) {
+export function CustomerDetail({ customer, orders }: CustomerDetailProps) {
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       {/* Main Info */}

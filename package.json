@@ -19,6 +19,7 @@
     "db:audit:uuid": "tsx scripts/audit-schema-uuid.ts",
     "db:seed": "tsx lib/db/seed.ts",
     "db:seed:catalog": "tsx lib/db/seed-catalog.ts",
+    "db:seed:product-menu": "tsx lib/db/seed-product-menu-demo.ts",
     "db:clean": "tsx lib/db/seed-clean.ts"
   },
   "dependencies": {

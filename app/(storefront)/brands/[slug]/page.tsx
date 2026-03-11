@@ -103,11 +103,7 @@ export default async function BrandPage({
               </Badge>
               {brand.websiteUrl && (
                 <Badge variant="outline" asChild>
-                  <a
-                    href={brand.websiteUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
+                  <a href={brand.websiteUrl} target="_blank" rel="noreferrer">
                     Official website
                   </a>
                 </Badge>
@@ -117,7 +113,11 @@ export default async function BrandPage({
         </div>
       </div>
 
-      <ProductsFilter currentSort={sortBy} baseUrl={`/brands/${slug}`} total={total} />
+      <ProductsFilter
+        currentSort={sortBy}
+        baseUrl={`/brands/${slug}`}
+        total={total}
+      />
 
       {products.length === 0 ? (
         <div className="py-16 text-center">

@@ -61,7 +61,10 @@ export async function DELETE(_request: NextRequest, { params }: RouteProps) {
     const result = await deleteBrand(id)
 
     if (!result.success) {
-      return failFromMessage(result.error || "Failed to delete brand", "BAD_REQUEST")
+      return failFromMessage(
+        result.error || "Failed to delete brand",
+        "BAD_REQUEST",
+      )
     }
 
     await auditAdminMutation({

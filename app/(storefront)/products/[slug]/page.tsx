@@ -103,6 +103,17 @@ export default async function ProductPage({ params }: ProductPageProps) {
             </Link>
           </>
         )}
+        {product.productModelGroup && (
+          <>
+            <ChevronRight className="h-4 w-4" />
+            <Link
+              href={`/products/models/${product.productModelGroup.slug}`}
+              className="hover:text-foreground"
+            >
+              {product.productModelGroup.name}
+            </Link>
+          </>
+        )}
         <ChevronRight className="h-4 w-4" />
         <span className="text-foreground font-medium truncate max-w-50">
           {product.name}
@@ -164,6 +175,19 @@ export default async function ProductPage({ params }: ProductPageProps) {
               )}
             </dd>
           </div>
+          {product.productModelGroup && (
+            <div className="border rounded-lg p-4">
+              <dt className="text-sm text-muted-foreground">Model Group</dt>
+              <dd className="mt-1 font-medium">
+                <Link
+                  href={`/products/models/${product.productModelGroup.slug}`}
+                  className="text-primary hover:underline"
+                >
+                  {product.productModelGroup.name}
+                </Link>
+              </dd>
+            </div>
+          )}
           {product.categories.length > 0 && (
             <div className="border rounded-lg p-4 sm:col-span-2">
               <dt className="text-sm text-muted-foreground">Browse In</dt>

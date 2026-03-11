@@ -13,9 +13,7 @@ interface EditBrandPageClientProps {
   brandId: string
 }
 
-export function EditBrandPageClient({
-  brandId,
-}: EditBrandPageClientProps) {
+export function EditBrandPageClient({ brandId }: EditBrandPageClientProps) {
   const brandQuery = useAdminBrandQuery(brandId)
 
   if (brandQuery.isLoading || brandQuery.isFetching) {
