@@ -2,13 +2,14 @@
 
 import { revalidatePath } from "next/cache"
 
-import { and, asc, eq, sql } from "drizzle-orm"
+import { and, asc, eq, inArray, sql } from "drizzle-orm"
 import { z } from "zod"
 
 import { requireResourcePermission } from "@/lib/auth/rbac"
 import { db } from "@/lib/db"
 import {
   categories,
+  categoryOptionTemplates,
   productCategoryAssignments,
   products,
 } from "@/lib/db/schema"
@@ -16,8 +17,15 @@ import {
   revalidateCategoryCaches,
   revalidateProductCaches,
 } from "@/lib/utils/cache"
+import { normalizeEntityName } from "@/lib/utils/catalog"
 
 import { withStorefrontCatalogFallback } from "./storefront-catalog-read"
+
+const categoryOptionTemplateSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().min(1).max(100),
+  sortOrder: z.number().int().default(0),
+})
 
 const categorySchema = z.object({
   name: z.string().min(1).max(255),
@@ -31,6 +39,7 @@ const categorySchema = z.object({
   productMenuPriority: z.number().int().default(0),
   metaTitle: z.string().max(100).optional(),
   metaDescription: z.string().max(300).optional(),
+  optionTemplates: z.array(categoryOptionTemplateSchema).default([]),
 })
 
 function generateSlug(name: string) {
@@ -56,6 +65,11 @@ type CategoryRecord = {
   createdAt: Date
   updatedAt: Date
   productCount: number
+  optionTemplates: Array<{
+    id: string
+    name: string
+    sortOrder: number
+  }>
 }
 
 type CategoryTreeNode = CategoryRecord & {
@@ -102,6 +116,136 @@ function flattenCategoryTree(
   return flat
 }
 
+function normalizeCategoryOptionTemplates(
+  templates: z.infer<typeof categoryOptionTemplateSchema>[],
+) {
+  const seen = new Set<string>()
+
+  return templates
+    .map((template, index) => ({
+      id: template.id,
+      name: template.name.trim(),
+      normalizedName: normalizeEntityName(template.name),
+      sortOrder: template.sortOrder ?? index,
+    }))
+    .filter((template) => {
+      if (!template.name || !template.normalizedName) {
+        return false
+      }
+
+      if (seen.has(template.normalizedName)) {
+        return false
+      }
+
+      seen.add(template.normalizedName)
+      return true
+    })
+    .map((template, index) => ({
+      ...template,
+      sortOrder: index,
+    }))
+}
+
+async function getCategoryOptionTemplatesMap(categoryIds: string[]) {
+  if (categoryIds.length === 0) {
+    return new Map<
+      string,
+      Array<{ id: string; name: string; sortOrder: number }>
+    >()
+  }
+
+  const rows = await db
+    .select({
+      id: categoryOptionTemplates.id,
+      categoryId: categoryOptionTemplates.categoryId,
+      name: categoryOptionTemplates.name,
+      sortOrder: categoryOptionTemplates.sortOrder,
+    })
+    .from(categoryOptionTemplates)
+    .where(inArray(categoryOptionTemplates.categoryId, categoryIds))
+    .orderBy(
+      asc(categoryOptionTemplates.sortOrder),
+      asc(categoryOptionTemplates.name),
+    )
+
+  const map = new Map<
+    string,
+    Array<{ id: string; name: string; sortOrder: number }>
+  >()
+
+  for (const row of rows) {
+    const current = map.get(row.categoryId) ?? []
+    current.push({
+      id: row.id,
+      name: row.name,
+      sortOrder: row.sortOrder,
+    })
+    map.set(row.categoryId, current)
+  }
+
+  return map
+}
+
+async function syncCategoryOptionTemplates(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  categoryId: string,
+  templates: z.infer<typeof categoryOptionTemplateSchema>[],
+) {
+  const normalizedTemplates = normalizeCategoryOptionTemplates(templates)
+  const existingTemplates = await tx
+    .select()
+    .from(categoryOptionTemplates)
+    .where(eq(categoryOptionTemplates.categoryId, categoryId))
+
+  const keepIds: string[] = []
+
+  for (const template of normalizedTemplates) {
+    const existingTemplate =
+      (template.id &&
+        existingTemplates.find((current) => current.id === template.id)) ||
+      existingTemplates.find(
+        (current) => current.normalizedName === template.normalizedName,
+      )
+
+    const templateRecord = existingTemplate
+      ? (
+          await tx
+            .update(categoryOptionTemplates)
+            .set({
+              name: template.name,
+              normalizedName: template.normalizedName,
+              sortOrder: template.sortOrder,
+              updatedAt: new Date(),
+            })
+            .where(eq(categoryOptionTemplates.id, existingTemplate.id))
+            .returning()
+        )[0]
+      : (
+          await tx
+            .insert(categoryOptionTemplates)
+            .values({
+              categoryId,
+              name: template.name,
+              normalizedName: template.normalizedName,
+              sortOrder: template.sortOrder,
+            })
+            .returning()
+        )[0]
+
+    keepIds.push(templateRecord.id)
+  }
+
+  const removeIds = existingTemplates
+    .filter((template) => !keepIds.includes(template.id))
+    .map((template) => template.id)
+
+  if (removeIds.length > 0) {
+    await tx
+      .delete(categoryOptionTemplates)
+      .where(inArray(categoryOptionTemplates.id, removeIds))
+  }
+}
+
 async function getBaseCategories(options?: { storefrontOnly?: boolean }) {
   const activeFilter = options?.storefrontOnly
     ? and(eq(categories.isActive, true))
@@ -122,7 +266,7 @@ async function getBaseCategories(options?: { storefrontOnly?: boolean }) {
         where "product_category_assignments"."category_id" = "categories"."id"
       )`
 
-  return db
+  const rows = await db
     .select({
       id: categories.id,
       name: categories.name,
@@ -143,6 +287,15 @@ async function getBaseCategories(options?: { storefrontOnly?: boolean }) {
     .from(categories)
     .where(activeFilter)
     .orderBy(asc(categories.sortOrder), asc(categories.name))
+
+  const optionTemplatesMap = await getCategoryOptionTemplatesMap(
+    rows.map((row) => row.id),
+  )
+
+  return rows.map((row) => ({
+    ...row,
+    optionTemplates: optionTemplatesMap.get(row.id) ?? [],
+  }))
 }
 
 export async function getCategories() {
@@ -204,7 +357,15 @@ export async function getCategory(id: string) {
     .where(eq(categories.id, id))
     .limit(1)
 
-  return category || null
+  if (!category) {
+    return null
+  }
+
+  const optionTemplatesMap = await getCategoryOptionTemplatesMap([id])
+  return {
+    ...category,
+    optionTemplates: optionTemplatesMap.get(id) ?? [],
+  }
 }
 
 export async function getCategoryBySlug(slug: string) {
@@ -241,7 +402,18 @@ export async function getCategoryBySlug(slug: string) {
         .where(and(eq(categories.slug, slug), eq(categories.isActive, true)))
         .limit(1)
 
-      return category || null
+      if (!category) {
+        return null
+      }
+
+      const optionTemplatesMap = await getCategoryOptionTemplatesMap([
+        category.id,
+      ])
+
+      return {
+        ...category,
+        optionTemplates: optionTemplatesMap.get(category.id) ?? [],
+      }
     },
   )
 }
@@ -265,22 +437,32 @@ export async function createCategory(data: z.infer<typeof categorySchema>) {
       }
     }
 
-    const [category] = await db
-      .insert(categories)
-      .values({
-        name: validated.name,
-        slug,
-        description: validated.description,
-        image: validated.image,
-        metaTitle: validated.metaTitle,
-        metaDescription: validated.metaDescription,
-        parentId: validated.parentId,
-        sortOrder: validated.sortOrder,
-        isActive: validated.isActive,
-        showInProductMenu: validated.showInProductMenu,
-        productMenuPriority: validated.productMenuPriority,
-      })
-      .returning()
+    const category = await db.transaction(async (tx) => {
+      const [createdCategory] = await tx
+        .insert(categories)
+        .values({
+          name: validated.name,
+          slug,
+          description: validated.description,
+          image: validated.image,
+          metaTitle: validated.metaTitle,
+          metaDescription: validated.metaDescription,
+          parentId: validated.parentId,
+          sortOrder: validated.sortOrder,
+          isActive: validated.isActive,
+          showInProductMenu: validated.showInProductMenu,
+          productMenuPriority: validated.productMenuPriority,
+        })
+        .returning()
+
+      await syncCategoryOptionTemplates(
+        tx,
+        createdCategory.id,
+        validated.optionTemplates,
+      )
+
+      return createdCategory
+    })
 
     revalidatePath("/ops/categories")
     revalidatePath("/categories")
@@ -310,14 +492,25 @@ export async function updateCategory(
     }
   }
 
-  const [category] = await db
-    .update(categories)
-    .set({
-      ...data,
-      updatedAt: new Date(),
-    })
-    .where(eq(categories.id, id))
-    .returning()
+  const validated = categorySchema.partial().parse(data)
+  const { optionTemplates, ...categoryUpdates } = validated
+
+  const category = await db.transaction(async (tx) => {
+    const [updatedCategory] = await tx
+      .update(categories)
+      .set({
+        ...categoryUpdates,
+        updatedAt: new Date(),
+      })
+      .where(eq(categories.id, id))
+      .returning()
+
+    if (optionTemplates) {
+      await syncCategoryOptionTemplates(tx, id, optionTemplates)
+    }
+
+    return updatedCategory
+  })
 
   revalidatePath("/ops/categories")
   revalidatePath(`/ops/categories/${id}`)

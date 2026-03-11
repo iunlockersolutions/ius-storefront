@@ -16,6 +16,11 @@ type CategoryPayload = {
   isActive?: boolean
   showInProductMenu?: boolean
   productMenuPriority?: number
+  optionTemplates?: Array<{
+    id?: string
+    name: string
+    sortOrder?: number
+  }>
 }
 
 export function useCreateCategoryMutation() {

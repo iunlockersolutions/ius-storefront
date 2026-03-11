@@ -29,10 +29,20 @@ type CreateProductPayload = {
     compareAtPrice?: string
     costPrice?: string
     weight?: string
+    quantity?: number
+    lowStockThreshold?: number
     isDefault?: boolean
     isActive?: boolean
     optionValues: Record<string, string>
   }>
+}
+
+type CreateDraftProductPayload = {
+  name: string
+  slug?: string
+  description?: string
+  shortDescription?: string
+  status?: "draft" | "active" | "archived"
 }
 
 export function useCreateProductMutation() {
@@ -54,6 +64,37 @@ export function useCreateProductMutation() {
           errorBody?.error?.message ||
           errorBody?.error ||
           "Failed to create product"
+        throw new Error(message)
+      }
+
+      const body = await response.json()
+      return body.data as { id: string }
+    },
+    onSuccess: () => {
+      invalidateMutationCaches(queryClient, "product.create")
+    },
+  })
+}
+
+export function useCreateDraftProductMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (payload: CreateDraftProductPayload) => {
+      const response = await fetch("/api/admin/products/drafts", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null)
+        const message =
+          errorBody?.error?.message ||
+          errorBody?.error ||
+          "Failed to create product draft"
         throw new Error(message)
       }
 

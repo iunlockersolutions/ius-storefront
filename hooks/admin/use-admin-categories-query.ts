@@ -18,6 +18,11 @@ export interface AdminCategory {
   showInProductMenu: boolean
   productMenuPriority: number
   productCount: number
+  optionTemplates: Array<{
+    id: string
+    name: string
+    sortOrder: number
+  }>
   level?: number
   path?: string
 }

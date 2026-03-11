@@ -14,6 +14,11 @@ interface Category {
   parentId: string | null
   level: number
   path: string
+  optionTemplates: Array<{
+    id: string
+    name: string
+    sortOrder: number
+  }>
 }
 
 interface Brand {
@@ -63,6 +68,11 @@ interface Product {
     weight: string | null
     isDefault: boolean
     isActive: boolean
+    inventory?: {
+      quantity: number
+      reservedQuantity: number
+      lowStockThreshold: number | null
+    } | null
     selections?: Array<{
       optionName: string
       optionValue: string
@@ -74,8 +84,11 @@ interface ProductImage {
   id: string
   url: string
   altText: string | null
+  variantId?: string | null
   isPrimary: boolean
 }
+
+const EMPTY_IMAGES: ProductImage[] = []
 
 interface EditProductFormProps {
   product: Product
@@ -90,7 +103,7 @@ export function EditProductForm({
   categories,
   brands,
   models,
-  images = [],
+  images = EMPTY_IMAGES,
 }: EditProductFormProps) {
   const updateProductMutation = useUpdateProductMutation(product.id)
   const updateProductImagesMutation = useUpdateProductImagesMutation(product.id)
@@ -106,9 +119,16 @@ export function EditProductForm({
         ...product,
         images,
       }}
-      onSave={async ({ images: nextImages, ...payload }) => {
-        await updateProductMutation.mutateAsync(payload)
+      onSave={async (_productId, { images: nextImages, ...payload }) => {
+        const updatedProductResponse =
+          await updateProductMutation.mutateAsync(payload)
         await updateProductImagesMutation.mutateAsync(nextImages)
+        return updatedProductResponse.data
+          ? {
+              ...updatedProductResponse.data,
+              images: nextImages,
+            }
+          : null
       }}
       onDelete={async () => {
         await deleteProductMutation.mutateAsync(product.id)

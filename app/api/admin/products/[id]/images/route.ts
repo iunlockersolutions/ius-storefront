@@ -20,6 +20,7 @@ type ProductImagePayload = {
   id?: string
   url: string
   altText?: string
+  variantId?: string | null
   isPrimary: boolean
 }
 

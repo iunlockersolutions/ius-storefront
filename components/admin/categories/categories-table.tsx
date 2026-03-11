@@ -44,6 +44,11 @@ interface Category {
   isActive: boolean
   sortOrder: number
   productCount: number
+  optionTemplates: Array<{
+    id: string
+    name: string
+    sortOrder: number
+  }>
 }
 
 interface CategoriesTableProps {
@@ -97,6 +102,7 @@ export function CategoriesTable({
             <TableRow>
               <TableHead>Category</TableHead>
               <TableHead>Slug</TableHead>
+              <TableHead>Option Templates</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Sort Order</TableHead>
               <TableHead>Products</TableHead>
@@ -107,7 +113,7 @@ export function CategoriesTable({
             {isLoading ? (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={7}
                   className="text-center py-8 text-neutral-500"
                 >
                   Loading categories...
@@ -116,7 +122,7 @@ export function CategoriesTable({
             ) : categories.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={6}
+                  colSpan={7}
                   className="text-center py-8 text-neutral-500"
                 >
                   No categories found
@@ -138,6 +144,26 @@ export function CategoriesTable({
                   </TableCell>
                   <TableCell className="text-neutral-500">
                     {category.slug}
+                  </TableCell>
+                  <TableCell>
+                    {category.optionTemplates.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {category.optionTemplates
+                          .slice(0, 3)
+                          .map((template) => (
+                            <Badge key={template.id} variant="outline">
+                              {template.name}
+                            </Badge>
+                          ))}
+                        {category.optionTemplates.length > 3 ? (
+                          <Badge variant="outline">
+                            +{category.optionTemplates.length - 3} more
+                          </Badge>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <span className="text-sm text-neutral-500">None</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Badge

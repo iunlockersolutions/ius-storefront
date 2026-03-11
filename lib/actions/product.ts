@@ -47,9 +47,19 @@ const variantSchema = z.object({
   compareAtPrice: z.string().optional().nullable(),
   costPrice: z.string().optional().nullable(),
   weight: z.string().optional().nullable(),
+  quantity: z.number().int().min(0).default(0),
+  lowStockThreshold: z.number().int().min(0).default(5),
   isDefault: z.boolean().default(false),
   isActive: z.boolean().default(true),
   optionValues: z.record(z.string(), z.string()).default({}),
+})
+
+const productDraftSchema = z.object({
+  name: z.string().min(1).max(255),
+  slug: z.string().min(1).max(255).optional(),
+  description: z.string().optional(),
+  shortDescription: z.string().max(500).optional(),
+  status: z.enum(["draft", "active", "archived"]).default("draft"),
 })
 
 const productMutationSchema = z.object({
@@ -81,6 +91,7 @@ const productImageSchema = z.array(
     id: z.string().uuid().optional(),
     url: z.string().url(),
     altText: z.string().optional().nullable(),
+    variantId: z.string().uuid().optional().nullable(),
     isPrimary: z.boolean().default(false),
   }),
 )
@@ -156,6 +167,8 @@ function normalizeVariants(
     compareAtPrice: variant.compareAtPrice || null,
     costPrice: variant.costPrice || null,
     weight: variant.weight || null,
+    quantity: variant.quantity,
+    lowStockThreshold: variant.lowStockThreshold,
     optionValues: hasOptions ? variant.optionValues : {},
     isDefault: index === 0 ? variant.isDefault || true : variant.isDefault,
   }))
@@ -708,9 +721,9 @@ async function syncProductOptionsAndVariants(
       .insert(inventoryItems)
       .values({
         variantId: variantRecord.id,
-        quantity: 0,
+        quantity: variant.quantity,
         reservedQuantity: 0,
-        lowStockThreshold: 5,
+        lowStockThreshold: variant.lowStockThreshold,
       })
       .onConflictDoNothing()
       .returning({ id: inventoryItems.id })
@@ -719,6 +732,8 @@ async function syncProductOptionsAndVariants(
       await tx
         .update(inventoryItems)
         .set({
+          quantity: variant.quantity,
+          lowStockThreshold: variant.lowStockThreshold,
           updatedAt: new Date(),
         })
         .where(eq(inventoryItems.variantId, variantRecord.id))
@@ -1265,6 +1280,77 @@ export async function createProduct(
   }
 }
 
+export async function createDraftProduct(
+  data: z.infer<typeof productDraftSchema>,
+) {
+  try {
+    await requireResourcePermission("product", "create")
+    const validated = productDraftSchema.parse(data)
+    const slug = validated.slug || generateSlug(validated.name)
+
+    const [existing] = await db
+      .select({ id: products.id })
+      .from(products)
+      .where(eq(products.slug, slug))
+      .limit(1)
+
+    if (existing) {
+      return {
+        success: false as const,
+        error: "A product with this slug already exists",
+      }
+    }
+
+    const product = await db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(products)
+        .values({
+          name: validated.name,
+          slug,
+          description: validated.description || null,
+          shortDescription: validated.shortDescription || null,
+          status: "draft",
+          isFeatured: false,
+        })
+        .returning()
+
+      await syncProductOptionsAndVariants(
+        tx,
+        created.id,
+        created.name,
+        [],
+        [
+          {
+            name: "Default",
+            price: "0.00",
+            quantity: 0,
+            lowStockThreshold: 5,
+            isDefault: true,
+            isActive: true,
+            optionValues: {},
+          },
+        ],
+      )
+
+      return created
+    })
+
+    revalidatePath("/ops/products")
+    revalidateProductCaches()
+
+    return { success: true as const, data: product }
+  } catch (error) {
+    console.error("Failed to create product draft:", error)
+    return {
+      success: false as const,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to create product draft",
+    }
+  }
+}
+
 export async function updateProduct(
   id: string,
   data: z.infer<typeof productMutationSchema>,
@@ -1296,8 +1382,8 @@ export async function updateProduct(
 
   const organization = await validateProductOrganization(validated)
 
-  const updated = await db.transaction(async (tx) => {
-    const [product] = await tx
+  await db.transaction(async (tx) => {
+    await tx
       .update(products)
       .set({
         name: validated.name,
@@ -1314,7 +1400,6 @@ export async function updateProduct(
         updatedAt: new Date(),
       })
       .where(eq(products.id, id))
-      .returning()
 
     await syncProductCategories(tx, id, organization.categoryIds)
     await syncProductOptionsAndVariants(
@@ -1324,8 +1409,6 @@ export async function updateProduct(
       validated.options,
       validated.variants,
     )
-
-    return product
   })
 
   revalidatePath("/ops/products")
@@ -1334,7 +1417,7 @@ export async function updateProduct(
   revalidateBrandCaches()
   revalidateCategoryCaches()
 
-  return updated
+  return getProduct(id)
 }
 
 export async function deleteProduct(id: string) {
@@ -1411,6 +1494,7 @@ export async function updateProductImages(
         productId,
         url: image.url,
         altText: image.altText || null,
+        variantId: image.variantId || null,
         isPrimary: image.isPrimary || index === 0,
         sortOrder: index,
       })),

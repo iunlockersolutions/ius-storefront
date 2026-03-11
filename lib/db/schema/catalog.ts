@@ -81,6 +81,39 @@ export const categories = pgTable(
 )
 
 /**
+ * Category option templates - Reusable option names suggested for products
+ * assigned to a category.
+ */
+export const categoryOptionTemplates = pgTable(
+  "category_option_templates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => categories.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    normalizedName: text("normalized_name").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("category_option_templates_category_id_idx").on(table.categoryId),
+    index("category_option_templates_normalized_name_idx").on(
+      table.normalizedName,
+    ),
+    unique("category_option_templates_category_name_unique").on(
+      table.categoryId,
+      table.normalizedName,
+    ),
+  ],
+)
+
+/**
  * Brand category assignments - Catalog relationship and navbar configuration
  * for brands within top-level categories.
  */
@@ -439,12 +472,23 @@ export const categoriesRelations = relations(categories, ({ one, many }) => ({
     relationName: "categoryHierarchy",
   }),
   brandAssignments: many(brandCategoryAssignments),
+  optionTemplates: many(categoryOptionTemplates),
   models: many(models),
   primaryProducts: many(products, {
     relationName: "productPrimaryCategory",
   }),
   productAssignments: many(productCategoryAssignments),
 }))
+
+export const categoryOptionTemplatesRelations = relations(
+  categoryOptionTemplates,
+  ({ one }) => ({
+    category: one(categories, {
+      fields: [categoryOptionTemplates.categoryId],
+      references: [categories.id],
+    }),
+  }),
+)
 
 export const brandCategoryAssignmentsRelations = relations(
   brandCategoryAssignments,

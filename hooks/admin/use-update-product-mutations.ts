@@ -29,6 +29,8 @@ type UpdateProductPayload = {
     compareAtPrice?: string
     costPrice?: string
     weight?: string
+    quantity?: number
+    lowStockThreshold?: number
     isDefault?: boolean
     isActive?: boolean
     optionValues: Record<string, string>
@@ -39,6 +41,7 @@ type ProductImagePayload = {
   id?: string
   url: string
   altText?: string
+  variantId?: string | null
   isPrimary?: boolean
 }
 

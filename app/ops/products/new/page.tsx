@@ -29,6 +29,7 @@ async function ProductFormWrapper() {
     parentId: cat.parentId,
     level: cat.level,
     path: cat.path,
+    optionTemplates: cat.optionTemplates,
   }))
 
   const catalogBrands = brands.map((brand) => ({

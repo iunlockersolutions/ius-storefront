@@ -5,12 +5,25 @@ import { useForm } from "react-hook-form"
 import { useRouter } from "next/navigation"
 
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Loader2, Plus, Trash2 } from "lucide-react"
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ChevronRight,
+  Loader2,
+  Plus,
+  Trash2,
+} from "lucide-react"
 import { toast } from "sonner"
 import { z } from "zod"
 
 import { ImageUpload } from "@/components/admin/image-upload"
 import { CreatableEntityCombobox } from "@/components/admin/products/creatable-entity-combobox"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,9 +35,19 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldSet,
+  FieldTitle,
+} from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -35,6 +58,14 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { slugify } from "@/lib/utils"
 import { normalizeEntityName } from "@/lib/utils/catalog"
@@ -59,13 +90,19 @@ type UploadedImage = {
   id: string
   url: string
   altText?: string
+  variantId?: string | null
   isPrimary?: boolean
+}
+
+type OptionValueEditorValue = {
+  key: string
+  value: string
 }
 
 type OptionEditorValue = {
   key: string
   name: string
-  values: string[]
+  values: OptionValueEditorValue[]
 }
 
 type VariantEditorValue = {
@@ -77,6 +114,8 @@ type VariantEditorValue = {
   compareAtPrice: string
   costPrice: string
   weight: string
+  quantity: number
+  lowStockThreshold: number
   isDefault: boolean
   isActive: boolean
   optionValues: Record<string, string>
@@ -89,6 +128,11 @@ type CategoryOption = {
   parentId: string | null
   level: number
   path: string
+  optionTemplates: Array<{
+    id: string
+    name: string
+    sortOrder: number
+  }>
 }
 
 type BrandOption = {
@@ -138,6 +182,11 @@ type ProductEditorInitialData = {
     weight: string | null
     isDefault: boolean
     isActive: boolean
+    inventory?: {
+      quantity: number
+      reservedQuantity: number
+      lowStockThreshold: number | null
+    } | null
     selections?: Array<{
       optionName: string
       optionValue: string
@@ -147,6 +196,7 @@ type ProductEditorInitialData = {
     id: string
     url: string
     altText: string | null
+    variantId?: string | null
     isPrimary: boolean
   }>
 }
@@ -157,39 +207,84 @@ interface ProductEditorFormProps {
   brands: BrandOption[]
   models: ModelOption[]
   initialData?: ProductEditorInitialData
-  onSave: (payload: {
+  onCreateDraft?: (payload: {
     name: string
-    slug: string
+    slug?: string
     description?: string
     shortDescription?: string
-    brandId?: string | null
-    primaryCategoryId?: string | null
-    modelId?: string | null
-    categoryIds: string[]
-    status: "draft" | "active" | "archived"
-    isFeatured: boolean
-    metaTitle?: string
-    metaDescription?: string
-    options: Array<{
+    status?: "draft" | "active" | "archived"
+  }) => Promise<{ id: string }>
+  onSave: (
+    productId: string,
+    payload: {
       name: string
-      values: string[]
-    }>
-    variants: Array<{
-      id?: string
-      sku?: string
-      name?: string
-      price: string
-      compareAtPrice?: string
-      costPrice?: string
-      weight?: string
-      isDefault?: boolean
-      isActive?: boolean
-      optionValues: Record<string, string>
-    }>
-    images: UploadedImage[]
-  }) => Promise<void>
+      slug: string
+      description?: string
+      shortDescription?: string
+      brandId?: string | null
+      primaryCategoryId?: string | null
+      modelId?: string | null
+      categoryIds: string[]
+      status: "draft" | "active" | "archived"
+      isFeatured: boolean
+      metaTitle?: string
+      metaDescription?: string
+      options: Array<{
+        name: string
+        values: string[]
+      }>
+      variants: Array<{
+        id?: string
+        sku?: string
+        name?: string
+        price: string
+        compareAtPrice?: string
+        costPrice?: string
+        weight?: string
+        quantity?: number
+        lowStockThreshold?: number
+        isDefault?: boolean
+        isActive?: boolean
+        optionValues: Record<string, string>
+      }>
+      images: UploadedImage[]
+    },
+  ) => Promise<ProductEditorInitialData | null | void>
   onDelete?: () => Promise<void>
 }
+
+const STEP_DEFINITIONS = [
+  {
+    id: "basics",
+    title: "Basics",
+    description: "Create the draft product record.",
+  },
+  {
+    id: "organization",
+    title: "Organization",
+    description: "Brand, categories, and model assignment.",
+  },
+  {
+    id: "media",
+    title: "Media",
+    description: "Images, alt text, and optional variant mapping.",
+  },
+  {
+    id: "options",
+    title: "Options",
+    description: "Product option names and values.",
+  },
+  {
+    id: "variants",
+    title: "Variants",
+    description: "Sellable combinations, pricing, and stock.",
+  },
+  {
+    id: "review",
+    title: "Review",
+    description: "SEO and activation review.",
+  },
+] as const
 
 function createEmptyVariant(): VariantEditorValue {
   return {
@@ -200,9 +295,26 @@ function createEmptyVariant(): VariantEditorValue {
     compareAtPrice: "",
     costPrice: "",
     weight: "",
+    quantity: 0,
+    lowStockThreshold: 5,
     isDefault: true,
     isActive: true,
     optionValues: {},
+  }
+}
+
+function createEmptyOption(): OptionEditorValue {
+  return {
+    key: crypto.randomUUID(),
+    name: "",
+    values: [],
+  }
+}
+
+function createEmptyOptionValue(): OptionValueEditorValue {
+  return {
+    key: crypto.randomUUID(),
+    value: "",
   }
 }
 
@@ -213,7 +325,7 @@ function buildOptionKey(optionValues: Record<string, string>) {
     .join("|")
 }
 
-function buildCombinations(options: OptionEditorValue[]) {
+function buildCombinations(options: Array<{ name: string; values: string[] }>) {
   if (options.length === 0) {
     return [{}]
   }
@@ -242,21 +354,33 @@ function buildVariantName(optionValues: Record<string, string>) {
   return values.length > 0 ? values.join(" / ") : "Default"
 }
 
+function normalizeNumberInput(value: string, fallback: number) {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return fallback
+  }
+
+  return parsed
+}
+
 export function ProductEditorForm({
   mode,
   categories,
   brands,
   models,
   initialData,
+  onCreateDraft,
   onSave,
   onDelete,
 }: ProductEditorFormProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const [currentStep, setCurrentStep] = useState(0)
+  const [draftId, setDraftId] = useState(initialData?.id ?? null)
   const [categoryIds, setCategoryIds] = useState<string[]>(() =>
     Array.from(
       new Set(
-        initialData?.categories?.map((category) => category.id) ??
+        initialData?.categories.map((category) => category.id) ??
           (initialData?.primaryCategoryId
             ? [initialData.primaryCategoryId]
             : []),
@@ -268,19 +392,23 @@ export function ProductEditorForm({
       id: image.id,
       url: image.url,
       altText: image.altText || undefined,
+      variantId: image.variantId || null,
       isPrimary: image.isPrimary,
     })),
   )
   const [options, setOptions] = useState<OptionEditorValue[]>(
     () =>
-      initialData?.options?.map((option) => ({
+      initialData?.options.map((option) => ({
         key: option.id,
         name: option.name,
-        values: option.values.map((value) => value.value),
+        values: option.values.map((value) => ({
+          key: value.id,
+          value: value.value,
+        })),
       })) ?? [],
   )
   const [variants, setVariants] = useState<VariantEditorValue[]>(() =>
-    initialData?.variants?.length
+    initialData?.variants.length
       ? initialData.variants.map((variant) => ({
           key: variant.id,
           id: variant.id,
@@ -290,6 +418,8 @@ export function ProductEditorForm({
           compareAtPrice: variant.compareAtPrice || "",
           costPrice: variant.costPrice || "",
           weight: variant.weight || "",
+          quantity: variant.inventory?.quantity ?? 0,
+          lowStockThreshold: variant.inventory?.lowStockThreshold ?? 5,
           isDefault: variant.isDefault,
           isActive: variant.isActive,
           optionValues: Object.fromEntries(
@@ -329,10 +459,23 @@ export function ProductEditorForm({
     setValue,
     watch,
     handleSubmit,
+    trigger,
     formState: { errors },
   } = form
 
   const watchedValues = watch()
+
+  const selectedCategoryIds = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          watchedValues.primaryCategoryId
+            ? [watchedValues.primaryCategoryId, ...categoryIds]
+            : categoryIds,
+        ),
+      ),
+    [categoryIds, watchedValues.primaryCategoryId],
+  )
 
   const topLevelCategories = useMemo(
     () => categories.filter((category) => category.level === 0),
@@ -431,15 +574,72 @@ export function ProductEditorForm({
   const canCreateModel =
     Boolean(watchedValues.brandId) && Boolean(watchedValues.primaryCategoryId)
 
-  useEffect(() => {
-    const normalizedOptions = options
-      .map((option) => ({
-        name: option.name.trim(),
-        values: option.values.map((value) => value.trim()).filter(Boolean),
-      }))
-      .filter((option) => option.name.length > 0 && option.values.length > 0)
+  const availableOptionTemplateNames = useMemo(() => {
+    const templates = categories
+      .filter((category) => selectedCategoryIds.includes(category.id))
+      .flatMap((category) => category.optionTemplates)
 
-    if (normalizedOptions.length === 0) {
+    const seen = new Set<string>()
+
+    return templates
+      .filter((template) => {
+        const normalized = normalizeEntityName(template.name)
+        if (seen.has(normalized)) {
+          return false
+        }
+
+        seen.add(normalized)
+        return true
+      })
+      .sort((left, right) => left.sortOrder - right.sortOrder)
+  }, [categories, selectedCategoryIds])
+
+  const normalizedOptions = useMemo(
+    () =>
+      options
+        .map((option) => ({
+          name: option.name.trim(),
+          values: option.values
+            .map((value) => value.value.trim())
+            .filter(Boolean),
+        }))
+        .filter((option) => option.name.length > 0),
+    [options],
+  )
+
+  const optionNameDuplicates = useMemo(() => {
+    const counts = new Map<string, number>()
+
+    for (const option of normalizedOptions) {
+      const normalizedName = normalizeEntityName(option.name)
+      counts.set(normalizedName, (counts.get(normalizedName) ?? 0) + 1)
+    }
+
+    return normalizedOptions.filter(
+      (option) => (counts.get(normalizeEntityName(option.name)) ?? 0) > 1,
+    )
+  }, [normalizedOptions])
+
+  const optionWarnings = useMemo(() => {
+    const warnings: string[] = []
+
+    if (optionNameDuplicates.length > 0) {
+      warnings.push("Option names must be unique.")
+    }
+
+    if (normalizedOptions.some((option) => option.values.length === 0)) {
+      warnings.push("Every option must include at least one value.")
+    }
+
+    return warnings
+  }, [normalizedOptions, optionNameDuplicates])
+
+  useEffect(() => {
+    const optionInputs = normalizedOptions.filter(
+      (option) => option.values.length > 0,
+    )
+
+    if (optionInputs.length === 0) {
       setVariants((current) => {
         const existingDefault = current[0] ?? createEmptyVariant()
         return [
@@ -454,13 +654,7 @@ export function ProductEditorForm({
       return
     }
 
-    const nextCombinations = buildCombinations(
-      normalizedOptions.map((option) => ({
-        key: option.name,
-        name: option.name,
-        values: option.values,
-      })),
-    )
+    const combinations = buildCombinations(optionInputs)
 
     setVariants((current) => {
       const existingMap = new Map(
@@ -470,9 +664,8 @@ export function ProductEditorForm({
         ]),
       )
 
-      const nextVariants = nextCombinations.map((combination, index) => {
-        const key = buildOptionKey(combination)
-        const existing = existingMap.get(key)
+      const nextVariants = combinations.map((combination, index) => {
+        const existing = existingMap.get(buildOptionKey(combination))
 
         return {
           key: existing?.key || crypto.randomUUID(),
@@ -483,6 +676,8 @@ export function ProductEditorForm({
           compareAtPrice: existing?.compareAtPrice || "",
           costPrice: existing?.costPrice || "",
           weight: existing?.weight || "",
+          quantity: existing?.quantity ?? 0,
+          lowStockThreshold: existing?.lowStockThreshold ?? 5,
           isDefault:
             existing?.isDefault ??
             (index === 0 && !current.some((variant) => variant.isDefault)),
@@ -508,25 +703,134 @@ export function ProductEditorForm({
         }
       })
     })
-  }, [options])
+  }, [normalizedOptions])
 
-  const toggleCategory = (categoryId: string, checked: boolean) => {
-    setCategoryIds((current) =>
-      checked
-        ? Array.from(new Set([...current, categoryId]))
-        : current.filter((id) => id !== categoryId),
+  const variantSummaries = useMemo(
+    () =>
+      variants
+        .filter((variant) => Boolean(variant.id))
+        .map((variant) => ({
+          id: variant.id!,
+          name: variant.name || buildVariantName(variant.optionValues),
+        })),
+    [variants],
+  )
+
+  const warnings = useMemo(() => {
+    const items = [...optionWarnings]
+
+    if (!images.some((image) => image.isPrimary)) {
+      items.push("No primary image is selected yet.")
+    }
+
+    const skuCounts = new Map<string, number>()
+    for (const variant of variants) {
+      const sku = variant.sku.trim()
+      if (!sku) {
+        continue
+      }
+
+      skuCounts.set(sku, (skuCounts.get(sku) ?? 0) + 1)
+    }
+
+    if (variants.some((variant) => variant.sku.trim().length === 0)) {
+      items.push("Some variants do not have an SKU yet.")
+    }
+
+    if ([...skuCounts.values()].some((count) => count > 1)) {
+      items.push("Variant SKUs must be unique.")
+    }
+
+    if (
+      variants.some(
+        (variant) =>
+          variant.isActive &&
+          normalizeNumberInput(`${variant.quantity}`, 0) === 0,
+      )
+    ) {
+      items.push("Some active variants have zero starting stock.")
+    }
+
+    return items
+  }, [images, optionWarnings, variants])
+
+  const updateVariant = (
+    variantKey: string,
+    updates: Partial<VariantEditorValue>,
+  ) => {
+    setVariants((current) =>
+      current.map((variant) =>
+        variant.key === variantKey ? { ...variant, ...updates } : variant,
+      ),
+    )
+  }
+
+  const hydrateFromSavedProduct = (savedProduct: ProductEditorInitialData) => {
+    setDraftId(savedProduct.id ?? draftId)
+    setCategoryIds(
+      Array.from(
+        new Set(
+          savedProduct.categories.map((category) => category.id) ??
+            (savedProduct.primaryCategoryId
+              ? [savedProduct.primaryCategoryId]
+              : []),
+        ),
+      ),
+    )
+    setOptions(
+      savedProduct.options.map((option) => ({
+        key: option.id,
+        name: option.name,
+        values: option.values.map((value) => ({
+          key: value.id,
+          value: value.value,
+        })),
+      })),
+    )
+    setVariants(
+      savedProduct.variants.map((variant) => ({
+        key: variant.id,
+        id: variant.id,
+        sku: variant.sku,
+        name: variant.name,
+        price: variant.price,
+        compareAtPrice: variant.compareAtPrice || "",
+        costPrice: variant.costPrice || "",
+        weight: variant.weight || "",
+        quantity: variant.inventory?.quantity ?? 0,
+        lowStockThreshold: variant.inventory?.lowStockThreshold ?? 5,
+        isDefault: variant.isDefault,
+        isActive: variant.isActive,
+        optionValues: Object.fromEntries(
+          (variant.selections ?? []).map((selection) => [
+            selection.optionName,
+            selection.optionValue,
+          ]),
+        ),
+      })),
+    )
+    setImages(
+      (savedProduct.images ?? []).map((image) => ({
+        id: image.id,
+        url: image.url,
+        altText: image.altText || undefined,
+        variantId: image.variantId || null,
+        isPrimary: image.isPrimary,
+      })),
+    )
+  }
+
+  const setDefaultVariant = (variantKey: string) => {
+    setVariants((current) =>
+      current.map((variant) => ({
+        ...variant,
+        isDefault: variant.key === variantKey,
+      })),
     )
   }
 
   const addOption = () => {
-    setOptions((current) => [
-      ...current,
-      {
-        key: crypto.randomUUID(),
-        name: "",
-        values: [],
-      },
-    ])
+    setOptions((current) => [...current, createEmptyOption()])
   }
 
   const updateOption = (
@@ -546,80 +850,54 @@ export function ProductEditorForm({
     )
   }
 
-  const updateVariant = (
-    variantKey: string,
-    updates: Partial<VariantEditorValue>,
-  ) => {
-    setVariants((current) =>
-      current.map((variant) =>
-        variant.key === variantKey ? { ...variant, ...updates } : variant,
+  const addOptionValue = (optionKey: string) => {
+    setOptions((current) =>
+      current.map((option) =>
+        option.key === optionKey
+          ? { ...option, values: [...option.values, createEmptyOptionValue()] }
+          : option,
       ),
     )
   }
 
-  const setDefaultVariant = (variantKey: string) => {
-    setVariants((current) =>
-      current.map((variant) => ({
-        ...variant,
-        isDefault: variant.key === variantKey,
-      })),
+  const updateOptionValue = (
+    optionKey: string,
+    valueKey: string,
+    nextValue: string,
+  ) => {
+    setOptions((current) =>
+      current.map((option) =>
+        option.key === optionKey
+          ? {
+              ...option,
+              values: option.values.map((value) =>
+                value.key === valueKey ? { ...value, value: nextValue } : value,
+              ),
+            }
+          : option,
+      ),
     )
   }
 
-  const submit = async (data: ProductFormData) => {
-    startTransition(async () => {
-      try {
-        await onSave({
-          name: data.name,
-          slug: data.slug,
-          description: data.description || undefined,
-          shortDescription: data.shortDescription || undefined,
-          brandId: data.brandId || null,
-          primaryCategoryId: data.primaryCategoryId || null,
-          modelId: data.modelId || null,
-          categoryIds,
-          status: data.status,
-          isFeatured: data.isFeatured,
-          metaTitle: data.metaTitle || undefined,
-          metaDescription: data.metaDescription || undefined,
-          options: options
-            .map((option) => ({
-              name: option.name.trim(),
-              values: option.values
-                .map((value) => value.trim())
-                .filter(Boolean),
-            }))
-            .filter(
-              (option) => option.name.length > 0 && option.values.length > 0,
-            ),
-          variants: variants.map((variant) => ({
-            id: variant.id,
-            sku: variant.sku || undefined,
-            name: variant.name || undefined,
-            price: variant.price,
-            compareAtPrice: variant.compareAtPrice || undefined,
-            costPrice: variant.costPrice || undefined,
-            weight: variant.weight || undefined,
-            isDefault: variant.isDefault,
-            isActive: variant.isActive,
-            optionValues: variant.optionValues,
-          })),
-          images,
-        })
+  const removeOptionValue = (optionKey: string, valueKey: string) => {
+    setOptions((current) =>
+      current.map((option) =>
+        option.key === optionKey
+          ? {
+              ...option,
+              values: option.values.filter((value) => value.key !== valueKey),
+            }
+          : option,
+      ),
+    )
+  }
 
-        toast.success(
-          mode === "create"
-            ? "Product created successfully!"
-            : "Product updated successfully!",
-        )
-        router.push("/ops/products")
-        router.refresh()
-      } catch (error) {
-        toast.error(
-          error instanceof Error ? error.message : "Something went wrong",
-        )
-      }
-    })
+  const toggleCategory = (categoryId: string, checked: boolean) => {
+    setCategoryIds((current) =>
+      checked
+        ? Array.from(new Set([...current, categoryId]))
+        : current.filter((id) => id !== categoryId),
+    )
   }
 
   const createBrandInline = async (name: string) => {
@@ -663,7 +941,6 @@ export function ProductEditorForm({
         shouldDirty: true,
         shouldValidate: true,
       })
-
       toast.success(
         body.data.created
           ? `Created brand "${nextBrand.name}"`
@@ -739,58 +1016,208 @@ export function ProductEditorForm({
     }
   }
 
-  return (
-    <form onSubmit={handleSubmit(submit)} className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Core Information</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Product Name *</Label>
-            <Input
-              id="name"
-              value={watchedValues.name}
-              onChange={(event) => {
-                const nextName = event.target.value
-                setValue("name", nextName)
+  const buildPayload = (
+    data: ProductFormData,
+    overrides?: Partial<Pick<ProductFormData, "status">>,
+  ) => ({
+    name: data.name,
+    slug: data.slug,
+    description: data.description || undefined,
+    shortDescription: data.shortDescription || undefined,
+    brandId: data.brandId || null,
+    primaryCategoryId: data.primaryCategoryId || null,
+    modelId: data.modelId || null,
+    categoryIds: selectedCategoryIds,
+    status: overrides?.status ?? data.status,
+    isFeatured: data.isFeatured,
+    metaTitle: data.metaTitle || undefined,
+    metaDescription: data.metaDescription || undefined,
+    options: normalizedOptions.map((option) => ({
+      name: option.name,
+      values: option.values,
+    })),
+    variants: variants.map((variant) => ({
+      id: variant.id,
+      sku: variant.sku || undefined,
+      name: variant.name || undefined,
+      price: variant.price,
+      compareAtPrice: variant.compareAtPrice || undefined,
+      costPrice: variant.costPrice || undefined,
+      weight: variant.weight || undefined,
+      quantity: variant.quantity,
+      lowStockThreshold: variant.lowStockThreshold,
+      isDefault: variant.isDefault,
+      isActive: variant.isActive,
+      optionValues: variant.optionValues,
+    })),
+    images,
+  })
 
-                if (
-                  !watchedValues.slug ||
-                  watchedValues.slug === slugify(watchedValues.name || "")
-                ) {
-                  setValue("slug", slugify(nextName))
-                }
-              }}
-            />
-            {errors.name && (
-              <p className="text-sm text-red-500">{errors.name.message}</p>
-            )}
-          </div>
+  const persistProduct = async (
+    data: ProductFormData,
+    overrides?: Partial<Pick<ProductFormData, "status">>,
+  ) => {
+    if (!draftId) {
+      throw new Error("Create the draft product before saving other steps")
+    }
 
-          <div className="space-y-2">
-            <Label htmlFor="slug">Slug *</Label>
-            <Input id="slug" {...register("slug")} />
-            {errors.slug && (
-              <p className="text-sm text-red-500">{errors.slug.message}</p>
-            )}
-          </div>
+    if (optionWarnings.length > 0) {
+      throw new Error(optionWarnings[0])
+    }
 
-          <div className="space-y-2">
-            <Label htmlFor="shortDescription">Short Description</Label>
-            <Textarea
-              id="shortDescription"
-              rows={2}
-              {...register("shortDescription")}
-            />
-          </div>
+    const savedProduct = await onSave(draftId, buildPayload(data, overrides))
+    if (savedProduct) {
+      hydrateFromSavedProduct(savedProduct)
+    }
+  }
 
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea id="description" rows={5} {...register("description")} />
-          </div>
+  const saveDraft = async () => {
+    const valid = await trigger([
+      "name",
+      "slug",
+      "shortDescription",
+      "description",
+    ])
+    if (!valid) {
+      return
+    }
 
-          <div className="grid gap-4 md:grid-cols-2">
+    const data = form.getValues()
+
+    startTransition(async () => {
+      try {
+        if (!draftId) {
+          if (!onCreateDraft) {
+            throw new Error("Draft creation is not available")
+          }
+
+          const created = await onCreateDraft({
+            name: data.name,
+            slug: data.slug,
+            description: data.description || undefined,
+            shortDescription: data.shortDescription || undefined,
+            status: "draft",
+          })
+          setDraftId(created.id)
+          toast.success("Draft created")
+          return
+        }
+
+        await persistProduct(data, { status: "draft" })
+        toast.success("Draft saved")
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Failed to save draft",
+        )
+      }
+    })
+  }
+
+  const handleContinue = async (data: ProductFormData) => {
+    startTransition(async () => {
+      try {
+        if (currentStep === 0 && !draftId) {
+          if (!onCreateDraft) {
+            throw new Error("Draft creation is not available")
+          }
+
+          const created = await onCreateDraft({
+            name: data.name,
+            slug: data.slug,
+            description: data.description || undefined,
+            shortDescription: data.shortDescription || undefined,
+            status: "draft",
+          })
+
+          setDraftId(created.id)
+          setCurrentStep(1)
+          toast.success("Draft created. Continue configuring the product.")
+          return
+        }
+
+        if (currentStep < STEP_DEFINITIONS.length - 1) {
+          await persistProduct(data, {
+            status: mode === "create" && !draftId ? "draft" : data.status,
+          })
+          setCurrentStep((step) =>
+            Math.min(step + 1, STEP_DEFINITIONS.length - 1),
+          )
+          toast.success("Draft updated")
+          return
+        }
+
+        await persistProduct(data)
+        toast.success(
+          mode === "create"
+            ? "Product created successfully!"
+            : "Product updated successfully!",
+        )
+        router.push("/ops/products")
+        router.refresh()
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "Something went wrong",
+        )
+      }
+    })
+  }
+
+  const renderStepContent = () => {
+    if (currentStep === 0) {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle>Basics</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Product Name *</Label>
+              <Input
+                id="name"
+                value={watchedValues.name}
+                onChange={(event) => {
+                  const nextName = event.target.value
+                  setValue("name", nextName)
+
+                  if (
+                    !watchedValues.slug ||
+                    watchedValues.slug === slugify(watchedValues.name || "")
+                  ) {
+                    setValue("slug", slugify(nextName))
+                  }
+                }}
+              />
+              {errors.name ? (
+                <p className="text-sm text-red-500">{errors.name.message}</p>
+              ) : null}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="slug">Slug *</Label>
+              <Input id="slug" {...register("slug")} />
+              {errors.slug ? (
+                <p className="text-sm text-red-500">{errors.slug.message}</p>
+              ) : null}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="shortDescription">Short Description</Label>
+              <Textarea
+                id="shortDescription"
+                rows={2}
+                {...register("shortDescription")}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                rows={5}
+                {...register("description")}
+              />
+            </div>
+
             <div className="space-y-2">
               <Label>Status</Label>
               <Select
@@ -809,12 +1236,139 @@ export function ProductEditorForm({
                 </SelectContent>
               </Select>
             </div>
+          </CardContent>
+        </Card>
+      )
+    }
+
+    if (currentStep === 1) {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle>Organization</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label>Brand</Label>
+                <CreatableEntityCombobox
+                  value={watchedValues.brandId || ""}
+                  options={brandComboboxOptions}
+                  placeholder="Select or create brand"
+                  searchPlaceholder="Search brands..."
+                  emptyLabel="No matching brands"
+                  disabled={Boolean(selectedModel)}
+                  createLabel={(query) => `Create "${query.trim()}"`}
+                  onValueChange={(value) =>
+                    setValue("brandId", value, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })
+                  }
+                  onCreate={createBrandInline}
+                  canCreate={(query) =>
+                    Boolean(query.trim()) && !isInlineBrandPending
+                  }
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Primary Category</Label>
+                <Select
+                  value={watchedValues.primaryCategoryId || "__none__"}
+                  onValueChange={(value) =>
+                    setValue(
+                      "primaryCategoryId",
+                      value === "__none__" ? "" : value,
+                    )
+                  }
+                  disabled={Boolean(selectedModel)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">No category</SelectItem>
+                    {topLevelCategories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Model</Label>
+                <CreatableEntityCombobox
+                  value={watchedValues.modelId || ""}
+                  options={modelComboboxOptions}
+                  placeholder={
+                    canCreateModel
+                      ? "Select or create model"
+                      : "Select brand and category first"
+                  }
+                  searchPlaceholder="Search models..."
+                  emptyLabel={
+                    canCreateModel
+                      ? "No matching models for this brand and category"
+                      : "Choose a brand and top-level category first"
+                  }
+                  disabled={!canCreateModel && !selectedModel}
+                  createLabel={(query) => `Create "${query.trim()}"`}
+                  canCreate={(query) =>
+                    canCreateModel &&
+                    Boolean(query.trim()) &&
+                    !isInlineModelPending &&
+                    !availableModels.some(
+                      (model) =>
+                        normalizeEntityName(model.name) ===
+                        normalizeEntityName(query),
+                    )
+                  }
+                  onValueChange={(value) => {
+                    const nextModel = value ? modelMap.get(value) : undefined
+
+                    setValue("modelId", value, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })
+
+                    if (!nextModel) {
+                      return
+                    }
+
+                    setValue("brandId", nextModel.brandId, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })
+                    setValue("primaryCategoryId", nextModel.primaryCategoryId, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    })
+                    setCategoryIds((current) =>
+                      current.includes(nextModel.primaryCategoryId)
+                        ? current
+                        : [nextModel.primaryCategoryId, ...current],
+                    )
+                  }}
+                  onCreate={createModelInline}
+                />
+              </div>
+            </div>
+
+            {selectedModel ? (
+              <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+                Brand and primary category are locked to the selected model.
+                Clear the model if you need to change them.
+              </div>
+            ) : null}
 
             <div className="flex items-center justify-between rounded-lg border p-4">
               <div>
                 <Label htmlFor="isFeatured">Featured</Label>
                 <p className="text-xs text-muted-foreground">
-                  Highlight this product on the storefront
+                  Highlight this product on the storefront.
                 </p>
               </div>
               <Switch
@@ -823,136 +1377,11 @@ export function ProductEditorForm({
                 onCheckedChange={(checked) => setValue("isFeatured", checked)}
               />
             </div>
-          </div>
-        </CardContent>
-      </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Organization</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-2">
-              <Label>Brand</Label>
-              <CreatableEntityCombobox
-                value={watchedValues.brandId || ""}
-                options={brandComboboxOptions}
-                placeholder="Select or create brand"
-                searchPlaceholder="Search brands..."
-                emptyLabel="No matching brands"
-                disabled={Boolean(selectedModel)}
-                createLabel={(query) => `Create "${query.trim()}"`}
-                onValueChange={(value) =>
-                  setValue("brandId", value, {
-                    shouldDirty: true,
-                    shouldValidate: true,
-                  })
-                }
-                onCreate={createBrandInline}
-                canCreate={(query) =>
-                  Boolean(query.trim()) && !isInlineBrandPending
-                }
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Primary Category</Label>
-              <Select
-                value={watchedValues.primaryCategoryId || "__none__"}
-                onValueChange={(value) =>
-                  setValue(
-                    "primaryCategoryId",
-                    value === "__none__" ? "" : value,
-                  )
-                }
-                disabled={Boolean(selectedModel)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">No category</SelectItem>
-                  {topLevelCategories.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Model</Label>
-              <CreatableEntityCombobox
-                value={watchedValues.modelId || ""}
-                options={modelComboboxOptions}
-                placeholder={
-                  canCreateModel
-                    ? "Select or create model"
-                    : "Select brand and category first"
-                }
-                searchPlaceholder="Search models..."
-                emptyLabel={
-                  canCreateModel
-                    ? "No matching models for this brand and category"
-                    : "Choose a brand and top-level category first"
-                }
-                disabled={!canCreateModel && !selectedModel}
-                createLabel={(query) => `Create "${query.trim()}"`}
-                canCreate={(query) =>
-                  canCreateModel &&
-                  Boolean(query.trim()) &&
-                  !isInlineModelPending &&
-                  !availableModels.some(
-                    (model) =>
-                      normalizeEntityName(model.name) ===
-                      normalizeEntityName(query),
-                  )
-                }
-                onValueChange={(value) => {
-                  const nextModel = value ? modelMap.get(value) : undefined
-
-                  setValue("modelId", value, {
-                    shouldDirty: true,
-                    shouldValidate: true,
-                  })
-
-                  if (!nextModel) {
-                    return
-                  }
-
-                  setValue("brandId", nextModel.brandId, {
-                    shouldDirty: true,
-                    shouldValidate: true,
-                  })
-                  setValue("primaryCategoryId", nextModel.primaryCategoryId, {
-                    shouldDirty: true,
-                    shouldValidate: true,
-                  })
-                  setCategoryIds((current) =>
-                    current.includes(nextModel.primaryCategoryId)
-                      ? current
-                      : [nextModel.primaryCategoryId, ...current],
-                  )
-                }}
-                onCreate={createModelInline}
-              />
-            </div>
-          </div>
-
-          {selectedModel ? (
-            <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
-              Brand and primary category are locked to the selected model. Clear
-              the model if you need to change them.
-            </div>
-          ) : null}
-
-          <div className="space-y-3">
-            <Label>Additional Categories</Label>
-            <div className="grid gap-3 md:grid-cols-2">
-              {categories.map((category) =>
-                (() => {
+            <div className="space-y-3">
+              <Label>Additional Categories</Label>
+              <div className="grid gap-3 md:grid-cols-2">
+                {categories.map((category) => {
                   const isPrimaryCategory =
                     watchedValues.primaryCategoryId === category.id
 
@@ -986,226 +1415,610 @@ export function ProductEditorForm({
                       </div>
                     </div>
                   )
-                })(),
+                })}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )
+    }
+
+    if (currentStep === 2) {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle>Media</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <ImageUpload
+              value={images}
+              onChange={setImages}
+              maxImages={8}
+              folder="products"
+            />
+
+            {images.length > 0 ? (
+              <FieldSet>
+                <FieldGroup>
+                  {images.map((image, index) => (
+                    <div
+                      key={image.id}
+                      className="rounded-lg border p-4 space-y-4"
+                    >
+                      <Field orientation="horizontal">
+                        <FieldContent>
+                          <FieldTitle>Image {index + 1}</FieldTitle>
+                          <FieldDescription>
+                            Edit alt text and optionally map this image to a
+                            specific variant.
+                          </FieldDescription>
+                        </FieldContent>
+                        {image.isPrimary ? <Badge>Primary</Badge> : null}
+                      </Field>
+
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label>Alt Text</Label>
+                          <Input
+                            value={image.altText || ""}
+                            onChange={(event) =>
+                              setImages((current) =>
+                                current.map((currentImage) =>
+                                  currentImage.id === image.id
+                                    ? {
+                                        ...currentImage,
+                                        altText: event.target.value,
+                                      }
+                                    : currentImage,
+                                ),
+                              )
+                            }
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Variant Mapping</Label>
+                          <Select
+                            value={image.variantId || "__all__"}
+                            onValueChange={(value) =>
+                              setImages((current) =>
+                                current.map((currentImage) =>
+                                  currentImage.id === image.id
+                                    ? {
+                                        ...currentImage,
+                                        variantId:
+                                          value === "__all__" ? null : value,
+                                      }
+                                    : currentImage,
+                                ),
+                              )
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__all__">
+                                Product-wide image
+                              </SelectItem>
+                              {variantSummaries.map((variant) => (
+                                <SelectItem key={variant.id} value={variant.id}>
+                                  {variant.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </FieldGroup>
+              </FieldSet>
+            ) : null}
+          </CardContent>
+        </Card>
+      )
+    }
+
+    if (currentStep === 3) {
+      return (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Options</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Option names are suggested from the selected categories, but you
+                can still create product-specific options.
+              </p>
+            </div>
+            <Button type="button" variant="outline" onClick={addOption}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add option
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              {availableOptionTemplateNames.length > 0 ? (
+                availableOptionTemplateNames.map((template) => (
+                  <Badge key={template.id} variant="outline">
+                    {template.name}
+                  </Badge>
+                ))
+              ) : (
+                <span className="text-sm text-muted-foreground">
+                  No category templates yet. Add custom options as needed.
+                </span>
               )}
             </div>
-          </div>
-        </CardContent>
-      </Card>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Options</CardTitle>
-          <Button type="button" variant="outline" onClick={addOption}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Option
-          </Button>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {options.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No options defined. A single default variant will be used.
-            </p>
-          ) : (
-            options.map((option) => (
-              <div key={option.key} className="rounded-lg border p-4 space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex-1 space-y-2">
-                    <Label>Option Name</Label>
-                    <Input
-                      value={option.name}
-                      onChange={(event) =>
-                        updateOption(option.key, { name: event.target.value })
-                      }
-                      placeholder="Storage"
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeOption(option.key)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Values (comma separated)</Label>
-                  <Input
-                    value={option.values.join(", ")}
-                    onChange={(event) =>
-                      updateOption(option.key, {
-                        values: event.target.value
-                          .split(",")
-                          .map((value) => value.trim())
-                          .filter(Boolean),
-                      })
-                    }
-                    placeholder="128GB, 256GB, 512GB"
-                  />
-                </div>
+            {options.length === 0 ? (
+              <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
+                No options defined. The product will use a single default
+                variant.
               </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
+            ) : (
+              <Accordion
+                type="multiple"
+                defaultValue={options.map((option) => option.key)}
+              >
+                {options.map((option, index) => {
+                  const optionNameChoices = [
+                    ...availableOptionTemplateNames.map((template) => ({
+                      id: template.name,
+                      name: template.name,
+                    })),
+                    ...(option.name &&
+                    !availableOptionTemplateNames.some(
+                      (template) =>
+                        normalizeEntityName(template.name) ===
+                        normalizeEntityName(option.name),
+                    )
+                      ? [{ id: option.name, name: option.name }]
+                      : []),
+                  ]
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Variants</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {variants.map((variant) => (
-            <div key={variant.key} className="rounded-lg border p-4 space-y-4">
-              {Object.keys(variant.optionValues).length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {Object.entries(variant.optionValues).map(([name, value]) => (
-                    <span
-                      key={`${variant.key}-${name}`}
-                      className="rounded-full bg-muted px-3 py-1 text-xs font-medium"
-                    >
-                      {name}: {value}
-                    </span>
+                  return (
+                    <AccordionItem key={option.key} value={option.key}>
+                      <AccordionTrigger className="hover:no-underline">
+                        <div className="flex flex-col text-left">
+                          <span className="font-medium">
+                            {option.name || `Option ${index + 1}`}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {
+                              option.values.filter((value) =>
+                                value.value.trim(),
+                              ).length
+                            }{" "}
+                            values
+                          </span>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="space-y-4 pt-2">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 space-y-2">
+                            <Label>Option Name</Label>
+                            <CreatableEntityCombobox
+                              value={option.name}
+                              options={optionNameChoices}
+                              placeholder="Select or create option name"
+                              searchPlaceholder="Search option names..."
+                              emptyLabel="No matching option names"
+                              createLabel={(query) =>
+                                `Use custom option "${query.trim()}"`
+                              }
+                              onValueChange={(value) =>
+                                updateOption(option.key, { name: value })
+                              }
+                              onCreate={async (query) =>
+                                updateOption(option.key, {
+                                  name: query.trim(),
+                                })
+                              }
+                              canCreate={(query) =>
+                                Boolean(query.trim()) &&
+                                !optionNameChoices.some(
+                                  (choice) =>
+                                    normalizeEntityName(choice.name) ===
+                                    normalizeEntityName(query),
+                                )
+                              }
+                              allowClear={false}
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeOption(option.key)}
+                            aria-label={`Remove option ${index + 1}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+
+                        <FieldSet>
+                          <FieldGroup>
+                            <Field
+                              orientation="horizontal"
+                              className="items-center"
+                            >
+                              <FieldContent>
+                                <FieldTitle>Values</FieldTitle>
+                                <FieldDescription>
+                                  Add each allowed value as a separate row.
+                                </FieldDescription>
+                              </FieldContent>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => addOptionValue(option.key)}
+                              >
+                                <Plus className="mr-2 h-4 w-4" />
+                                Add value
+                              </Button>
+                            </Field>
+
+                            {option.values.length === 0 ? (
+                              <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                                Add at least one value to generate variants.
+                              </div>
+                            ) : (
+                              option.values.map((value, valueIndex) => (
+                                <div
+                                  key={value.key}
+                                  className="flex items-center gap-3 rounded-lg border p-3"
+                                >
+                                  <Input
+                                    value={value.value}
+                                    onChange={(event) =>
+                                      updateOptionValue(
+                                        option.key,
+                                        value.key,
+                                        event.target.value,
+                                      )
+                                    }
+                                    placeholder={`Value ${valueIndex + 1}`}
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() =>
+                                      removeOptionValue(option.key, value.key)
+                                    }
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              ))
+                            )}
+                          </FieldGroup>
+                        </FieldSet>
+                      </AccordionContent>
+                    </AccordionItem>
+                  )
+                })}
+              </Accordion>
+            )}
+          </CardContent>
+        </Card>
+      )
+    }
+
+    if (currentStep === 4) {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle>Variants and Inventory</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+              {variants.length} sellable variant
+              {variants.length === 1 ? "" : "s"} will be created from the
+              current option values.
+            </div>
+
+            <div className="overflow-x-auto rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Combination</TableHead>
+                    <TableHead>Variant Name</TableHead>
+                    <TableHead>SKU</TableHead>
+                    <TableHead>Price</TableHead>
+                    <TableHead>Compare At</TableHead>
+                    <TableHead>Cost</TableHead>
+                    <TableHead>Weight</TableHead>
+                    <TableHead>Qty</TableHead>
+                    <TableHead>Threshold</TableHead>
+                    <TableHead>Default</TableHead>
+                    <TableHead>Active</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {variants.map((variant) => (
+                    <TableRow key={variant.key}>
+                      <TableCell className="min-w-40">
+                        {Object.keys(variant.optionValues).length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {Object.entries(variant.optionValues).map(
+                              ([name, value]) => (
+                                <Badge
+                                  key={`${variant.key}-${name}`}
+                                  variant="outline"
+                                >
+                                  {name}: {value}
+                                </Badge>
+                              ),
+                            )}
+                          </div>
+                        ) : (
+                          <Badge variant="outline">Default</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          value={variant.name}
+                          onChange={(event) =>
+                            updateVariant(variant.key, {
+                              name: event.target.value,
+                            })
+                          }
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          value={variant.sku}
+                          onChange={(event) =>
+                            updateVariant(variant.key, {
+                              sku: event.target.value,
+                            })
+                          }
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          value={variant.price}
+                          onChange={(event) =>
+                            updateVariant(variant.key, {
+                              price: event.target.value,
+                            })
+                          }
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          value={variant.compareAtPrice}
+                          onChange={(event) =>
+                            updateVariant(variant.key, {
+                              compareAtPrice: event.target.value,
+                            })
+                          }
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          value={variant.costPrice}
+                          onChange={(event) =>
+                            updateVariant(variant.key, {
+                              costPrice: event.target.value,
+                            })
+                          }
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          value={variant.weight}
+                          onChange={(event) =>
+                            updateVariant(variant.key, {
+                              weight: event.target.value,
+                            })
+                          }
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={variant.quantity}
+                          onChange={(event) =>
+                            updateVariant(variant.key, {
+                              quantity: normalizeNumberInput(
+                                event.target.value,
+                                0,
+                              ),
+                            })
+                          }
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={variant.lowStockThreshold}
+                          onChange={(event) =>
+                            updateVariant(variant.key, {
+                              lowStockThreshold: normalizeNumberInput(
+                                event.target.value,
+                                5,
+                              ),
+                            })
+                          }
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Switch
+                          checked={variant.isDefault}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setDefaultVariant(variant.key)
+                            }
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Switch
+                          checked={variant.isActive}
+                          onCheckedChange={(checked) =>
+                            updateVariant(variant.key, { isActive: checked })
+                          }
+                        />
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </div>
-              ) : null}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )
+    }
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Variant Name</Label>
-                  <Input
-                    value={variant.name}
-                    onChange={(event) =>
-                      updateVariant(variant.key, { name: event.target.value })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>SKU</Label>
-                  <Input
-                    value={variant.sku}
-                    onChange={(event) =>
-                      updateVariant(variant.key, { sku: event.target.value })
-                    }
-                  />
-                </div>
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>SEO</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="metaTitle">Meta Title</Label>
+              <Input id="metaTitle" {...register("metaTitle")} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="metaDescription">Meta Description</Label>
+              <Textarea
+                id="metaDescription"
+                rows={3}
+                {...register("metaDescription")}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Review</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="rounded-lg border p-4">
+                <p className="text-sm text-muted-foreground">Categories</p>
+                <p className="text-lg font-semibold">
+                  {selectedCategoryIds.length}
+                </p>
               </div>
-
-              <div className="grid gap-4 md:grid-cols-4">
-                <div className="space-y-2">
-                  <Label>Price *</Label>
-                  <Input
-                    value={variant.price}
-                    onChange={(event) =>
-                      updateVariant(variant.key, { price: event.target.value })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Compare At</Label>
-                  <Input
-                    value={variant.compareAtPrice}
-                    onChange={(event) =>
-                      updateVariant(variant.key, {
-                        compareAtPrice: event.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Cost</Label>
-                  <Input
-                    value={variant.costPrice}
-                    onChange={(event) =>
-                      updateVariant(variant.key, {
-                        costPrice: event.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Weight (kg)</Label>
-                  <Input
-                    value={variant.weight}
-                    onChange={(event) =>
-                      updateVariant(variant.key, { weight: event.target.value })
-                    }
-                  />
-                </div>
+              <div className="rounded-lg border p-4">
+                <p className="text-sm text-muted-foreground">Options</p>
+                <p className="text-lg font-semibold">
+                  {normalizedOptions.length}
+                </p>
               </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="flex items-center justify-between rounded-lg border p-4">
-                  <div>
-                    <Label>Default Variant</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Used for storefront default pricing
-                    </p>
-                  </div>
-                  <Switch
-                    checked={variant.isDefault}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setDefaultVariant(variant.key)
-                      }
-                    }}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between rounded-lg border p-4">
-                  <div>
-                    <Label>Active</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Purchasable on the storefront
-                    </p>
-                  </div>
-                  <Switch
-                    checked={variant.isActive}
-                    onCheckedChange={(checked) =>
-                      updateVariant(variant.key, { isActive: checked })
-                    }
-                  />
-                </div>
+              <div className="rounded-lg border p-4">
+                <p className="text-sm text-muted-foreground">Variants</p>
+                <p className="text-lg font-semibold">{variants.length}</p>
               </div>
             </div>
-          ))}
+
+            <div className="rounded-lg border p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                {warnings.length === 0 ? (
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                ) : (
+                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                )}
+                <p className="font-medium">Readiness Check</p>
+              </div>
+
+              {warnings.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No blocking warnings detected. You can save or activate this
+                  product.
+                </p>
+              ) : (
+                <ul className="space-y-2 text-sm text-muted-foreground">
+                  {warnings.map((warning) => (
+                    <li key={warning}>{warning}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  return (
+    <form onSubmit={handleSubmit(handleContinue)} className="space-y-6">
+      <Card>
+        <CardContent className="flex flex-col gap-4 pt-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Badge variant={draftId ? "outline" : "secondary"}>
+                {draftId ? "Draft in progress" : "Not saved yet"}
+              </Badge>
+              <span className="text-sm text-muted-foreground">
+                {draftId
+                  ? `Product ID: ${draftId}`
+                  : "Complete basics to create the draft product record."}
+              </span>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isPending}
+              onClick={saveDraft}
+            >
+              {isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Save Draft
+            </Button>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-6">
+            {STEP_DEFINITIONS.map((step, index) => {
+              const isActive = currentStep === index
+              const isCompleted = index < currentStep
+
+              return (
+                <button
+                  key={step.id}
+                  type="button"
+                  className={`rounded-lg border p-3 text-left transition ${
+                    isActive
+                      ? "border-primary bg-primary/5"
+                      : isCompleted
+                        ? "border-green-200 bg-green-50"
+                        : "border-border"
+                  }`}
+                  onClick={() => {
+                    if (index <= currentStep) {
+                      setCurrentStep(index)
+                    }
+                  }}
+                >
+                  <p className="text-xs text-muted-foreground">
+                    Step {index + 1}
+                  </p>
+                  <p className="font-medium">{step.title}</p>
+                </button>
+              )
+            })}
+          </div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Media</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ImageUpload
-            value={images}
-            onChange={setImages}
-            maxImages={8}
-            folder="products"
-          />
-        </CardContent>
-      </Card>
+      {renderStepContent()}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>SEO</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="metaTitle">Meta Title</Label>
-            <Input id="metaTitle" {...register("metaTitle")} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="metaDescription">Meta Description</Label>
-            <Textarea
-              id="metaDescription"
-              rows={3}
-              {...register("metaDescription")}
-            />
-          </div>
-        </CardContent>
-      </Card>
+      {warnings.length > 0 && currentStep < STEP_DEFINITIONS.length - 1 ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          {warnings[0]}
+        </div>
+      ) : null}
 
       <div className="flex items-center justify-between">
         {onDelete ? (
@@ -1254,11 +2067,34 @@ export function ProductEditorForm({
 
         <div className="flex gap-3">
           <Button type="button" variant="outline" onClick={() => router.back()}>
-            Cancel
+            {currentStep === 0 ? "Cancel" : "Exit"}
           </Button>
+          {currentStep > 0 ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCurrentStep((step) => Math.max(step - 1, 0))}
+              disabled={isPending}
+            >
+              Back
+            </Button>
+          ) : null}
           <Button type="submit" disabled={isPending}>
-            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {mode === "create" ? "Create Product" : "Save Changes"}
+            {isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : null}
+            {currentStep === STEP_DEFINITIONS.length - 1 ? (
+              mode === "create" ? (
+                "Create Product"
+              ) : (
+                "Save Product"
+              )
+            ) : (
+              <>
+                Continue
+                <ChevronRight className="ml-2 h-4 w-4" />
+              </>
+            )}
           </Button>
         </div>
       </div>

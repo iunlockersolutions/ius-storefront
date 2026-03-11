@@ -15,6 +15,7 @@ export function CategoriesPageClient() {
     isActive: category.isActive,
     sortOrder: category.sortOrder,
     productCount: category.productCount,
+    optionTemplates: category.optionTemplates,
   }))
 
   return (

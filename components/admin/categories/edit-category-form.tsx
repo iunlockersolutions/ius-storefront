@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useMemo, useState, useTransition } from "react"
 import { useForm } from "react-hook-form"
 import { useRouter } from "next/navigation"
 
@@ -9,6 +9,10 @@ import { Loader2, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { z } from "zod"
 
+import {
+  CategoryOptionTemplatesEditor,
+  type CategoryOptionTemplateValue,
+} from "@/components/admin/categories/category-option-templates-editor"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,6 +41,7 @@ import {
   useDeleteCategoryMutation,
   useUpdateCategoryMutation,
 } from "@/hooks/admin/use-category-mutations"
+import { normalizeEntityName } from "@/lib/utils/catalog"
 
 const categorySchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
@@ -68,6 +73,11 @@ interface Category {
   showInProductMenu: boolean
   productMenuPriority: number
   productCount: number
+  optionTemplates: Array<{
+    id: string
+    name: string
+    sortOrder: number
+  }>
 }
 
 interface ParentOption {
@@ -90,6 +100,15 @@ export function EditCategoryForm({
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [isDeleting, setIsDeleting] = useState(false)
+  const [optionTemplates, setOptionTemplates] = useState<
+    CategoryOptionTemplateValue[]
+  >(() =>
+    category.optionTemplates.map((template) => ({
+      id: template.id,
+      key: template.id,
+      name: template.name,
+    })),
+  )
   const updateCategoryMutation = useUpdateCategoryMutation(category.id)
   const deleteCategoryMutation = useDeleteCategoryMutation()
 
@@ -119,8 +138,32 @@ export function EditCategoryForm({
   } = form
 
   const watchedValues = watch()
+  const duplicateTemplateNames = useMemo(() => {
+    const counts = new Map<string, number>()
+
+    for (const template of optionTemplates) {
+      const normalized = normalizeEntityName(template.name)
+      if (!normalized) {
+        continue
+      }
+
+      counts.set(normalized, (counts.get(normalized) ?? 0) + 1)
+    }
+
+    return optionTemplates
+      .filter((template) => {
+        const normalized = normalizeEntityName(template.name)
+        return normalized && (counts.get(normalized) ?? 0) > 1
+      })
+      .map((template) => template.name.trim())
+  }, [optionTemplates])
 
   const onSubmit = async (data: CategoryFormData) => {
+    if (duplicateTemplateNames.length > 0) {
+      toast.error("Option template names must be unique")
+      return
+    }
+
     startTransition(async () => {
       try {
         await updateCategoryMutation.mutateAsync({
@@ -135,6 +178,13 @@ export function EditCategoryForm({
           productMenuPriority: data.productMenuPriority,
           metaTitle: data.metaTitle || undefined,
           metaDescription: data.metaDescription || undefined,
+          optionTemplates: optionTemplates
+            .map((template, index) => ({
+              id: template.id,
+              name: template.name.trim(),
+              sortOrder: index,
+            }))
+            .filter((template) => template.name.length > 0),
         })
 
         toast.success("Category updated successfully!")
@@ -280,6 +330,16 @@ export function EditCategoryForm({
               />
             </div>
           </div>
+
+          <CategoryOptionTemplatesEditor
+            value={optionTemplates}
+            onChange={setOptionTemplates}
+          />
+          {duplicateTemplateNames.length > 0 ? (
+            <p className="text-sm text-red-500">
+              Duplicate option template names are not allowed.
+            </p>
+          ) : null}
         </CardContent>
       </Card>
 

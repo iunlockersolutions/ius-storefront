@@ -1,7 +1,7 @@
 "use client"
 
 import { ProductEditorForm } from "@/components/admin/products/product-editor-form"
-import { useCreateProductMutation } from "@/hooks/admin/use-create-product-mutation"
+import { useCreateDraftProductMutation } from "@/hooks/admin/use-create-product-mutation"
 
 interface Category {
   id: string
@@ -10,6 +10,11 @@ interface Category {
   parentId: string | null
   level: number
   path: string
+  optionTemplates: Array<{
+    id: string
+    name: string
+    sortOrder: number
+  }>
 }
 
 interface Brand {
@@ -38,7 +43,7 @@ export function NewProductForm({
   brands,
   models,
 }: NewProductFormProps) {
-  const createProductMutation = useCreateProductMutation()
+  const createDraftProductMutation = useCreateDraftProductMutation()
 
   return (
     <ProductEditorForm
@@ -46,29 +51,55 @@ export function NewProductForm({
       categories={categories}
       brands={brands}
       models={models}
-      onSave={async ({ images, ...payload }) => {
-        const createdProduct = await createProductMutation.mutateAsync(payload)
-
-        if (images.length > 0) {
-          const imageResponse = await fetch(
-            `/api/admin/products/${createdProduct.id}/images`,
-            {
-              method: "PUT",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({ images }),
+      onCreateDraft={(payload) =>
+        createDraftProductMutation.mutateAsync(payload)
+      }
+      onSave={async (productId, { images, ...payload }) => {
+        const productResponse = await fetch(
+          `/api/admin/products/${productId}`,
+          {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
             },
-          )
+            body: JSON.stringify(payload),
+          },
+        )
 
-          if (!imageResponse.ok) {
-            const errorBody = await imageResponse.json().catch(() => null)
-            throw new Error(
-              errorBody?.error?.message ||
-                errorBody?.error ||
-                "Failed to save product images",
-            )
-          }
+        if (!productResponse.ok) {
+          const errorBody = await productResponse.json().catch(() => null)
+          throw new Error(
+            errorBody?.error?.message ||
+              errorBody?.error ||
+              "Failed to save product",
+          )
+        }
+
+        const productBody = await productResponse.json()
+
+        const imageResponse = await fetch(
+          `/api/admin/products/${productId}/images`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ images }),
+          },
+        )
+
+        if (!imageResponse.ok) {
+          const errorBody = await imageResponse.json().catch(() => null)
+          throw new Error(
+            errorBody?.error?.message ||
+              errorBody?.error ||
+              "Failed to save product images",
+          )
+        }
+
+        return {
+          ...productBody.data,
+          images,
         }
       }}
     />

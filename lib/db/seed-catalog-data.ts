@@ -837,7 +837,7 @@ export async function seedCatalogData(logLabel: string) {
           )
         }
 
-        await db.insert(brandCategoryAssignments).values({
+        await db.insert(brandCategoryAssignments).values( {
           brandId: createdBrand.id,
           categoryId,
           navPriority: assignment.navPriority,

@@ -15,6 +15,13 @@
       "when": 1773227985373,
       "tag": "0001_slippery_kree",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1773248810123,
+      "tag": "0002_charming_steve_rogers",
+      "breakpoints": true
     }
   ]
 }
