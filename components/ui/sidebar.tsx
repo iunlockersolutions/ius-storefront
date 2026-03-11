@@ -22,7 +22,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
@@ -57,6 +56,8 @@ function SidebarProvider({
   defaultOpen = true,
   open: openProp,
   onOpenChange: setOpenProp,
+  mobileBreakpoint = 768,
+  unstyled = false,
   className,
   style,
   children,
@@ -65,9 +66,28 @@ function SidebarProvider({
   defaultOpen?: boolean
   open?: boolean
   onOpenChange?: (open: boolean) => void
+  mobileBreakpoint?: number
+  unstyled?: boolean
 }) {
-  const isMobile = useIsMobile()
+  const [isMobile, setIsMobile] = React.useState(false)
   const [openMobile, setOpenMobile] = React.useState(false)
+
+  React.useEffect(() => {
+    const mediaQuery = window.matchMedia(
+      `(max-width: ${Math.max(mobileBreakpoint - 1, 0)}px)`,
+    )
+
+    const handleChange = () => {
+      setIsMobile(window.innerWidth < mobileBreakpoint)
+    }
+
+    handleChange()
+    mediaQuery.addEventListener("change", handleChange)
+
+    return () => {
+      mediaQuery.removeEventListener("change", handleChange)
+    }
+  }, [mobileBreakpoint])
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
@@ -125,6 +145,14 @@ function SidebarProvider({
     }),
     [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar],
   )
+
+  if (unstyled) {
+    return (
+      <SidebarContext.Provider value={contextValue}>
+        {children}
+      </SidebarContext.Provider>
+    )
+  }
 
   return (
     <SidebarContext.Provider value={contextValue}>
