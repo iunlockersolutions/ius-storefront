@@ -69,13 +69,8 @@ const items: NavItem[] = [
     icon: Package,
   },
   {
-    title: "Product Models",
-    url: "/ops/product-model-groups",
-    icon: SwatchBook,
-  },
-  {
-    title: "Product Menu",
-    url: "/ops/product-menu-configs",
+    title: "Models",
+    url: "/ops/models",
     icon: SwatchBook,
   },
   {

@@ -16,6 +16,14 @@ export interface AdminBrand {
   metaTitle: string | null
   metaDescription: string | null
   productCount: number
+  modelCount?: number
+  categoryAssignments: Array<{
+    categoryId: string
+    categoryName: string
+    categorySlug: string
+    navPriority: number
+    showInProductMenu: boolean
+  }>
 }
 
 export function useAdminBrandsQuery() {

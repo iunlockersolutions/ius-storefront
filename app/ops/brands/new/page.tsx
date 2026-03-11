@@ -4,13 +4,16 @@ import { ChevronLeft } from "lucide-react"
 
 import { NewBrandForm } from "@/components/admin/brands/new-brand-form"
 import { Button } from "@/components/ui/button"
+import { getCategoriesFlat } from "@/lib/actions/category"
 
 export const metadata = {
   title: "Add Brand | Operations",
   description: "Create a new brand",
 }
 
-export default function NewBrandPage() {
+export default async function NewBrandPage() {
+  const categories = await getCategoriesFlat()
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -25,7 +28,15 @@ export default function NewBrandPage() {
         </div>
       </div>
 
-      <NewBrandForm />
+      <NewBrandForm
+        categories={categories
+          .filter((category) => category.level === 0)
+          .map((category) => ({
+            id: category.id,
+            name: category.name,
+            slug: category.slug,
+          }))}
+      />
     </div>
   )
 }

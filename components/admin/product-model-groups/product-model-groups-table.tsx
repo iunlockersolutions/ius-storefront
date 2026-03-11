@@ -39,10 +39,10 @@ interface ProductModelGroupRow {
   id: string
   name: string
   slug: string
-  categoryName: string
+  primaryCategoryName: string
   brandName: string
   showInProductMenu: boolean
-  menuPriority: number
+  navPriority: number
   isActive: boolean
   productCount: number
 }
@@ -65,7 +65,7 @@ export function ProductModelGroupsTable({
 
     try {
       await deleteMutation.mutateAsync(deleteId)
-      toast.success("Product model group deleted successfully")
+      toast.success("Model deleted successfully")
       setDeleteId(null)
       router.refresh()
     } catch (error) {
@@ -81,7 +81,7 @@ export function ProductModelGroupsTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Model Group</TableHead>
+              <TableHead>Model</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Brand</TableHead>
               <TableHead>Menu</TableHead>
@@ -97,7 +97,7 @@ export function ProductModelGroupsTable({
                   colSpan={7}
                   className="py-8 text-center text-muted-foreground"
                 >
-                  No product model groups found
+                  No models found
                 </TableCell>
               </TableRow>
             ) : (
@@ -111,7 +111,7 @@ export function ProductModelGroupsTable({
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell>{group.categoryName}</TableCell>
+                  <TableCell>{group.primaryCategoryName}</TableCell>
                   <TableCell>{group.brandName}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
@@ -127,7 +127,7 @@ export function ProductModelGroupsTable({
                       </Badge>
                     </div>
                   </TableCell>
-                  <TableCell>{group.menuPriority}</TableCell>
+                  <TableCell>{group.navPriority}</TableCell>
                   <TableCell>{group.productCount}</TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -147,7 +147,7 @@ export function ProductModelGroupsTable({
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
-                          <Link href={`/ops/product-model-groups/${group.id}`}>
+                          <Link href={`/ops/models/${group.id}`}>
                             <Pencil className="mr-2 h-4 w-4" />
                             Edit
                           </Link>
@@ -172,10 +172,10 @@ export function ProductModelGroupsTable({
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete model group?</AlertDialogTitle>
+            <AlertDialogTitle>Delete model?</AlertDialogTitle>
             <AlertDialogDescription>
               You must reassign or remove all linked products before deleting a
-              model group.
+              model.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useMemo, useState, useTransition } from "react"
 import { useForm } from "react-hook-form"
 import { useRouter } from "next/navigation"
 
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
@@ -49,8 +50,21 @@ type UploadedImage = {
   isPrimary?: boolean
 }
 
+type CategoryOption = {
+  id: string
+  name: string
+  slug: string
+}
+
+type CategoryAssignmentValue = {
+  categoryId: string
+  navPriority: number
+  showInProductMenu: boolean
+}
+
 interface BrandEditorFormProps {
   mode: "create" | "edit"
+  categories: CategoryOption[]
   initialData?: {
     id: string
     name: string
@@ -63,6 +77,8 @@ interface BrandEditorFormProps {
     metaTitle: string | null
     metaDescription: string | null
     productCount?: number
+    modelCount?: number
+    categoryAssignments: CategoryAssignmentValue[]
   }
   onSave: (payload: {
     name: string
@@ -74,12 +90,14 @@ interface BrandEditorFormProps {
     isActive: boolean
     metaTitle?: string
     metaDescription?: string
+    categoryAssignments: CategoryAssignmentValue[]
   }) => Promise<unknown>
   onDelete?: () => Promise<unknown>
 }
 
 export function BrandEditorForm({
   mode,
+  categories,
   initialData,
   onSave,
   onDelete,
@@ -98,6 +116,9 @@ export function BrandEditorForm({
         ]
       : [],
   )
+  const [categoryAssignments, setCategoryAssignments] = useState<
+    CategoryAssignmentValue[]
+  >(initialData?.categoryAssignments ?? [])
 
   const form = useForm<BrandFormData>({
     resolver: zodResolver(brandSchema),
@@ -120,7 +141,18 @@ export function BrandEditorForm({
     handleSubmit,
     formState: { errors, isDirty },
   } = form
+
   const watchedValues = watch()
+  const assignmentMap = useMemo(
+    () =>
+      new Map(
+        categoryAssignments.map((assignment) => [
+          assignment.categoryId,
+          assignment,
+        ]),
+      ),
+    [categoryAssignments],
+  )
 
   const handleNameChange = (name: string) => {
     setValue("name", name)
@@ -130,6 +162,39 @@ export function BrandEditorForm({
     ) {
       setValue("slug", slugify(name))
     }
+  }
+
+  const toggleCategory = (categoryId: string, checked: boolean) => {
+    setCategoryAssignments((current) => {
+      if (checked) {
+        const nextPriority = current.length + 1
+        return [
+          ...current,
+          {
+            categoryId,
+            navPriority: nextPriority,
+            showInProductMenu: true,
+          },
+        ]
+      }
+
+      return current.filter(
+        (assignment) => assignment.categoryId !== categoryId,
+      )
+    })
+  }
+
+  const updateAssignment = (
+    categoryId: string,
+    updates: Partial<CategoryAssignmentValue>,
+  ) => {
+    setCategoryAssignments((current) =>
+      current.map((assignment) =>
+        assignment.categoryId === categoryId
+          ? { ...assignment, ...updates }
+          : assignment,
+      ),
+    )
   }
 
   const submit = async (data: BrandFormData) => {
@@ -145,6 +210,7 @@ export function BrandEditorForm({
           isActive: data.isActive,
           metaTitle: data.metaTitle || undefined,
           metaDescription: data.metaDescription || undefined,
+          categoryAssignments,
         })
 
         toast.success(
@@ -163,16 +229,27 @@ export function BrandEditorForm({
   }
 
   return (
-    <form onSubmit={handleSubmit(submit)} className="max-w-2xl space-y-6">
+    <form onSubmit={handleSubmit(submit)} className="max-w-4xl space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Brand Details</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {typeof initialData?.productCount === "number" && (
-            <div className="rounded-lg border bg-muted/30 p-4 text-sm">
-              Assigned products:{" "}
-              <span className="font-medium">{initialData.productCount}</span>
+          {(typeof initialData?.productCount === "number" ||
+            typeof initialData?.modelCount === "number") && (
+            <div className="grid gap-3 rounded-lg border bg-muted/30 p-4 text-sm md:grid-cols-2">
+              <div>
+                Assigned products:{" "}
+                <span className="font-medium">
+                  {initialData?.productCount ?? 0}
+                </span>
+              </div>
+              <div>
+                Models:{" "}
+                <span className="font-medium">
+                  {initialData?.modelCount ?? 0}
+                </span>
+              </div>
             </div>
           )}
 
@@ -245,6 +322,86 @@ export function BrandEditorForm({
                 onCheckedChange={(checked) => setValue("isActive", checked)}
               />
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Category Assignments</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Assign this brand to one or more top-level categories and set menu
+            visibility/order for each category.
+          </p>
+
+          <div className="space-y-3">
+            {categories.map((category) => {
+              const assignment = assignmentMap.get(category.id)
+
+              return (
+                <div
+                  key={category.id}
+                  className="rounded-lg border p-4 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-3">
+                        <Checkbox
+                          checked={Boolean(assignment)}
+                          onCheckedChange={(checked) =>
+                            toggleCategory(category.id, Boolean(checked))
+                          }
+                        />
+                        <div>
+                          <p className="font-medium">{category.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {category.slug}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {assignment ? (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label>Nav Priority</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={assignment.navPriority}
+                            onChange={(event) =>
+                              updateAssignment(category.id, {
+                                navPriority: Number(event.target.value || 0),
+                              })
+                            }
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between rounded-lg border px-4 py-3">
+                          <div>
+                            <Label>Show In Menu</Label>
+                            <p className="text-xs text-muted-foreground">
+                              Allow this brand under this category in Products
+                              menu
+                            </p>
+                          </div>
+                          <Switch
+                            checked={assignment.showInProductMenu}
+                            onCheckedChange={(checked) =>
+                              updateAssignment(category.id, {
+                                showInProductMenu: checked,
+                              })
+                            }
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </CardContent>
       </Card>

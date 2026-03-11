@@ -103,14 +103,14 @@ export default async function ProductPage({ params }: ProductPageProps) {
             </Link>
           </>
         )}
-        {product.productModelGroup && (
+        {product.model && (
           <>
             <ChevronRight className="h-4 w-4" />
             <Link
-              href={`/products/models/${product.productModelGroup.slug}`}
+              href={`/products/models/${product.model.slug}`}
               className="hover:text-foreground"
             >
-              {product.productModelGroup.name}
+              {product.model.name}
             </Link>
           </>
         )}
@@ -175,15 +175,15 @@ export default async function ProductPage({ params }: ProductPageProps) {
               )}
             </dd>
           </div>
-          {product.productModelGroup && (
+          {product.model && (
             <div className="border rounded-lg p-4">
-              <dt className="text-sm text-muted-foreground">Model Group</dt>
+              <dt className="text-sm text-muted-foreground">Model</dt>
               <dd className="mt-1 font-medium">
                 <Link
-                  href={`/products/models/${product.productModelGroup.slug}`}
+                  href={`/products/models/${product.model.slug}`}
                   className="text-primary hover:underline"
                 >
-                  {product.productModelGroup.name}
+                  {product.model.name}
                 </Link>
               </dd>
             </div>

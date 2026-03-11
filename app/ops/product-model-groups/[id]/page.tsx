@@ -14,8 +14,8 @@ interface ProductModelGroupPageProps {
 }
 
 export const metadata = {
-  title: "Edit Product Model Group | Operations",
-  description: "Update product model group details.",
+  title: "Edit Model | Operations",
+  description: "Update model details.",
 }
 
 export default async function EditProductModelGroupPage({
@@ -37,12 +37,12 @@ export default async function EditProductModelGroupPage({
     <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Button variant="outline" size="icon" asChild>
-          <Link href="/ops/product-model-groups">
+          <Link href="/ops/models">
             <ChevronLeft className="size-4" />
           </Link>
         </Button>
         <div>
-          <h1 className="text-2xl font-bold">Edit Product Model Group</h1>
+          <h1 className="text-2xl font-bold">Edit Model</h1>
           <p className="text-muted-foreground">
             Update details for &quot;{group.name}&quot;.
           </p>
@@ -56,10 +56,10 @@ export default async function EditProductModelGroupPage({
           name: group.name,
           slug: group.slug,
           description: group.description,
-          categoryId: group.categoryId,
+          primaryCategoryId: group.primaryCategoryId,
           brandId: group.brandId,
           showInProductMenu: group.showInProductMenu,
-          menuPriority: group.menuPriority,
+          navPriority: group.navPriority,
           isActive: group.isActive,
         }}
         categories={categories
@@ -73,6 +73,9 @@ export default async function EditProductModelGroupPage({
           id: brand.id,
           name: brand.name,
           slug: brand.slug,
+          categoryAssignments: brand.categoryAssignments.map((assignment) => ({
+            categoryId: assignment.categoryId,
+          })),
         }))}
       />
     </div>

@@ -22,11 +22,11 @@ interface Brand {
   slug: string
 }
 
-interface ProductModelGroup {
+interface Model {
   id: string
   name: string
   slug: string
-  categoryId: string
+  primaryCategoryId: string
   brandId: string
   isActive: boolean
 }
@@ -39,15 +39,20 @@ interface Product {
   shortDescription: string | null
   brandId: string | null
   primaryCategoryId: string | null
-  productModelGroupId: string | null
-  basePrice: string
-  compareAtPrice: string | null
-  costPrice: string | null
+  modelId: string | null
   status: "draft" | "active" | "archived"
   isFeatured: boolean
   metaTitle: string | null
   metaDescription: string | null
   categories: Array<{ id: string }>
+  options: Array<{
+    id: string
+    name: string
+    values: Array<{
+      id: string
+      value: string
+    }>
+  }>
   variants: Array<{
     id: string
     sku: string
@@ -58,6 +63,10 @@ interface Product {
     weight: string | null
     isDefault: boolean
     isActive: boolean
+    selections?: Array<{
+      optionName: string
+      optionValue: string
+    }>
   }>
 }
 
@@ -72,7 +81,7 @@ interface EditProductFormProps {
   product: Product
   categories: Category[]
   brands: Brand[]
-  productModelGroups: ProductModelGroup[]
+  models: Model[]
   images?: ProductImage[]
 }
 
@@ -80,7 +89,7 @@ export function EditProductForm({
   product,
   categories,
   brands,
-  productModelGroups,
+  models,
   images = [],
 }: EditProductFormProps) {
   const updateProductMutation = useUpdateProductMutation(product.id)
@@ -92,7 +101,7 @@ export function EditProductForm({
       mode="edit"
       categories={categories}
       brands={brands}
-      productModelGroups={productModelGroups}
+      models={models}
       initialData={{
         ...product,
         images,

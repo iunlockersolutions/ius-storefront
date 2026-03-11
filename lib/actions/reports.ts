@@ -282,7 +282,7 @@ export async function getRevenueByCategory() {
   // Join through productVariants to get to products and categories
   const result = await db
     .select({
-      categoryId: products.categoryId,
+      categoryId: products.primaryCategoryId,
       revenue: sql<string>`COALESCE(SUM(${orderItems.subtotal}::numeric), 0)::text`,
       orderCount: count(),
     })
@@ -291,7 +291,7 @@ export async function getRevenueByCategory() {
     .innerJoin(products, eq(productVariants.productId, products.id))
     .innerJoin(orders, eq(orderItems.orderId, orders.id))
     .where(and(eq(orders.status, "paid"), isNotNull(orderItems.variantId)))
-    .groupBy(products.categoryId)
+    .groupBy(products.primaryCategoryId)
 
   return result.map((r) => ({
     categoryId: r.categoryId,

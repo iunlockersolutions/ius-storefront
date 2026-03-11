@@ -20,7 +20,7 @@ type ProductImagePayload = {
   id?: string
   url: string
   altText?: string
-  isPrimary?: boolean
+  isPrimary: boolean
 }
 
 export async function PUT(request: NextRequest, { params }: RouteProps) {
@@ -35,13 +35,6 @@ export async function PUT(request: NextRequest, { params }: RouteProps) {
     }
 
     const result = await updateProductImages(id, body.images)
-
-    if (!result.success) {
-      return failFromMessage(
-        result.error || "Failed to update product images",
-        "BAD_REQUEST",
-      )
-    }
 
     await auditAdminMutation({
       action: "product.update",

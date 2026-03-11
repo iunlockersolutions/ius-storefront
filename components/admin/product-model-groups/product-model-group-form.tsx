@@ -1,7 +1,7 @@
 "use client"
 
 import { useTransition } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
@@ -45,10 +45,10 @@ const formSchema = z.object({
   name: z.string().min(1, "Name is required").max(255),
   slug: z.string().min(1, "Slug is required").max(255),
   description: z.string().max(1000).optional(),
-  categoryId: z.string().min(1, "Category is required"),
+  primaryCategoryId: z.string().min(1, "Category is required"),
   brandId: z.string().min(1, "Brand is required"),
   showInProductMenu: z.boolean().default(true),
-  menuPriority: z.number().int().min(0).default(0),
+  navPriority: z.number().int().min(0).default(0),
   isActive: z.boolean().default(true),
 })
 
@@ -64,6 +64,9 @@ interface BrandOption {
   id: string
   name: string
   slug: string
+  categoryAssignments: Array<{
+    categoryId: string
+  }>
 }
 
 interface InitialData {
@@ -71,10 +74,10 @@ interface InitialData {
   name: string
   slug: string
   description: string | null
-  categoryId: string
+  primaryCategoryId: string
   brandId: string
   showInProductMenu: boolean
-  menuPriority: number
+  navPriority: number
   isActive: boolean
 }
 
@@ -105,10 +108,10 @@ export function ProductModelGroupForm({
       name: initialData?.name || "",
       slug: initialData?.slug || "",
       description: initialData?.description || "",
-      categoryId: initialData?.categoryId || "",
+      primaryCategoryId: initialData?.primaryCategoryId || "",
       brandId: initialData?.brandId || "",
       showInProductMenu: initialData?.showInProductMenu ?? true,
-      menuPriority: initialData?.menuPriority ?? 0,
+      navPriority: initialData?.navPriority ?? 0,
       isActive: initialData?.isActive ?? true,
     },
   })
@@ -116,12 +119,44 @@ export function ProductModelGroupForm({
   const {
     register,
     setValue,
-    watch,
     handleSubmit,
     formState: { errors },
   } = form
 
-  const values = watch()
+  const brandId = useWatch({
+    control: form.control,
+    name: "brandId",
+  })
+  const name = useWatch({
+    control: form.control,
+    name: "name",
+  })
+  const slug = useWatch({
+    control: form.control,
+    name: "slug",
+  })
+  const primaryCategoryId = useWatch({
+    control: form.control,
+    name: "primaryCategoryId",
+  })
+  const showInProductMenu = useWatch({
+    control: form.control,
+    name: "showInProductMenu",
+  })
+  const isActive = useWatch({
+    control: form.control,
+    name: "isActive",
+  })
+
+  const selectedBrand = brands.find((brand) => brand.id === brandId)
+  const availableCategories =
+    brandId.length > 0
+      ? categories.filter((category) =>
+          selectedBrand?.categoryAssignments.some(
+            (assignment) => assignment.categoryId === category.id,
+          ),
+        )
+      : categories
 
   const onSubmit = async (data: FormValues) => {
     startTransition(async () => {
@@ -140,10 +175,10 @@ export function ProductModelGroupForm({
 
         toast.success(
           mode === "create"
-            ? "Product model group created successfully"
-            : "Product model group updated successfully",
+            ? "Model created successfully"
+            : "Model updated successfully",
         )
-        router.push("/ops/product-model-groups")
+        router.push("/ops/models")
         router.refresh()
       } catch (error) {
         toast.error(
@@ -160,8 +195,8 @@ export function ProductModelGroupForm({
 
     try {
       await deleteMutation.mutateAsync(initialData.id)
-      toast.success("Product model group deleted successfully")
-      router.push("/ops/product-model-groups")
+      toast.success("Model deleted successfully")
+      router.push("/ops/models")
       router.refresh()
     } catch (error) {
       toast.error(
@@ -174,22 +209,19 @@ export function ProductModelGroupForm({
     <form onSubmit={handleSubmit(onSubmit)} className="max-w-3xl space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Model Group Details</CardTitle>
+          <CardTitle>Model Details</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="name">Name *</Label>
             <Input
               id="name"
-              value={values.name}
+              value={name}
               onChange={(event) => {
                 const nextName = event.target.value
                 setValue("name", nextName)
 
-                if (
-                  !values.slug ||
-                  values.slug === slugify(values.name || "")
-                ) {
+                if (!slug || slug === slugify(name || "")) {
                   setValue("slug", slugify(nextName))
                 }
               }}
@@ -211,23 +243,29 @@ export function ProductModelGroupForm({
             <div className="space-y-2">
               <Label>Top-Level Category *</Label>
               <Select
-                value={values.categoryId}
-                onValueChange={(value) => setValue("categoryId", value)}
+                value={primaryCategoryId}
+                onValueChange={(value) => setValue("primaryCategoryId", value)}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a category" />
+                  <SelectValue
+                    placeholder={
+                      brandId
+                        ? "Select an assigned category"
+                        : "Select a brand first"
+                    }
+                  />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.map((category) => (
+                  {availableCategories.map((category) => (
                     <SelectItem key={category.id} value={category.id}>
                       {category.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {errors.categoryId && (
+              {errors.primaryCategoryId && (
                 <p className="text-sm text-red-500">
-                  {errors.categoryId.message}
+                  {errors.primaryCategoryId.message}
                 </p>
               )}
             </div>
@@ -235,8 +273,21 @@ export function ProductModelGroupForm({
             <div className="space-y-2">
               <Label>Brand *</Label>
               <Select
-                value={values.brandId}
-                onValueChange={(value) => setValue("brandId", value)}
+                value={brandId}
+                onValueChange={(value) => {
+                  setValue("brandId", value)
+
+                  const nextBrand = brands.find((brand) => brand.id === value)
+                  if (
+                    primaryCategoryId &&
+                    !nextBrand?.categoryAssignments.some(
+                      (assignment) =>
+                        assignment.categoryId === primaryCategoryId,
+                    )
+                  ) {
+                    setValue("primaryCategoryId", "")
+                  }
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a brand" />
@@ -262,12 +313,12 @@ export function ProductModelGroupForm({
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="menuPriority">Menu Priority</Label>
+              <Label htmlFor="navPriority">Navigation Priority</Label>
               <Input
-                id="menuPriority"
+                id="navPriority"
                 type="number"
                 min={0}
-                {...register("menuPriority", { valueAsNumber: true })}
+                {...register("navPriority", { valueAsNumber: true })}
               />
             </div>
 
@@ -283,7 +334,7 @@ export function ProductModelGroupForm({
                 </div>
                 <Switch
                   id="showInProductMenu"
-                  checked={values.showInProductMenu}
+                  checked={showInProductMenu}
                   onCheckedChange={(checked) =>
                     setValue("showInProductMenu", checked)
                   }
@@ -294,12 +345,12 @@ export function ProductModelGroupForm({
                 <div>
                   <Label htmlFor="isActive">Active</Label>
                   <p className="text-sm text-muted-foreground">
-                    Inactive model groups are hidden from the storefront.
+                    Inactive models are hidden from the storefront.
                   </p>
                 </div>
                 <Switch
                   id="isActive"
-                  checked={values.isActive}
+                  checked={isActive}
                   onCheckedChange={(checked) => setValue("isActive", checked)}
                 />
               </div>
@@ -320,10 +371,10 @@ export function ProductModelGroupForm({
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Delete model group?</AlertDialogTitle>
+                  <AlertDialogTitle>Delete model?</AlertDialogTitle>
                   <AlertDialogDescription>
                     This is only allowed when no products are assigned to the
-                    model group.
+                    model.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -339,13 +390,13 @@ export function ProductModelGroupForm({
 
         <div className="flex items-center gap-3">
           <Button type="button" variant="outline" asChild>
-            <Link href="/ops/product-model-groups">Cancel</Link>
+            <Link href="/ops/models">Cancel</Link>
           </Button>
           <Button type="submit" disabled={isPending}>
             {isPending ? (
               <Loader2 className="mr-2 size-4 animate-spin" />
             ) : null}
-            {mode === "create" ? "Create Model Group" : "Save Changes"}
+            {mode === "create" ? "Create Model" : "Save Changes"}
           </Button>
         </div>
       </div>

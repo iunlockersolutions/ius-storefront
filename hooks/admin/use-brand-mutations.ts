@@ -14,6 +14,11 @@ type BrandPayload = {
   sortOrder?: number
   metaTitle?: string
   metaDescription?: string
+  categoryAssignments?: Array<{
+    categoryId: string
+    navPriority: number
+    showInProductMenu: boolean
+  }>
 }
 
 export function useCreateBrandMutation() {

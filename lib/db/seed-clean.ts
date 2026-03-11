@@ -2,15 +2,20 @@ import { drizzle } from "drizzle-orm/postgres-js"
 import postgres from "postgres"
 
 import {
+  brandCategoryAssignments,
   brands,
   categories,
   inventoryItems,
   inventoryMovements,
+  models,
   productAttributes,
   productAttributeValues,
   productCategoryAssignments,
   productImages,
+  productOptions,
+  productOptionValues,
   products,
+  productVariantOptionValues,
   productVariants,
 } from "./schema"
 
@@ -37,6 +42,14 @@ async function cleanSeed() {
     const deletedInventory = await db.delete(inventoryItems).returning()
     console.log(`  ✅ Deleted ${deletedInventory.length} inventory items`)
 
+    console.log("🗑️  Deleting product variant option values...")
+    const deletedVariantSelections = await db
+      .delete(productVariantOptionValues)
+      .returning()
+    console.log(
+      `  ✅ Deleted ${deletedVariantSelections.length} product variant option values`,
+    )
+
     console.log("🗑️  Deleting product images...")
     const deletedImages = await db.delete(productImages).returning()
     console.log(`  ✅ Deleted ${deletedImages.length} product images`)
@@ -48,6 +61,16 @@ async function cleanSeed() {
     console.log(
       `  ✅ Deleted ${deletedAssignments.length} product category assignments`,
     )
+
+    console.log("🗑️  Deleting product option values...")
+    const deletedOptionValues = await db.delete(productOptionValues).returning()
+    console.log(
+      `  ✅ Deleted ${deletedOptionValues.length} product option values`,
+    )
+
+    console.log("🗑️  Deleting product options...")
+    const deletedOptions = await db.delete(productOptions).returning()
+    console.log(`  ✅ Deleted ${deletedOptions.length} product options`)
 
     console.log("🗑️  Deleting product attribute values...")
     const deletedAttrValues = await db
@@ -68,6 +91,18 @@ async function cleanSeed() {
     console.log("🗑️  Deleting products...")
     const deletedProducts = await db.delete(products).returning()
     console.log(`  ✅ Deleted ${deletedProducts.length} products`)
+
+    console.log("🗑️  Deleting models...")
+    const deletedModels = await db.delete(models).returning()
+    console.log(`  ✅ Deleted ${deletedModels.length} models`)
+
+    console.log("🗑️  Deleting brand-category assignments...")
+    const deletedBrandAssignments = await db
+      .delete(brandCategoryAssignments)
+      .returning()
+    console.log(
+      `  ✅ Deleted ${deletedBrandAssignments.length} brand-category assignments`,
+    )
 
     console.log("🗑️  Deleting categories...")
     const deletedCategories = await db.delete(categories).returning()

@@ -6,11 +6,10 @@ import { getActiveBrands } from "@/lib/actions/brand"
 import { withStorefrontCatalogFallback } from "@/lib/actions/storefront-catalog-read"
 import { db } from "@/lib/db"
 import {
+  brandCategoryAssignments,
   brands,
   categories,
-  categoryBrandMenuConfigs,
-  productModelGroups,
-  products,
+  models,
 } from "@/lib/db/schema"
 
 export type StorefrontNavModelLink = {
@@ -50,8 +49,8 @@ export type StorefrontNavigationData = {
 export const getStorefrontNavigationData = unstable_cache(
   async (): Promise<StorefrontNavigationData> => {
     const categoryPriorityGroup = sql<number>`case when ${categories.productMenuPriority} > 0 then 0 else 1 end`
-    const brandPriorityGroup = sql<number>`case when ${categoryBrandMenuConfigs.menuPriority} > 0 then 0 else 1 end`
-    const modelPriorityGroup = sql<number>`case when ${productModelGroups.menuPriority} > 0 then 0 else 1 end`
+    const brandPriorityGroup = sql<number>`case when ${brandCategoryAssignments.navPriority} > 0 then 0 else 1 end`
+    const modelPriorityGroup = sql<number>`case when ${models.navPriority} > 0 then 0 else 1 end`
 
     const [menuRows, activeBrands] = await Promise.all([
       withStorefrontCatalogFallback(
@@ -81,27 +80,24 @@ export const getStorefrontNavigationData = unstable_cache(
               brandId: brands.id,
               brandName: brands.name,
               brandSlug: brands.slug,
-              modelId: productModelGroups.id,
-              modelName: productModelGroups.name,
-              modelSlug: productModelGroups.slug,
+              modelId: models.id,
+              modelName: models.name,
+              modelSlug: models.slug,
               activeProductCount: sql<number>`(
                 select count(*)::int
                 from "products"
-                where "products"."product_model_group_id" = "product_model_groups"."id"
+                where "products"."model_id" = "models"."id"
                   and "products"."status" = 'active'
               )`,
             })
-            .from(productModelGroups)
+            .from(models)
+            .innerJoin(categories, eq(models.primaryCategoryId, categories.id))
+            .innerJoin(brands, eq(models.brandId, brands.id))
             .innerJoin(
-              categories,
-              eq(productModelGroups.categoryId, categories.id),
-            )
-            .innerJoin(brands, eq(productModelGroups.brandId, brands.id))
-            .innerJoin(
-              categoryBrandMenuConfigs,
+              brandCategoryAssignments,
               and(
-                eq(categoryBrandMenuConfigs.categoryId, categories.id),
-                eq(categoryBrandMenuConfigs.brandId, brands.id),
+                eq(brandCategoryAssignments.brandId, brands.id),
+                eq(brandCategoryAssignments.categoryId, categories.id),
               ),
             )
             .where(
@@ -110,13 +106,13 @@ export const getStorefrontNavigationData = unstable_cache(
                 eq(categories.showInProductMenu, true),
                 isNull(categories.parentId),
                 eq(brands.isActive, true),
-                eq(categoryBrandMenuConfigs.showInProductMenu, true),
-                eq(productModelGroups.isActive, true),
-                eq(productModelGroups.showInProductMenu, true),
+                eq(brandCategoryAssignments.showInProductMenu, true),
+                eq(models.isActive, true),
+                eq(models.showInProductMenu, true),
                 sql`exists (
                   select 1
                   from "products"
-                  where "products"."product_model_group_id" = "product_model_groups"."id"
+                  where "products"."model_id" = "models"."id"
                     and "products"."status" = 'active'
                 )`,
               ),
@@ -127,12 +123,12 @@ export const getStorefrontNavigationData = unstable_cache(
               asc(categories.sortOrder),
               asc(categories.name),
               asc(brandPriorityGroup),
-              asc(categoryBrandMenuConfigs.menuPriority),
+              asc(brandCategoryAssignments.navPriority),
               asc(brands.sortOrder),
               asc(brands.name),
               asc(modelPriorityGroup),
-              asc(productModelGroups.menuPriority),
-              asc(productModelGroups.name),
+              asc(models.navPriority),
+              asc(models.name),
             ),
       ),
       getActiveBrands({ failSoft: true }),
@@ -193,8 +189,8 @@ export const getStorefrontNavigationData = unstable_cache(
       "categories",
       "brands",
       "products",
-      "product-model-groups",
-      "category-brand-menu-configs",
+      "models",
+      "brand-category-assignments",
     ],
   },
 )

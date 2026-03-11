@@ -11,9 +11,17 @@ import { useAdminBrandQuery } from "@/hooks/admin/use-admin-brand-query"
 
 interface EditBrandPageClientProps {
   brandId: string
+  categories: Array<{
+    id: string
+    name: string
+    slug: string
+  }>
 }
 
-export function EditBrandPageClient({ brandId }: EditBrandPageClientProps) {
+export function EditBrandPageClient({
+  brandId,
+  categories,
+}: EditBrandPageClientProps) {
   const brandQuery = useAdminBrandQuery(brandId)
 
   if (brandQuery.isLoading || brandQuery.isFetching) {
@@ -46,5 +54,5 @@ export function EditBrandPageClient({ brandId }: EditBrandPageClientProps) {
     )
   }
 
-  return <EditBrandForm brand={brandQuery.data} />
+  return <EditBrandForm brand={brandQuery.data} categories={categories} />
 }

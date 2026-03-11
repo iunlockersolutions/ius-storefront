@@ -8,10 +8,10 @@ type ProductModelGroupPayload = {
   name?: string
   slug?: string
   description?: string | null
-  categoryId?: string
+  primaryCategoryId?: string
   brandId?: string
   showInProductMenu?: boolean
-  menuPriority?: number
+  navPriority?: number
   isActive?: boolean
 }
 
@@ -33,7 +33,7 @@ export function useCreateProductModelGroupMutation() {
         throw new Error(
           errorBody?.error?.message ||
             errorBody?.error ||
-            "Failed to create product model group",
+            "Failed to create model",
         )
       }
 
@@ -41,7 +41,7 @@ export function useCreateProductModelGroupMutation() {
       return body.data as { id: string }
     },
     onSuccess: () => {
-      invalidateMutationCaches(queryClient, "productModelGroup.create")
+      invalidateMutationCaches(queryClient, "model.create")
     },
   })
 }
@@ -67,14 +67,14 @@ export function useUpdateProductModelGroupMutation(groupId: string) {
         throw new Error(
           errorBody?.error?.message ||
             errorBody?.error ||
-            "Failed to update product model group",
+            "Failed to update model",
         )
       }
 
       return response.json()
     },
     onSuccess: () => {
-      invalidateMutationCaches(queryClient, "productModelGroup.update")
+      invalidateMutationCaches(queryClient, "model.update")
     },
   })
 }
@@ -96,14 +96,14 @@ export function useDeleteProductModelGroupMutation() {
         throw new Error(
           errorBody?.error?.message ||
             errorBody?.error ||
-            "Failed to delete product model group",
+            "Failed to delete model",
         )
       }
 
       return response.json()
     },
     onSuccess: () => {
-      invalidateMutationCaches(queryClient, "productModelGroup.delete")
+      invalidateMutationCaches(queryClient, "model.delete")
     },
   })
 }

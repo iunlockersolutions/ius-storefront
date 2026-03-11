@@ -7,6 +7,11 @@ import {
 } from "@/hooks/admin/use-brand-mutations"
 
 interface EditBrandFormProps {
+  categories: Array<{
+    id: string
+    name: string
+    slug: string
+  }>
   brand: {
     id: string
     name: string
@@ -19,16 +24,23 @@ interface EditBrandFormProps {
     metaTitle: string | null
     metaDescription: string | null
     productCount: number
+    modelCount?: number
+    categoryAssignments: Array<{
+      categoryId: string
+      navPriority: number
+      showInProductMenu: boolean
+    }>
   }
 }
 
-export function EditBrandForm({ brand }: EditBrandFormProps) {
+export function EditBrandForm({ categories, brand }: EditBrandFormProps) {
   const updateBrandMutation = useUpdateBrandMutation(brand.id)
   const deleteBrandMutation = useDeleteBrandMutation()
 
   return (
     <BrandEditorForm
       mode="edit"
+      categories={categories}
       initialData={brand}
       onSave={(payload) => updateBrandMutation.mutateAsync(payload)}
       onDelete={() => deleteBrandMutation.mutateAsync(brand.id)}

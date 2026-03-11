@@ -9,27 +9,29 @@ type UpdateProductPayload = {
   slug?: string
   description?: string
   shortDescription?: string
-  brandId: string
-  primaryCategoryId: string
-  productModelGroupId: string
+  brandId?: string | null
+  primaryCategoryId?: string | null
+  modelId?: string | null
   categoryIds: string[]
-  basePrice: string
-  compareAtPrice?: string
-  costPrice?: string
   status: "draft" | "active" | "archived"
   isFeatured: boolean
   metaTitle?: string
   metaDescription?: string
+  options: Array<{
+    name: string
+    values: string[]
+  }>
   variants: Array<{
     id?: string
     sku?: string
-    name: string
+    name?: string
     price: string
     compareAtPrice?: string
     costPrice?: string
     weight?: string
     isDefault?: boolean
     isActive?: boolean
+    optionValues: Record<string, string>
   }>
 }
 

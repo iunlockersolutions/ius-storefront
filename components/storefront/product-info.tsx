@@ -22,15 +22,15 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { addToCart } from "@/lib/actions/cart"
-import { formatCurrency } from "@/lib/utils"
+import { cn, formatCurrency } from "@/lib/utils"
+
+interface ProductVariantSelection {
+  optionId: string
+  optionName: string
+  optionValueId: string
+  optionValue: string
+}
 
 interface ProductVariant {
   id: string
@@ -48,6 +48,18 @@ interface ProductVariant {
     reservedQuantity: number
     lowStockThreshold: number | null
   } | null
+  selections?: ProductVariantSelection[]
+}
+
+interface ProductOptionValue {
+  id: string
+  value: string
+}
+
+interface ProductOption {
+  id: string
+  name: string
+  values: ProductOptionValue[]
 }
 
 interface Product {
@@ -70,11 +82,17 @@ interface Product {
     name: string
     slug: string
   } | null
+  model?: {
+    id: string
+    name: string
+    slug: string
+  } | null
   categories: {
     id: string
     name: string
     slug: string
   }[]
+  options: ProductOption[]
 }
 
 interface ProductInfoProps {
@@ -88,16 +106,55 @@ export function ProductInfo({
 }: ProductInfoProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
+  const activeVariants = product.variants.filter((variant) => variant.isActive)
+  const fallbackVariant =
+    activeVariants.find((variant) => variant.isDefault) ||
+    activeVariants[0] ||
+    product.variants.find((variant) => variant.isDefault) ||
+    product.variants[0] ||
+    null
+
   const [selectedVariantId, setSelectedVariantId] = useState<string>(
-    product.variants.find((v) => v.isDefault)?.id ||
-      product.variants[0]?.id ||
-      "",
+    fallbackVariant?.id || "",
   )
+  const [selectedOptions, setSelectedOptions] = useState<
+    Record<string, string>
+  >(() => {
+    if (product.options.length === 0) {
+      return {}
+    }
+
+    const baseSelections = Object.fromEntries(
+      (fallbackVariant?.selections || []).map((selection) => [
+        selection.optionId,
+        selection.optionValueId,
+      ]),
+    )
+
+    return product.options.reduce<Record<string, string>>(
+      (accumulator, option) => {
+        accumulator[option.id] =
+          baseSelections[option.id] || option.values[0]?.id || ""
+        return accumulator
+      },
+      {},
+    )
+  })
   const [quantity, setQuantity] = useState(1)
 
-  const selectedVariant = product.variants.find(
-    (v) => v.id === selectedVariantId,
-  )
+  const selectedVariant =
+    product.options.length > 0
+      ? activeVariants.find((variant) =>
+          product.options.every((option) => {
+            const selection = variant.selections?.find(
+              (current) => current.optionId === option.id,
+            )
+
+            return selection?.optionValueId === selectedOptions[option.id]
+          }),
+        ) || fallbackVariant
+      : activeVariants.find((variant) => variant.id === selectedVariantId) ||
+        fallbackVariant
   const price = selectedVariant
     ? parseFloat(selectedVariant.price)
     : parseFloat(product.basePrice)
@@ -122,14 +179,74 @@ export function ProductInfo({
       selectedVariant.inventory.reservedQuantity
     : 999
 
+  const handleOptionChange = (optionId: string, optionValueId: string) => {
+    const nextSelections = {
+      ...selectedOptions,
+      [optionId]: optionValueId,
+    }
+
+    const matchingVariant = activeVariants.find((variant) => {
+      return Object.entries(nextSelections).every(
+        ([selectedOptionId, selectedValueId]) => {
+          const selection = variant.selections?.find(
+            (current) => current.optionId === selectedOptionId,
+          )
+
+          return selection?.optionValueId === selectedValueId
+        },
+      )
+    })
+
+    if (matchingVariant?.selections?.length) {
+      setSelectedOptions(
+        Object.fromEntries(
+          matchingVariant.selections.map((selection) => [
+            selection.optionId,
+            selection.optionValueId,
+          ]),
+        ),
+      )
+      setSelectedVariantId(matchingVariant.id)
+      return
+    }
+
+    setSelectedOptions(nextSelections)
+  }
+
+  const isOptionValueAvailable = (optionId: string, optionValueId: string) => {
+    return activeVariants.some((variant) => {
+      const currentSelection = variant.selections?.find(
+        (selection) => selection.optionId === optionId,
+      )
+
+      if (currentSelection?.optionValueId !== optionValueId) {
+        return false
+      }
+
+      return Object.entries(selectedOptions).every(
+        ([selectedOptionId, selectedValueId]) => {
+          if (selectedOptionId === optionId) {
+            return true
+          }
+
+          const selection = variant.selections?.find(
+            (current) => current.optionId === selectedOptionId,
+          )
+
+          return selection?.optionValueId === selectedValueId
+        },
+      )
+    })
+  }
+
   const handleAddToCart = () => {
-    if (!selectedVariantId) {
-      toast.error("Please select a product option")
+    if (!selectedVariant?.id) {
+      toast.error("Please choose an available variant")
       return
     }
 
     startTransition(async () => {
-      const result = await addToCart(selectedVariantId, quantity)
+      const result = await addToCart(selectedVariant.id, quantity)
 
       if (result.success) {
         // Dispatch event to update cart badge
@@ -222,34 +339,46 @@ export function ProductInfo({
         )}
       </div>
 
-      {/* Variant Selector */}
-      {product.variants.length > 1 && (
-        <div className="space-y-2">
-          <Label htmlFor="variant">Select Option</Label>
-          <Select
-            value={selectedVariantId}
-            onValueChange={setSelectedVariantId}
-          >
-            <SelectTrigger id="variant" className="w-full">
-              <SelectValue placeholder="Select an option" />
-            </SelectTrigger>
-            <SelectContent>
-              {product.variants
-                .filter((v) => v.isActive)
-                .map((variant) => (
-                  <SelectItem key={variant.id} value={variant.id}>
-                    {variant.name}
-                    {variant.price !== product.basePrice && (
-                      <span className="ml-2 text-muted-foreground">
-                        ({formatCurrency(parseFloat(variant.price))})
-                      </span>
-                    )}
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
+      {product.options.length > 0 &&
+        product.options.map((option) => {
+          const selectedValueId = selectedOptions[option.id]
+          const selectedValue = option.values.find(
+            (value) => value.id === selectedValueId,
+          )
+
+          return (
+            <div key={option.id} className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <Label>{option.name}</Label>
+                <span className="text-sm text-muted-foreground">
+                  {selectedValue?.value || "Select"}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {option.values.map((value) => {
+                  const isSelected = selectedValueId === value.id
+                  const isAvailable = isOptionValueAvailable(
+                    option.id,
+                    value.id,
+                  )
+
+                  return (
+                    <Button
+                      key={value.id}
+                      type="button"
+                      variant={isSelected ? "default" : "outline"}
+                      className={cn("min-w-20", !isAvailable && "opacity-50")}
+                      disabled={!isAvailable}
+                      onClick={() => handleOptionChange(option.id, value.id)}
+                    >
+                      {value.value}
+                    </Button>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
 
       {/* Quantity Selector */}
       <div className="space-y-2">
@@ -295,7 +424,7 @@ export function ProductInfo({
         <Button
           size="lg"
           className="flex-1"
-          disabled={!inStock || isPending}
+          disabled={!inStock || isPending || !selectedVariant}
           onClick={handleAddToCart}
         >
           {isPending ? (

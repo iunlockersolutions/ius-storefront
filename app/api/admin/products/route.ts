@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status") || undefined
     const categoryId = searchParams.get("categoryId") || undefined
     const brandId = searchParams.get("brandId") || undefined
+    const modelId = searchParams.get("modelId") || undefined
 
     const products = await getProducts({
       page,
@@ -43,6 +44,7 @@ export async function GET(request: NextRequest) {
       status,
       categoryId,
       brandId,
+      modelId,
     })
 
     return ok(products)

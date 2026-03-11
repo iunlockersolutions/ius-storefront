@@ -3,8 +3,8 @@ import { notFound } from "next/navigation"
 import { EditProductForm } from "@/components/admin/products/edit-product-form"
 import { getActiveBrands } from "@/lib/actions/brand"
 import { getCategoriesFlat } from "@/lib/actions/category"
+import { getModels } from "@/lib/actions/model"
 import { getProduct } from "@/lib/actions/product"
-import { getProductModelGroups } from "@/lib/actions/product-model-group"
 
 interface EditProductPageProps {
   params: Promise<{ id: string }>
@@ -20,11 +20,11 @@ export default async function EditProductPage({
 }: EditProductPageProps) {
   const { id } = await params
 
-  const [product, categories, brands, productModelGroups] = await Promise.all([
+  const [product, categories, brands, models] = await Promise.all([
     getProduct(id),
     getCategoriesFlat(),
     getActiveBrands(),
-    getProductModelGroups({ includeInactive: true }),
+    getModels({ includeInactive: true }),
   ])
 
   if (!product) {
@@ -55,13 +55,13 @@ export default async function EditProductPage({
           name: brand.name,
           slug: brand.slug,
         }))}
-        productModelGroups={productModelGroups.map((group) => ({
-          id: group.id,
-          name: group.name,
-          slug: group.slug,
-          categoryId: group.categoryId,
-          brandId: group.brandId,
-          isActive: group.isActive,
+        models={models.map((model) => ({
+          id: model.id,
+          name: model.name,
+          slug: model.slug,
+          primaryCategoryId: model.primaryCategoryId,
+          brandId: model.brandId,
+          isActive: model.isActive,
         }))}
         images={product.images}
       />

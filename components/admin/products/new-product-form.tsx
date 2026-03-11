@@ -18,11 +18,11 @@ interface Brand {
   slug: string
 }
 
-interface ProductModelGroup {
+interface Model {
   id: string
   name: string
   slug: string
-  categoryId: string
+  primaryCategoryId: string
   brandId: string
   isActive: boolean
 }
@@ -30,13 +30,13 @@ interface ProductModelGroup {
 interface NewProductFormProps {
   categories: Category[]
   brands: Brand[]
-  productModelGroups: ProductModelGroup[]
+  models: Model[]
 }
 
 export function NewProductForm({
   categories,
   brands,
-  productModelGroups,
+  models,
 }: NewProductFormProps) {
   const createProductMutation = useCreateProductMutation()
 
@@ -45,7 +45,7 @@ export function NewProductForm({
       mode="create"
       categories={categories}
       brands={brands}
-      productModelGroups={productModelGroups}
+      models={models}
       onSave={async ({ images, ...payload }) => {
         const createdProduct = await createProductMutation.mutateAsync(payload)
 

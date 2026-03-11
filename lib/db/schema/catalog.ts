@@ -78,21 +78,21 @@ export const categories = pgTable(
 )
 
 /**
- * Category brand menu configs - Brand visibility/order within a top-level
- * category's product menu.
+ * Brand category assignments - Catalog relationship and navbar configuration
+ * for brands within top-level categories.
  */
-export const categoryBrandMenuConfigs = pgTable(
-  "category_brand_menu_configs",
+export const brandCategoryAssignments = pgTable(
+  "brand_category_assignments",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    categoryId: uuid("category_id")
-      .notNull()
-      .references(() => categories.id, { onDelete: "cascade" }),
     brandId: uuid("brand_id")
       .notNull()
       .references(() => brands.id, { onDelete: "cascade" }),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => categories.id, { onDelete: "cascade" }),
     showInProductMenu: boolean("show_in_product_menu").notNull().default(true),
-    menuPriority: integer("menu_priority").notNull().default(0),
+    navPriority: integer("nav_priority").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -101,35 +101,35 @@ export const categoryBrandMenuConfigs = pgTable(
       .defaultNow(),
   },
   (table) => [
-    index("category_brand_menu_configs_category_id_idx").on(table.categoryId),
-    index("category_brand_menu_configs_brand_id_idx").on(table.brandId),
-    unique("category_brand_menu_configs_unique").on(
-      table.categoryId,
+    index("brand_category_assignments_brand_id_idx").on(table.brandId),
+    index("brand_category_assignments_category_id_idx").on(table.categoryId),
+    unique("brand_category_assignments_unique").on(
       table.brandId,
+      table.categoryId,
     ),
   ],
 )
 
 /**
- * Product model groups - Category/brand scoped groupings used by the product
- * menu and model landing pages.
+ * Models - Brand/category scoped product families used by the product menu and
+ * model landing pages.
  */
-export const productModelGroups = pgTable(
-  "product_model_groups",
+export const models = pgTable(
+  "models",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    categoryId: uuid("category_id")
-      .notNull()
-      .references(() => categories.id, { onDelete: "restrict" }),
     brandId: uuid("brand_id")
       .notNull()
       .references(() => brands.id, { onDelete: "restrict" }),
+    primaryCategoryId: uuid("primary_category_id")
+      .notNull()
+      .references(() => categories.id, { onDelete: "restrict" }),
     name: text("name").notNull(),
     slug: text("slug").notNull().unique(),
     description: text("description"),
-    showInProductMenu: boolean("show_in_product_menu").notNull().default(true),
-    menuPriority: integer("menu_priority").notNull().default(0),
     isActive: boolean("is_active").notNull().default(true),
+    showInProductMenu: boolean("show_in_product_menu").notNull().default(true),
+    navPriority: integer("nav_priority").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -138,19 +138,21 @@ export const productModelGroups = pgTable(
       .defaultNow(),
   },
   (table) => [
-    index("product_model_groups_category_id_idx").on(table.categoryId),
-    index("product_model_groups_brand_id_idx").on(table.brandId),
-    index("product_model_groups_slug_idx").on(table.slug),
-    unique("product_model_groups_category_brand_name_unique").on(
-      table.categoryId,
+    index("models_brand_id_idx").on(table.brandId),
+    index("models_primary_category_id_idx").on(table.primaryCategoryId),
+    index("models_slug_idx").on(table.slug),
+    unique("models_brand_category_name_unique").on(
       table.brandId,
+      table.primaryCategoryId,
       table.name,
     ),
   ],
 )
 
 /**
- * Products - Main product table.
+ * Products - Sellable catalog listings under a model. Pricing is denormalized
+ * from the default variant for fast storefront queries, but variants remain the
+ * source of truth for purchase/inventory.
  */
 export const products = pgTable(
   "products",
@@ -163,22 +165,18 @@ export const products = pgTable(
     brandId: uuid("brand_id").references(() => brands.id, {
       onDelete: "set null",
     }),
-    // Legacy single-category column kept for migration safety.
-    categoryId: uuid("category_id").references(() => categories.id, {
-      onDelete: "set null",
-    }),
     primaryCategoryId: uuid("primary_category_id").references(
       () => categories.id,
       {
         onDelete: "set null",
       },
     ),
-    productModelGroupId: uuid("product_model_group_id")
+    modelId: uuid("model_id").references(() => models.id, {
+      onDelete: "set null",
+    }),
+    basePrice: decimal("base_price", { precision: 10, scale: 2 })
       .notNull()
-      .references(() => productModelGroups.id, {
-        onDelete: "restrict",
-      }),
-    basePrice: decimal("base_price", { precision: 10, scale: 2 }).notNull(),
+      .default("0.00"),
     compareAtPrice: decimal("compare_at_price", { precision: 10, scale: 2 }),
     costPrice: decimal("cost_price", { precision: 10, scale: 2 }),
     status: productStatusEnum("status").notNull().default("draft"),
@@ -195,9 +193,8 @@ export const products = pgTable(
   (table) => [
     index("products_slug_idx").on(table.slug),
     index("products_brand_id_idx").on(table.brandId),
-    index("products_category_id_idx").on(table.categoryId),
     index("products_primary_category_id_idx").on(table.primaryCategoryId),
-    index("products_product_model_group_id_idx").on(table.productModelGroupId),
+    index("products_model_id_idx").on(table.modelId),
     index("products_status_idx").on(table.status),
     index("products_is_featured_idx").on(table.isFeatured),
   ],
@@ -231,8 +228,63 @@ export const productCategoryAssignments = pgTable(
 )
 
 /**
- * Product variants - Size, color, etc.
- * Each variant has its own SKU, price, and inventory.
+ * Product options - Variant dimensions like Storage or Color.
+ */
+export const productOptions = pgTable(
+  "product_options",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("product_options_product_id_idx").on(table.productId),
+    unique("product_options_product_name_unique").on(
+      table.productId,
+      table.name,
+    ),
+  ],
+)
+
+/**
+ * Product option values - Allowed values for a given option.
+ */
+export const productOptionValues = pgTable(
+  "product_option_values",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    optionId: uuid("option_id")
+      .notNull()
+      .references(() => productOptions.id, { onDelete: "cascade" }),
+    value: text("value").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("product_option_values_option_id_idx").on(table.optionId),
+    unique("product_option_values_option_value_unique").on(
+      table.optionId,
+      table.value,
+    ),
+  ],
+)
+
+/**
+ * Product variants - Sellable SKUs with price and inventory.
  */
 export const productVariants = pgTable(
   "product_variants",
@@ -242,11 +294,11 @@ export const productVariants = pgTable(
       .notNull()
       .references(() => products.id, { onDelete: "cascade" }),
     sku: text("sku").notNull().unique(),
-    name: text("name").notNull(), // e.g., "Black / Large"
+    name: text("name").notNull(),
     price: decimal("price", { precision: 10, scale: 2 }).notNull(),
     compareAtPrice: decimal("compare_at_price", { precision: 10, scale: 2 }),
     costPrice: decimal("cost_price", { precision: 10, scale: 2 }),
-    weight: decimal("weight", { precision: 10, scale: 3 }), // in kg
+    weight: decimal("weight", { precision: 10, scale: 3 }),
     isDefault: boolean("is_default").notNull().default(false),
     isActive: boolean("is_active").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
@@ -264,7 +316,40 @@ export const productVariants = pgTable(
 )
 
 /**
- * Product images - Multiple images per product.
+ * Product variant option values - Selected value per option on a variant.
+ */
+export const productVariantOptionValues = pgTable(
+  "product_variant_option_values",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    variantId: uuid("variant_id")
+      .notNull()
+      .references(() => productVariants.id, { onDelete: "cascade" }),
+    optionId: uuid("option_id")
+      .notNull()
+      .references(() => productOptions.id, { onDelete: "cascade" }),
+    optionValueId: uuid("option_value_id")
+      .notNull()
+      .references(() => productOptionValues.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("product_variant_option_values_variant_id_idx").on(table.variantId),
+    index("product_variant_option_values_option_id_idx").on(table.optionId),
+    index("product_variant_option_values_option_value_id_idx").on(
+      table.optionValueId,
+    ),
+    unique("product_variant_option_values_variant_option_unique").on(
+      table.variantId,
+      table.optionId,
+    ),
+  ],
+)
+
+/**
+ * Product images - Multiple images per product or variant.
  */
 export const productImages = pgTable(
   "product_images",
@@ -291,7 +376,7 @@ export const productImages = pgTable(
 )
 
 /**
- * Product attributes - Dynamic attributes like "Brand", "Model".
+ * Product attributes - Dynamic attributes like "Brand" or "Warranty".
  */
 export const productAttributes = pgTable("product_attributes", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -331,11 +416,10 @@ export const productAttributeValues = pgTable(
   ],
 )
 
-// Relations
 export const brandsRelations = relations(brands, ({ many }) => ({
+  brandCategoryAssignments: many(brandCategoryAssignments),
+  models: many(models),
   products: many(products),
-  categoryMenuConfigs: many(categoryBrandMenuConfigs),
-  productModelGroups: many(productModelGroups),
 }))
 
 export const categoriesRelations = relations(categories, ({ one, many }) => ({
@@ -347,12 +431,38 @@ export const categoriesRelations = relations(categories, ({ one, many }) => ({
   children: many(categories, {
     relationName: "categoryHierarchy",
   }),
+  brandAssignments: many(brandCategoryAssignments),
+  models: many(models),
   primaryProducts: many(products, {
     relationName: "productPrimaryCategory",
   }),
-  categoryMenuConfigs: many(categoryBrandMenuConfigs),
-  productModelGroups: many(productModelGroups),
   productAssignments: many(productCategoryAssignments),
+}))
+
+export const brandCategoryAssignmentsRelations = relations(
+  brandCategoryAssignments,
+  ({ one }) => ({
+    brand: one(brands, {
+      fields: [brandCategoryAssignments.brandId],
+      references: [brands.id],
+    }),
+    category: one(categories, {
+      fields: [brandCategoryAssignments.categoryId],
+      references: [categories.id],
+    }),
+  }),
+)
+
+export const modelsRelations = relations(models, ({ one, many }) => ({
+  brand: one(brands, {
+    fields: [models.brandId],
+    references: [brands.id],
+  }),
+  primaryCategory: one(categories, {
+    fields: [models.primaryCategoryId],
+    references: [categories.id],
+  }),
+  products: many(products),
 }))
 
 export const productsRelations = relations(products, ({ one, many }) => ({
@@ -365,44 +475,16 @@ export const productsRelations = relations(products, ({ one, many }) => ({
     references: [categories.id],
     relationName: "productPrimaryCategory",
   }),
-  productModelGroup: one(productModelGroups, {
-    fields: [products.productModelGroupId],
-    references: [productModelGroups.id],
+  model: one(models, {
+    fields: [products.modelId],
+    references: [models.id],
   }),
   categoryAssignments: many(productCategoryAssignments),
+  options: many(productOptions),
   variants: many(productVariants),
   images: many(productImages),
   attributeValues: many(productAttributeValues),
 }))
-
-export const categoryBrandMenuConfigsRelations = relations(
-  categoryBrandMenuConfigs,
-  ({ one }) => ({
-    category: one(categories, {
-      fields: [categoryBrandMenuConfigs.categoryId],
-      references: [categories.id],
-    }),
-    brand: one(brands, {
-      fields: [categoryBrandMenuConfigs.brandId],
-      references: [brands.id],
-    }),
-  }),
-)
-
-export const productModelGroupsRelations = relations(
-  productModelGroups,
-  ({ one, many }) => ({
-    category: one(categories, {
-      fields: [productModelGroups.categoryId],
-      references: [categories.id],
-    }),
-    brand: one(brands, {
-      fields: [productModelGroups.brandId],
-      references: [brands.id],
-    }),
-    products: many(products),
-  }),
-)
 
 export const productCategoryAssignmentsRelations = relations(
   productCategoryAssignments,
@@ -418,6 +500,29 @@ export const productCategoryAssignmentsRelations = relations(
   }),
 )
 
+export const productOptionsRelations = relations(
+  productOptions,
+  ({ one, many }) => ({
+    product: one(products, {
+      fields: [productOptions.productId],
+      references: [products.id],
+    }),
+    values: many(productOptionValues),
+    variantSelections: many(productVariantOptionValues),
+  }),
+)
+
+export const productOptionValuesRelations = relations(
+  productOptionValues,
+  ({ one, many }) => ({
+    option: one(productOptions, {
+      fields: [productOptionValues.optionId],
+      references: [productOptions.id],
+    }),
+    variantSelections: many(productVariantOptionValues),
+  }),
+)
+
 export const productVariantsRelations = relations(
   productVariants,
   ({ one, many }) => ({
@@ -425,10 +530,29 @@ export const productVariantsRelations = relations(
       fields: [productVariants.productId],
       references: [products.id],
     }),
+    optionSelections: many(productVariantOptionValues),
     images: many(productImages),
     inventory: one(inventoryItems, {
       fields: [productVariants.id],
       references: [inventoryItems.variantId],
+    }),
+  }),
+)
+
+export const productVariantOptionValuesRelations = relations(
+  productVariantOptionValues,
+  ({ one }) => ({
+    variant: one(productVariants, {
+      fields: [productVariantOptionValues.variantId],
+      references: [productVariants.id],
+    }),
+    option: one(productOptions, {
+      fields: [productVariantOptionValues.optionId],
+      references: [productOptions.id],
+    }),
+    optionValue: one(productOptionValues, {
+      fields: [productVariantOptionValues.optionValueId],
+      references: [productOptionValues.id],
     }),
   }),
 )

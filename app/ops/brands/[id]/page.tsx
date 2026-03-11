@@ -3,6 +3,7 @@ import Link from "next/link"
 import { ChevronLeft } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { getCategoriesFlat } from "@/lib/actions/category"
 
 import { EditBrandPageClient } from "./page-client"
 
@@ -17,6 +18,7 @@ export const metadata = {
 
 export default async function EditBrandPage({ params }: EditBrandPageProps) {
   const { id } = await params
+  const categories = await getCategoriesFlat()
 
   return (
     <div className="space-y-6">
@@ -32,7 +34,16 @@ export default async function EditBrandPage({ params }: EditBrandPageProps) {
         </div>
       </div>
 
-      <EditBrandPageClient brandId={id} />
+      <EditBrandPageClient
+        brandId={id}
+        categories={categories
+          .filter((category) => category.level === 0)
+          .map((category) => ({
+            id: category.id,
+            name: category.name,
+            slug: category.slug,
+          }))}
+      />
     </div>
   )
 }

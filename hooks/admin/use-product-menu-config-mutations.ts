@@ -37,7 +37,7 @@ export function useUpdateProductMenuConfigMutation(configId: string) {
       return response.json()
     },
     onSuccess: () => {
-      invalidateMutationCaches(queryClient, "productMenuConfig.update")
+      invalidateMutationCaches(queryClient, "brand.update")
     },
   })
 }
