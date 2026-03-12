@@ -4,14 +4,8 @@ import crypto from "crypto"
 import { eq } from "drizzle-orm"
 
 import { db } from "@/lib/db"
-import {
-  inventoryItems,
-  inventoryMovements,
-  orderItems,
-  orders,
-  orderStatusHistory,
-  payments,
-} from "@/lib/db/schema"
+import { orders, orderStatusHistory, payments } from "@/lib/db/schema"
+import { releaseOrderInventoryReservationsTx } from "@/lib/orders/inventory-reservations"
 
 // DirectPay webhook secret for signature verification
 const WEBHOOK_SECRET =
@@ -136,50 +130,6 @@ async function handlePaymentCompleted(
       toStatus: "paid",
       notes: `Payment completed via card (${data.cardBrand} ****${data.cardLast4})`,
     })
-
-    // Convert reserved inventory to sold
-    const items = await tx
-      .select()
-      .from(orderItems)
-      .where(eq(orderItems.orderId, payment.orderId))
-
-    for (const item of items) {
-      if (!item.variantId) continue
-
-      const [inventory] = await tx
-        .select()
-        .from(inventoryItems)
-        .where(eq(inventoryItems.variantId, item.variantId))
-        .for("update")
-
-      if (inventory) {
-        const newQuantity = inventory.quantity - item.quantity
-        const newReserved = Math.max(
-          0,
-          inventory.reservedQuantity - item.quantity,
-        )
-
-        await tx
-          .update(inventoryItems)
-          .set({
-            quantity: newQuantity,
-            reservedQuantity: newReserved,
-            updatedAt: new Date(),
-          })
-          .where(eq(inventoryItems.id, inventory.id))
-
-        await tx.insert(inventoryMovements).values({
-          inventoryItemId: inventory.id,
-          type: "sale",
-          quantity: -item.quantity,
-          previousQuantity: inventory.quantity,
-          newQuantity,
-          referenceType: "order",
-          referenceId: payment.orderId,
-          notes: `Sold - Payment webhook confirmed`,
-        })
-      }
-    }
   })
 
   console.log("Payment completed processed:", payment.id)
@@ -201,54 +151,22 @@ async function handlePaymentFailed(
       })
       .where(eq(payments.id, payment.id))
 
-    // Release reserved inventory
-    const items = await tx
-      .select()
-      .from(orderItems)
-      .where(eq(orderItems.orderId, payment.orderId))
+    await releaseOrderInventoryReservationsTx(
+      tx,
+      payment.orderId,
+      "Released after payment failure",
+    )
 
-    for (const item of items) {
-      if (!item.variantId) continue
+    await tx
+      .update(orders)
+      .set({ status: "cancelled", updatedAt: new Date() })
+      .where(eq(orders.id, payment.orderId))
 
-      const [inventory] = await tx
-        .select()
-        .from(inventoryItems)
-        .where(eq(inventoryItems.variantId, item.variantId))
-        .for("update")
-
-      if (inventory) {
-        const newReserved = Math.max(
-          0,
-          inventory.reservedQuantity - item.quantity,
-        )
-
-        await tx
-          .update(inventoryItems)
-          .set({
-            reservedQuantity: newReserved,
-            updatedAt: new Date(),
-          })
-          .where(eq(inventoryItems.id, inventory.id))
-
-        await tx.insert(inventoryMovements).values({
-          inventoryItemId: inventory.id,
-          type: "released",
-          quantity: item.quantity,
-          previousQuantity: inventory.quantity,
-          newQuantity: inventory.quantity,
-          referenceType: "order",
-          referenceId: payment.orderId,
-          notes: "Released - Payment failed",
-        })
-      }
-    }
-
-    // Add status history
     await tx.insert(orderStatusHistory).values({
       orderId: payment.orderId,
       fromStatus: "pending_payment",
-      toStatus: "pending_payment",
-      notes: "Payment attempt failed - customer may retry",
+      toStatus: "cancelled",
+      notes: "Payment attempt failed",
     })
   })
 
@@ -257,7 +175,7 @@ async function handlePaymentFailed(
 
 async function handlePaymentCancelled(
   payment: typeof payments.$inferSelect,
-  data: WebhookPayload,
+  _data: WebhookPayload,
 ) {
   await db.transaction(async (tx) => {
     // Update payment
@@ -271,53 +189,21 @@ async function handlePaymentCancelled(
       })
       .where(eq(payments.id, payment.id))
 
-    // Release reserved inventory
-    const items = await tx
-      .select()
-      .from(orderItems)
-      .where(eq(orderItems.orderId, payment.orderId))
+    await releaseOrderInventoryReservationsTx(
+      tx,
+      payment.orderId,
+      "Released after payment cancellation",
+    )
 
-    for (const item of items) {
-      if (!item.variantId) continue
+    await tx
+      .update(orders)
+      .set({ status: "cancelled", updatedAt: new Date() })
+      .where(eq(orders.id, payment.orderId))
 
-      const [inventory] = await tx
-        .select()
-        .from(inventoryItems)
-        .where(eq(inventoryItems.variantId, item.variantId))
-        .for("update")
-
-      if (inventory) {
-        const newReserved = Math.max(
-          0,
-          inventory.reservedQuantity - item.quantity,
-        )
-
-        await tx
-          .update(inventoryItems)
-          .set({
-            reservedQuantity: newReserved,
-            updatedAt: new Date(),
-          })
-          .where(eq(inventoryItems.id, inventory.id))
-
-        await tx.insert(inventoryMovements).values({
-          inventoryItemId: inventory.id,
-          type: "released",
-          quantity: item.quantity,
-          previousQuantity: inventory.quantity,
-          newQuantity: inventory.quantity,
-          referenceType: "order",
-          referenceId: payment.orderId,
-          notes: "Released - Payment cancelled",
-        })
-      }
-    }
-
-    // Add status history
     await tx.insert(orderStatusHistory).values({
       orderId: payment.orderId,
       fromStatus: "pending_payment",
-      toStatus: "pending_payment",
+      toStatus: "cancelled",
       notes: "Payment cancelled by customer",
     })
   })

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react"
 import { useForm } from "react-hook-form"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 
 import { zodResolver } from "@hookform/resolvers/zod"
 import {
@@ -16,7 +16,6 @@ import {
 import { toast } from "sonner"
 import { z } from "zod"
 
-import { ImageUpload } from "@/components/admin/image-upload"
 import { CreatableEntityCombobox } from "@/components/admin/products/creatable-entity-combobox"
 import {
   Accordion,
@@ -44,7 +43,6 @@ import {
   FieldContent,
   FieldDescription,
   FieldGroup,
-  FieldLabel,
   FieldSet,
   FieldTitle,
 } from "@/components/ui/field"
@@ -67,6 +65,12 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
+import type {
+  AdminProductDetail,
+  AdminProductImage,
+  AdminProductMutationPayload,
+  AdminProductWorkflow,
+} from "@/lib/types/admin-product"
 import { slugify } from "@/lib/utils"
 import { normalizeEntityName } from "@/lib/utils/catalog"
 
@@ -86,12 +90,8 @@ const productSchema = z.object({
 
 type ProductFormData = z.infer<typeof productSchema>
 
-type UploadedImage = {
-  id: string
-  url: string
+type UploadedImage = Omit<AdminProductImage, "altText"> & {
   altText?: string
-  variantId?: string | null
-  isPrimary?: boolean
 }
 
 type OptionValueEditorValue = {
@@ -114,10 +114,10 @@ type VariantEditorValue = {
   compareAtPrice: string
   costPrice: string
   weight: string
-  quantity: number
-  lowStockThreshold: number
   isDefault: boolean
   isActive: boolean
+  manageInventory: boolean
+  inventoryTrackingMode: "quantity" | "serial"
   optionValues: Record<string, string>
 }
 
@@ -150,98 +150,18 @@ type ModelOption = {
   isActive: boolean
 }
 
-type ProductEditorInitialData = {
-  id: string
-  name: string
-  slug: string
-  description: string | null
-  shortDescription: string | null
-  brandId: string | null
-  primaryCategoryId: string | null
-  modelId: string | null
-  status: "draft" | "active" | "archived"
-  isFeatured: boolean
-  metaTitle: string | null
-  metaDescription: string | null
-  categories: Array<{ id: string }>
-  options: Array<{
-    id: string
-    name: string
-    values: Array<{
-      id: string
-      value: string
-    }>
-  }>
-  variants: Array<{
-    id: string
-    sku: string
-    name: string
-    price: string
-    compareAtPrice: string | null
-    costPrice: string | null
-    weight: string | null
-    isDefault: boolean
-    isActive: boolean
-    inventory?: {
-      quantity: number
-      reservedQuantity: number
-      lowStockThreshold: number | null
-    } | null
-    selections?: Array<{
-      optionName: string
-      optionValue: string
-    }>
-  }>
-  images?: Array<{
-    id: string
-    url: string
-    altText: string | null
-    variantId?: string | null
-    isPrimary: boolean
-  }>
-}
-
 interface ProductEditorFormProps {
   categories: CategoryOption[]
   brands: BrandOption[]
   models: ModelOption[]
-  initialData: ProductEditorInitialData
+  initialData: AdminProductDetail
   onSave: (
     productId: string,
-    payload: {
-      name: string
-      slug: string
-      description?: string
-      shortDescription?: string
-      brandId?: string | null
-      primaryCategoryId?: string | null
-      modelId?: string | null
-      categoryIds: string[]
-      status: "draft" | "active" | "archived"
-      isFeatured: boolean
-      metaTitle?: string
-      metaDescription?: string
-      options: Array<{
-        name: string
-        values: string[]
-      }>
-      variants: Array<{
-        id?: string
-        sku?: string
-        name?: string
-        price: string
-        compareAtPrice?: string
-        costPrice?: string
-        weight?: string
-        quantity?: number
-        lowStockThreshold?: number
-        isDefault?: boolean
-        isActive?: boolean
-        optionValues: Record<string, string>
-      }>
+    payload: AdminProductMutationPayload & {
       images: UploadedImage[]
     },
-  ) => Promise<ProductEditorInitialData | null | void>
+  ) => Promise<AdminProductDetail | null | void>
+  onPublish?: (productId: string) => Promise<AdminProductDetail | null | void>
   onDelete?: () => Promise<void>
 }
 
@@ -259,17 +179,12 @@ const STEP_DEFINITIONS = [
   {
     id: "media",
     title: "Media",
-    description: "Images, alt text, and optional variant mapping.",
+    description: "Placeholder for future media upload support.",
   },
   {
     id: "options",
-    title: "Options",
-    description: "Product option names and values.",
-  },
-  {
-    id: "variants",
-    title: "Variants",
-    description: "Sellable combinations, pricing, and stock.",
+    title: "Options & Variants",
+    description: "Define option values and the sellable variant matrix.",
   },
   {
     id: "review",
@@ -277,6 +192,24 @@ const STEP_DEFINITIONS = [
     description: "SEO and activation review.",
   },
 ] as const
+
+type ProductWizardStep = (typeof STEP_DEFINITIONS)[number]["id"]
+
+const STEP_INDEX_BY_ID = Object.fromEntries(
+  STEP_DEFINITIONS.map((step, index) => [step.id, index]),
+) as Record<ProductWizardStep, number>
+
+function getStepIndex(stepId: ProductWizardStep) {
+  return STEP_INDEX_BY_ID[stepId] ?? 0
+}
+
+function getStepId(stepIndex: number): ProductWizardStep {
+  return (
+    STEP_DEFINITIONS[
+      Math.min(Math.max(stepIndex, 0), STEP_DEFINITIONS.length - 1)
+    ]?.id ?? "basics"
+  )
+}
 
 function createEmptyVariant(): VariantEditorValue {
   return {
@@ -287,10 +220,10 @@ function createEmptyVariant(): VariantEditorValue {
     compareAtPrice: "",
     costPrice: "",
     weight: "",
-    quantity: 0,
-    lowStockThreshold: 5,
     isDefault: true,
     isActive: true,
+    manageInventory: true,
+    inventoryTrackingMode: "quantity",
     optionValues: {},
   }
 }
@@ -346,26 +279,25 @@ function buildVariantName(optionValues: Record<string, string>) {
   return values.length > 0 ? values.join(" / ") : "Default"
 }
 
-function normalizeNumberInput(value: string, fallback: number) {
-  const parsed = Number(value)
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    return fallback
-  }
-
-  return parsed
-}
-
 export function ProductEditorForm({
   categories,
   brands,
   models,
   initialData,
   onSave,
+  onPublish,
   onDelete,
 }: ProductEditorFormProps) {
   const router = useRouter()
+  const pathname = usePathname()
   const [isPending, startTransition] = useTransition()
-  const [currentStep, setCurrentStep] = useState(0)
+  const [currentProductId, setCurrentProductId] = useState(initialData.id)
+  const [currentStep, setCurrentStep] = useState(() =>
+    getStepIndex(initialData.draftStep),
+  )
+  const [maxUnlockedStep, setMaxUnlockedStep] = useState(() =>
+    getStepIndex(initialData.draftStep),
+  )
   const [categoryIds, setCategoryIds] = useState<string[]>(() =>
     Array.from(
       new Set(
@@ -407,10 +339,10 @@ export function ProductEditorForm({
           compareAtPrice: variant.compareAtPrice || "",
           costPrice: variant.costPrice || "",
           weight: variant.weight || "",
-          quantity: variant.inventory?.quantity ?? 0,
-          lowStockThreshold: variant.inventory?.lowStockThreshold ?? 5,
           isDefault: variant.isDefault,
           isActive: variant.isActive,
+          manageInventory: variant.manageInventory,
+          inventoryTrackingMode: variant.inventoryTrackingMode,
           optionValues: Object.fromEntries(
             (variant.selections ?? []).map((selection) => [
               selection.optionName,
@@ -424,6 +356,12 @@ export function ProductEditorForm({
   const [createdModels, setCreatedModels] = useState<ModelOption[]>([])
   const [isInlineBrandPending, setIsInlineBrandPending] = useState(false)
   const [isInlineModelPending, setIsInlineModelPending] = useState(false)
+  const [workflow, setWorkflow] = useState<AdminProductWorkflow>(
+    initialData.workflow,
+  )
+  const [lastSavedAt, setLastSavedAt] = useState<string | Date>(
+    initialData.updatedAt,
+  )
 
   const form = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
@@ -664,12 +602,12 @@ export function ProductEditorForm({
           compareAtPrice: existing?.compareAtPrice || "",
           costPrice: existing?.costPrice || "",
           weight: existing?.weight || "",
-          quantity: existing?.quantity ?? 0,
-          lowStockThreshold: existing?.lowStockThreshold ?? 5,
           isDefault:
             existing?.isDefault ??
             (index === 0 && !current.some((variant) => variant.isDefault)),
           isActive: existing?.isActive ?? true,
+          manageInventory: existing?.manageInventory ?? true,
+          inventoryTrackingMode: existing?.inventoryTrackingMode ?? "quantity",
           optionValues: combination,
         }
       })
@@ -693,23 +631,8 @@ export function ProductEditorForm({
     })
   }, [normalizedOptions])
 
-  const variantSummaries = useMemo(
-    () =>
-      variants
-        .filter((variant) => Boolean(variant.id))
-        .map((variant) => ({
-          id: variant.id!,
-          name: variant.name || buildVariantName(variant.optionValues),
-        })),
-    [variants],
-  )
-
   const warnings = useMemo(() => {
     const items = [...optionWarnings]
-
-    if (!images.some((image) => image.isPrimary)) {
-      items.push("No primary image is selected yet.")
-    }
 
     const skuCounts = new Map<string, number>()
     for (const variant of variants) {
@@ -729,18 +652,52 @@ export function ProductEditorForm({
       items.push("Variant SKUs must be unique.")
     }
 
-    if (
-      variants.some(
-        (variant) =>
-          variant.isActive &&
-          normalizeNumberInput(`${variant.quantity}`, 0) === 0,
-      )
-    ) {
-      items.push("Some active variants have zero starting stock.")
+    return items
+  }, [optionWarnings, variants])
+
+  const blockingIssues = useMemo(() => {
+    const items = [...optionWarnings]
+    const skuCounts = new Map<string, number>()
+
+    for (const variant of variants) {
+      const sku = variant.sku.trim()
+      if (!sku) {
+        continue
+      }
+
+      skuCounts.set(sku, (skuCounts.get(sku) ?? 0) + 1)
     }
 
-    return items
-  }, [images, optionWarnings, variants])
+    if ([...skuCounts.values()].some((count) => count > 1)) {
+      items.push("Variant SKUs must be unique.")
+    }
+
+    return Array.from(new Set(items))
+  }, [optionWarnings, variants])
+
+  const readinessIssues = useMemo(
+    () => Array.from(new Set([...workflow.errors, ...warnings])),
+    [warnings, workflow.errors],
+  )
+
+  const savedStepLabel = STEP_DEFINITIONS[maxUnlockedStep]?.title || "Basics"
+  const lastSavedLabel = useMemo(() => {
+    if (!lastSavedAt) {
+      return "Not saved yet"
+    }
+
+    const timestamp =
+      lastSavedAt instanceof Date ? lastSavedAt : new Date(lastSavedAt)
+
+    if (Number.isNaN(timestamp.getTime())) {
+      return "Not saved yet"
+    }
+
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(timestamp)
+  }, [lastSavedAt])
 
   const updateVariant = (
     variantKey: string,
@@ -753,7 +710,13 @@ export function ProductEditorForm({
     )
   }
 
-  const hydrateFromSavedProduct = (savedProduct: ProductEditorInitialData) => {
+  const hydrateFromSavedProduct = (savedProduct: AdminProductDetail) => {
+    setCurrentProductId(savedProduct.id)
+    setWorkflow(savedProduct.workflow)
+    setLastSavedAt(savedProduct.updatedAt)
+    const savedStepIndex = getStepIndex(savedProduct.draftStep)
+    setCurrentStep(savedStepIndex)
+    setMaxUnlockedStep(savedStepIndex)
     setCategoryIds(
       Array.from(
         new Set(
@@ -784,10 +747,10 @@ export function ProductEditorForm({
         compareAtPrice: variant.compareAtPrice || "",
         costPrice: variant.costPrice || "",
         weight: variant.weight || "",
-        quantity: variant.inventory?.quantity ?? 0,
-        lowStockThreshold: variant.inventory?.lowStockThreshold ?? 5,
         isDefault: variant.isDefault,
         isActive: variant.isActive,
+        manageInventory: variant.manageInventory,
+        inventoryTrackingMode: variant.inventoryTrackingMode,
         optionValues: Object.fromEntries(
           (variant.selections ?? []).map((selection) => [
             selection.optionName,
@@ -1003,7 +966,10 @@ export function ProductEditorForm({
     }
   }
 
-  const buildPayload = (data: ProductFormData) => ({
+  const buildPayload = (
+    data: ProductFormData,
+    draftStep: ProductWizardStep,
+  ): AdminProductMutationPayload & { images: UploadedImage[] } => ({
     name: data.name,
     slug: data.slug,
     description: data.description || undefined,
@@ -1013,6 +979,7 @@ export function ProductEditorForm({
     modelId: data.modelId || null,
     categoryIds: selectedCategoryIds,
     status: data.status,
+    draftStep,
     isFeatured: data.isFeatured,
     metaTitle: data.metaTitle || undefined,
     metaDescription: data.metaDescription || undefined,
@@ -1028,23 +995,49 @@ export function ProductEditorForm({
       compareAtPrice: variant.compareAtPrice || undefined,
       costPrice: variant.costPrice || undefined,
       weight: variant.weight || undefined,
-      quantity: variant.quantity,
-      lowStockThreshold: variant.lowStockThreshold,
       isDefault: variant.isDefault,
       isActive: variant.isActive,
+      manageInventory: variant.manageInventory,
+      inventoryTrackingMode: variant.inventoryTrackingMode,
       optionValues: variant.optionValues,
     })),
     images,
   })
 
-  const persistProduct = async (data: ProductFormData) => {
-    if (optionWarnings.length > 0) {
-      throw new Error(optionWarnings[0])
+  const persistProduct = async (
+    data: ProductFormData,
+    draftStepIndex: number = currentStep,
+  ) => {
+    if (blockingIssues.length > 0) {
+      throw new Error(blockingIssues[0])
     }
 
-    const savedProduct = await onSave(initialData.id, buildPayload(data))
+    const savedProduct = await onSave(
+      currentProductId,
+      buildPayload(data, getStepId(Math.max(maxUnlockedStep, draftStepIndex))),
+    )
     if (savedProduct) {
       hydrateFromSavedProduct(savedProduct)
+    }
+
+    return savedProduct ?? null
+  }
+
+  const handlePublish = async (data: ProductFormData) => {
+    if (!onPublish) {
+      return
+    }
+
+    const savedProduct = await persistProduct(data, STEP_DEFINITIONS.length - 1)
+    const productId = savedProduct?.id || currentProductId
+
+    if (!productId) {
+      throw new Error("Save the draft before publishing")
+    }
+
+    const publishedProduct = await onPublish(productId)
+    if (publishedProduct) {
+      hydrateFromSavedProduct(publishedProduct)
     }
   }
 
@@ -1052,18 +1045,25 @@ export function ProductEditorForm({
     startTransition(async () => {
       try {
         if (currentStep < STEP_DEFINITIONS.length - 1) {
-          await persistProduct(data)
-          setCurrentStep((step) =>
-            Math.min(step + 1, STEP_DEFINITIONS.length - 1),
+          const nextStep = Math.min(
+            currentStep + 1,
+            STEP_DEFINITIONS.length - 1,
           )
+          const savedProduct = await persistProduct(data, nextStep)
+
+          if (pathname === "/ops/products/new" && savedProduct?.id) {
+            router.replace(`/ops/products/${savedProduct.id}/edit`)
+            return
+          }
+
+          setCurrentStep(nextStep)
+          setMaxUnlockedStep((step) => Math.max(step, nextStep))
           toast.success("Product updated")
           return
         }
 
         await persistProduct(data)
-        toast.success("Product updated successfully!")
-        router.push("/ops/products")
-        router.refresh()
+        toast.success("Draft saved")
       } catch (error) {
         toast.error(
           error instanceof Error ? error.message : "Something went wrong",
@@ -1141,10 +1141,18 @@ export function ProductEditorForm({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
+                  {watchedValues.status === "active" ? (
+                    <SelectItem value="active">Active</SelectItem>
+                  ) : null}
                   <SelectItem value="archived">Archived</SelectItem>
                 </SelectContent>
               </Select>
+              {watchedValues.status !== "active" ? (
+                <p className="text-xs text-muted-foreground">
+                  Drafts are published from the review step after final
+                  validation passes.
+                </p>
+              ) : null}
             </div>
           </CardContent>
         </Card>
@@ -1340,91 +1348,16 @@ export function ProductEditorForm({
             <CardTitle>Media</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            <ImageUpload
-              value={images}
-              onChange={setImages}
-              maxImages={8}
-              folder="products"
-            />
-
-            {images.length > 0 ? (
-              <FieldSet>
-                <FieldGroup>
-                  {images.map((image, index) => (
-                    <div
-                      key={image.id}
-                      className="rounded-lg border p-4 space-y-4"
-                    >
-                      <Field orientation="horizontal">
-                        <FieldContent>
-                          <FieldTitle>Image {index + 1}</FieldTitle>
-                          <FieldDescription>
-                            Edit alt text and optionally map this image to a
-                            specific variant.
-                          </FieldDescription>
-                        </FieldContent>
-                        {image.isPrimary ? <Badge>Primary</Badge> : null}
-                      </Field>
-
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <div className="space-y-2">
-                          <Label>Alt Text</Label>
-                          <Input
-                            value={image.altText || ""}
-                            onChange={(event) =>
-                              setImages((current) =>
-                                current.map((currentImage) =>
-                                  currentImage.id === image.id
-                                    ? {
-                                        ...currentImage,
-                                        altText: event.target.value,
-                                      }
-                                    : currentImage,
-                                ),
-                              )
-                            }
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label>Variant Mapping</Label>
-                          <Select
-                            value={image.variantId || "__all__"}
-                            onValueChange={(value) =>
-                              setImages((current) =>
-                                current.map((currentImage) =>
-                                  currentImage.id === image.id
-                                    ? {
-                                        ...currentImage,
-                                        variantId:
-                                          value === "__all__" ? null : value,
-                                      }
-                                    : currentImage,
-                                ),
-                              )
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__all__">
-                                Product-wide image
-                              </SelectItem>
-                              {variantSummaries.map((variant) => (
-                                <SelectItem key={variant.id} value={variant.id}>
-                                  {variant.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </FieldGroup>
-              </FieldSet>
-            ) : null}
+            <div className="rounded-lg border border-dashed bg-muted/20 p-6">
+              <div className="space-y-2">
+                <p className="font-medium">Image upload is deferred</p>
+                <p className="text-sm text-muted-foreground">
+                  This step is intentionally a placeholder for the future bucket
+                  upload workflow. Continue building the product draft now and
+                  attach media later.
+                </p>
+              </div>
+            </div>
           </CardContent>
         </Card>
       )
@@ -1432,356 +1365,356 @@ export function ProductEditorForm({
 
     if (currentStep === 3) {
       return (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Options</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Option names are suggested from the selected categories, but you
-                can still create product-specific options.
-              </p>
-            </div>
-            <Button type="button" variant="outline" onClick={addOption}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add option
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-wrap gap-2">
-              {availableOptionTemplateNames.length > 0 ? (
-                availableOptionTemplateNames.map((template) => (
-                  <Badge key={template.id} variant="outline">
-                    {template.name}
-                  </Badge>
-                ))
-              ) : (
-                <span className="text-sm text-muted-foreground">
-                  No category templates yet. Add custom options as needed.
-                </span>
-              )}
-            </div>
-
-            {options.length === 0 ? (
-              <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
-                No options defined. The product will use a single default
-                variant.
+        <div className="space-y-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Options</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Option names are suggested from the selected categories, but
+                  you can still create product-specific options.
+                </p>
               </div>
-            ) : (
-              <Accordion
-                type="multiple"
-                defaultValue={options.map((option) => option.key)}
-              >
-                {options.map((option, index) => {
-                  const optionNameChoices = [
-                    ...availableOptionTemplateNames.map((template) => ({
-                      id: template.name,
-                      name: template.name,
-                    })),
-                    ...(option.name &&
-                    !availableOptionTemplateNames.some(
-                      (template) =>
-                        normalizeEntityName(template.name) ===
-                        normalizeEntityName(option.name),
-                    )
-                      ? [{ id: option.name, name: option.name }]
-                      : []),
-                  ]
+              <Button type="button" variant="outline" onClick={addOption}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add option
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                {availableOptionTemplateNames.length > 0 ? (
+                  availableOptionTemplateNames.map((template) => (
+                    <Badge key={template.id} variant="outline">
+                      {template.name}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-sm text-muted-foreground">
+                    No category templates yet. Add custom options as needed.
+                  </span>
+                )}
+              </div>
 
-                  return (
-                    <AccordionItem key={option.key} value={option.key}>
-                      <AccordionTrigger className="hover:no-underline">
-                        <div className="flex flex-col text-left">
-                          <span className="font-medium">
-                            {option.name || `Option ${index + 1}`}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {
-                              option.values.filter((value) =>
-                                value.value.trim(),
-                              ).length
-                            }{" "}
-                            values
-                          </span>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="space-y-4 pt-2">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 space-y-2">
-                            <Label>Option Name</Label>
-                            <CreatableEntityCombobox
-                              value={option.name}
-                              options={optionNameChoices}
-                              placeholder="Select or create option name"
-                              searchPlaceholder="Search option names..."
-                              emptyLabel="No matching option names"
-                              createLabel={(query) =>
-                                `Use custom option "${query.trim()}"`
-                              }
-                              onValueChange={(value) =>
-                                updateOption(option.key, { name: value })
-                              }
-                              onCreate={async (query) =>
-                                updateOption(option.key, {
-                                  name: query.trim(),
-                                })
-                              }
-                              canCreate={(query) =>
-                                Boolean(query.trim()) &&
-                                !optionNameChoices.some(
-                                  (choice) =>
-                                    normalizeEntityName(choice.name) ===
-                                    normalizeEntityName(query),
-                                )
-                              }
-                              allowClear={false}
-                            />
+              {options.length === 0 ? (
+                <div className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
+                  No options defined. The product will use a single default
+                  variant.
+                </div>
+              ) : (
+                <Accordion
+                  type="multiple"
+                  defaultValue={options.map((option) => option.key)}
+                >
+                  {options.map((option, index) => {
+                    const optionNameChoices = [
+                      ...availableOptionTemplateNames.map((template) => ({
+                        id: template.name,
+                        name: template.name,
+                      })),
+                      ...(option.name &&
+                      !availableOptionTemplateNames.some(
+                        (template) =>
+                          normalizeEntityName(template.name) ===
+                          normalizeEntityName(option.name),
+                      )
+                        ? [{ id: option.name, name: option.name }]
+                        : []),
+                    ]
+
+                    return (
+                      <AccordionItem key={option.key} value={option.key}>
+                        <AccordionTrigger className="hover:no-underline">
+                          <div className="flex flex-col text-left">
+                            <span className="font-medium">
+                              {option.name || `Option ${index + 1}`}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {
+                                option.values.filter((value) =>
+                                  value.value.trim(),
+                                ).length
+                              }{" "}
+                              values
+                            </span>
                           </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeOption(option.key)}
-                            aria-label={`Remove option ${index + 1}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-
-                        <FieldSet>
-                          <FieldGroup>
-                            <Field
-                              orientation="horizontal"
-                              className="items-center"
+                        </AccordionTrigger>
+                        <AccordionContent className="space-y-4 pt-2">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 space-y-2">
+                              <Label>Option Name</Label>
+                              <CreatableEntityCombobox
+                                value={option.name}
+                                options={optionNameChoices}
+                                placeholder="Select or create option name"
+                                searchPlaceholder="Search option names..."
+                                emptyLabel="No matching option names"
+                                createLabel={(query) =>
+                                  `Use custom option "${query.trim()}"`
+                                }
+                                onValueChange={(value) =>
+                                  updateOption(option.key, { name: value })
+                                }
+                                onCreate={async (query) =>
+                                  updateOption(option.key, {
+                                    name: query.trim(),
+                                  })
+                                }
+                                canCreate={(query) =>
+                                  Boolean(query.trim()) &&
+                                  !optionNameChoices.some(
+                                    (choice) =>
+                                      normalizeEntityName(choice.name) ===
+                                      normalizeEntityName(query),
+                                  )
+                                }
+                                allowClear={false}
+                              />
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeOption(option.key)}
+                              aria-label={`Remove option ${index + 1}`}
                             >
-                              <FieldContent>
-                                <FieldTitle>Values</FieldTitle>
-                                <FieldDescription>
-                                  Add each allowed value as a separate row.
-                                </FieldDescription>
-                              </FieldContent>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => addOptionValue(option.key)}
-                              >
-                                <Plus className="mr-2 h-4 w-4" />
-                                Add value
-                              </Button>
-                            </Field>
-
-                            {option.values.length === 0 ? (
-                              <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                                Add at least one value to generate variants.
-                              </div>
-                            ) : (
-                              option.values.map((value, valueIndex) => (
-                                <div
-                                  key={value.key}
-                                  className="flex items-center gap-3 rounded-lg border p-3"
-                                >
-                                  <Input
-                                    value={value.value}
-                                    onChange={(event) =>
-                                      updateOptionValue(
-                                        option.key,
-                                        value.key,
-                                        event.target.value,
-                                      )
-                                    }
-                                    placeholder={`Value ${valueIndex + 1}`}
-                                  />
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() =>
-                                      removeOptionValue(option.key, value.key)
-                                    }
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              ))
-                            )}
-                          </FieldGroup>
-                        </FieldSet>
-                      </AccordionContent>
-                    </AccordionItem>
-                  )
-                })}
-              </Accordion>
-            )}
-          </CardContent>
-        </Card>
-      )
-    }
-
-    if (currentStep === 4) {
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle>Variants and Inventory</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
-              {variants.length} sellable variant
-              {variants.length === 1 ? "" : "s"} are derived from the current
-              option values.
-            </div>
-
-            <div className="overflow-x-auto rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Combination</TableHead>
-                    <TableHead>Variant Name</TableHead>
-                    <TableHead>SKU</TableHead>
-                    <TableHead>Price</TableHead>
-                    <TableHead>Compare At</TableHead>
-                    <TableHead>Cost</TableHead>
-                    <TableHead>Weight</TableHead>
-                    <TableHead>Qty</TableHead>
-                    <TableHead>Threshold</TableHead>
-                    <TableHead>Default</TableHead>
-                    <TableHead>Active</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {variants.map((variant) => (
-                    <TableRow key={variant.key}>
-                      <TableCell className="min-w-40">
-                        {Object.keys(variant.optionValues).length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
-                            {Object.entries(variant.optionValues).map(
-                              ([name, value]) => (
-                                <Badge
-                                  key={`${variant.key}-${name}`}
-                                  variant="outline"
-                                >
-                                  {name}: {value}
-                                </Badge>
-                              ),
-                            )}
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
-                        ) : (
-                          <Badge variant="outline">Default</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          value={variant.name}
-                          onChange={(event) =>
-                            updateVariant(variant.key, {
-                              name: event.target.value,
-                            })
-                          }
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          value={variant.sku}
-                          onChange={(event) =>
-                            updateVariant(variant.key, {
-                              sku: event.target.value,
-                            })
-                          }
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          value={variant.price}
-                          onChange={(event) =>
-                            updateVariant(variant.key, {
-                              price: event.target.value,
-                            })
-                          }
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          value={variant.compareAtPrice}
-                          onChange={(event) =>
-                            updateVariant(variant.key, {
-                              compareAtPrice: event.target.value,
-                            })
-                          }
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          value={variant.costPrice}
-                          onChange={(event) =>
-                            updateVariant(variant.key, {
-                              costPrice: event.target.value,
-                            })
-                          }
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          value={variant.weight}
-                          onChange={(event) =>
-                            updateVariant(variant.key, {
-                              weight: event.target.value,
-                            })
-                          }
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min="0"
-                          value={variant.quantity}
-                          onChange={(event) =>
-                            updateVariant(variant.key, {
-                              quantity: normalizeNumberInput(
-                                event.target.value,
-                                0,
-                              ),
-                            })
-                          }
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          min="0"
-                          value={variant.lowStockThreshold}
-                          onChange={(event) =>
-                            updateVariant(variant.key, {
-                              lowStockThreshold: normalizeNumberInput(
-                                event.target.value,
-                                5,
-                              ),
-                            })
-                          }
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Switch
-                          checked={variant.isDefault}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setDefaultVariant(variant.key)
-                            }
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Switch
-                          checked={variant.isActive}
-                          onCheckedChange={(checked) =>
-                            updateVariant(variant.key, { isActive: checked })
-                          }
-                        />
-                      </TableCell>
+
+                          <FieldSet>
+                            <FieldGroup>
+                              <Field
+                                orientation="horizontal"
+                                className="items-center"
+                              >
+                                <FieldContent>
+                                  <FieldTitle>Values</FieldTitle>
+                                  <FieldDescription>
+                                    Add each allowed value as a separate row.
+                                  </FieldDescription>
+                                </FieldContent>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  onClick={() => addOptionValue(option.key)}
+                                >
+                                  <Plus className="mr-2 h-4 w-4" />
+                                  Add value
+                                </Button>
+                              </Field>
+
+                              {option.values.length === 0 ? (
+                                <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                                  Add at least one value to generate variants.
+                                </div>
+                              ) : (
+                                option.values.map((value, valueIndex) => (
+                                  <div
+                                    key={value.key}
+                                    className="flex items-center gap-3 rounded-lg border p-3"
+                                  >
+                                    <Input
+                                      value={value.value}
+                                      onChange={(event) =>
+                                        updateOptionValue(
+                                          option.key,
+                                          value.key,
+                                          event.target.value,
+                                        )
+                                      }
+                                      placeholder={`Value ${valueIndex + 1}`}
+                                    />
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() =>
+                                        removeOptionValue(option.key, value.key)
+                                      }
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                ))
+                              )}
+                            </FieldGroup>
+                          </FieldSet>
+                        </AccordionContent>
+                      </AccordionItem>
+                    )
+                  })}
+                </Accordion>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Variants and Inventory Mode</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+                {variants.length} sellable variant
+                {variants.length === 1 ? "" : "s"} are derived from the current
+                option values. Stock intake happens later in the dedicated
+                inventory flow.
+              </div>
+
+              <div className="overflow-x-auto rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Combination</TableHead>
+                      <TableHead>Variant Name</TableHead>
+                      <TableHead>SKU</TableHead>
+                      <TableHead>Price</TableHead>
+                      <TableHead>Compare At</TableHead>
+                      <TableHead>Cost</TableHead>
+                      <TableHead>Weight</TableHead>
+                      <TableHead>Managed</TableHead>
+                      <TableHead>Mode</TableHead>
+                      <TableHead>Default</TableHead>
+                      <TableHead>Active</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {variants.map((variant) => (
+                      <TableRow key={variant.key}>
+                        <TableCell className="min-w-40">
+                          {Object.keys(variant.optionValues).length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {Object.entries(variant.optionValues).map(
+                                ([name, value]) => (
+                                  <Badge
+                                    key={`${variant.key}-${name}`}
+                                    variant="outline"
+                                  >
+                                    {name}: {value}
+                                  </Badge>
+                                ),
+                              )}
+                            </div>
+                          ) : (
+                            <Badge variant="outline">Default</Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={variant.name}
+                            onChange={(event) =>
+                              updateVariant(variant.key, {
+                                name: event.target.value,
+                              })
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={variant.sku}
+                            onChange={(event) =>
+                              updateVariant(variant.key, {
+                                sku: event.target.value,
+                              })
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={variant.price}
+                            onChange={(event) =>
+                              updateVariant(variant.key, {
+                                price: event.target.value,
+                              })
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={variant.compareAtPrice}
+                            onChange={(event) =>
+                              updateVariant(variant.key, {
+                                compareAtPrice: event.target.value,
+                              })
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={variant.costPrice}
+                            onChange={(event) =>
+                              updateVariant(variant.key, {
+                                costPrice: event.target.value,
+                              })
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={variant.weight}
+                            onChange={(event) =>
+                              updateVariant(variant.key, {
+                                weight: event.target.value,
+                              })
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Switch
+                            checked={variant.manageInventory}
+                            onCheckedChange={(checked) =>
+                              updateVariant(variant.key, {
+                                manageInventory: checked,
+                              })
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={variant.inventoryTrackingMode}
+                            onValueChange={(value) =>
+                              updateVariant(variant.key, {
+                                inventoryTrackingMode: value as
+                                  | "quantity"
+                                  | "serial",
+                              })
+                            }
+                            disabled={!variant.manageInventory}
+                          >
+                            <SelectTrigger className="min-w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="quantity">Quantity</SelectItem>
+                              <SelectItem value="serial">Serial</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Switch
+                            checked={variant.isDefault}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setDefaultVariant(variant.key)
+                              }
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Switch
+                            checked={variant.isActive}
+                            onCheckedChange={(checked) =>
+                              updateVariant(variant.key, { isActive: checked })
+                            }
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )
     }
 
@@ -1833,7 +1766,7 @@ export function ProductEditorForm({
 
             <div className="rounded-lg border p-4 space-y-3">
               <div className="flex items-center gap-2">
-                {warnings.length === 0 ? (
+                {readinessIssues.length === 0 && workflow.canPublish ? (
                   <CheckCircle2 className="h-4 w-4 text-green-600" />
                 ) : (
                   <AlertTriangle className="h-4 w-4 text-amber-500" />
@@ -1841,15 +1774,14 @@ export function ProductEditorForm({
                 <p className="font-medium">Readiness Check</p>
               </div>
 
-              {warnings.length === 0 ? (
+              {readinessIssues.length === 0 && workflow.canPublish ? (
                 <p className="text-sm text-muted-foreground">
-                  No blocking warnings detected. You can save or activate this
-                  product.
+                  No blocking issues detected. The draft is ready to publish.
                 </p>
               ) : (
                 <ul className="space-y-2 text-sm text-muted-foreground">
-                  {warnings.map((warning) => (
-                    <li key={warning}>{warning}</li>
+                  {readinessIssues.map((issue) => (
+                    <li key={issue}>{issue}</li>
                   ))}
                 </ul>
               )}
@@ -1866,17 +1798,23 @@ export function ProductEditorForm({
         <CardContent className="flex flex-col gap-4 pt-6">
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
-              <Badge variant="outline">Editing product</Badge>
+              <Badge variant="outline">
+                {currentProductId ? "Draft in progress" : "New draft"}
+              </Badge>
               <span className="text-sm text-muted-foreground">
-                Product ID: {initialData.id}
+                Product ID: {currentProductId || "Not saved yet"}
               </span>
             </div>
+            <Badge variant="secondary">Resume point: {savedStepLabel}</Badge>
+            <span className="text-sm text-muted-foreground">
+              Last saved: {lastSavedLabel}
+            </span>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-6">
+          <div className="grid gap-3 md:grid-cols-5">
             {STEP_DEFINITIONS.map((step, index) => {
               const isActive = currentStep === index
-              const isCompleted = index < currentStep
+              const isCompleted = index < maxUnlockedStep
 
               return (
                 <button
@@ -1890,7 +1828,7 @@ export function ProductEditorForm({
                         : "border-border"
                   }`}
                   onClick={() => {
-                    if (index <= currentStep) {
+                    if (index <= maxUnlockedStep) {
                       setCurrentStep(index)
                     }
                   }}
@@ -1899,6 +1837,9 @@ export function ProductEditorForm({
                     Step {index + 1}
                   </p>
                   <p className="font-medium">{step.title}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {step.description}
+                  </p>
                 </button>
               )
             })}
@@ -1908,9 +1849,10 @@ export function ProductEditorForm({
 
       {renderStepContent()}
 
-      {warnings.length > 0 && currentStep < STEP_DEFINITIONS.length - 1 ? (
+      {blockingIssues.length > 0 &&
+      currentStep < STEP_DEFINITIONS.length - 1 ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          {warnings[0]}
+          {blockingIssues[0]}
         </div>
       ) : null}
 
@@ -1973,12 +1915,43 @@ export function ProductEditorForm({
               Back
             </Button>
           ) : null}
+          {currentStep === STEP_DEFINITIONS.length - 1 &&
+          currentProductId &&
+          watchedValues.status !== "active" &&
+          onPublish ? (
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={isPending}
+              onClick={handleSubmit((data) => {
+                startTransition(async () => {
+                  try {
+                    await handlePublish(data)
+                    toast.success("Product published successfully!")
+                    router.push("/ops/products")
+                    router.refresh()
+                  } catch (error) {
+                    toast.error(
+                      error instanceof Error
+                        ? error.message
+                        : "Failed to publish product",
+                    )
+                  }
+                })
+              })}
+            >
+              {isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Publish Product
+            </Button>
+          ) : null}
           <Button type="submit" disabled={isPending}>
             {isPending ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : null}
             {currentStep === STEP_DEFINITIONS.length - 1 ? (
-              "Save Product"
+              "Save Draft"
             ) : (
               <>
                 Continue

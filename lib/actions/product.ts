@@ -6,13 +6,12 @@ import { and, asc, desc, eq, ilike, inArray, or, sql } from "drizzle-orm"
 import { nanoid } from "nanoid"
 import { z } from "zod"
 
+import { getVariantInventoryAvailabilityMap } from "@/lib/actions/inventory"
 import { requireResourcePermission } from "@/lib/auth/rbac"
 import { db } from "@/lib/db"
 import {
   brands,
   categories,
-  inventoryItems,
-  inventoryMovements,
   models,
   productCategoryAssignments,
   productImages,
@@ -30,12 +29,12 @@ import {
 
 import { withStorefrontCatalogFallback } from "./storefront-catalog-read"
 
-const productOptionSchema = z.object({
+const productOptionInputSchema = z.object({
   name: z.string().min(1).max(100),
   values: z.array(z.string().min(1).max(100)).default([]),
 })
 
-const variantSchema = z.object({
+const productVariantInputSchema = z.object({
   id: z.string().uuid().optional(),
   sku: z.string().min(1).max(100).optional(),
   name: z.string().max(255).optional(),
@@ -47,14 +46,16 @@ const variantSchema = z.object({
   compareAtPrice: z.string().optional().nullable(),
   costPrice: z.string().optional().nullable(),
   weight: z.string().optional().nullable(),
-  quantity: z.number().int().min(0).default(0),
-  lowStockThreshold: z.number().int().min(0).default(5),
+  quantity: z.number().int().min(0).optional(),
+  lowStockThreshold: z.number().int().min(0).optional(),
   isDefault: z.boolean().default(false),
   isActive: z.boolean().default(true),
+  manageInventory: z.boolean().default(true),
+  inventoryTrackingMode: z.enum(["quantity", "serial"]).default("quantity"),
   optionValues: z.record(z.string(), z.string()).default({}),
 })
 
-const productMutationSchema = z.object({
+const productMutationInputSchema = z.object({
   name: z.string().min(1).max(255),
   slug: z.string().min(1).max(255).optional(),
   description: z.string().optional(),
@@ -64,18 +65,14 @@ const productMutationSchema = z.object({
   modelId: z.string().uuid().optional().nullable(),
   categoryIds: z.array(z.string().uuid()).default([]),
   status: z.enum(["draft", "active", "archived"]).default("draft"),
+  draftStep: z
+    .enum(["basics", "organization", "media", "options", "review"])
+    .default("basics"),
   isFeatured: z.boolean().default(false),
   metaTitle: z.string().max(100).optional(),
   metaDescription: z.string().max(300).optional(),
-  options: z.array(productOptionSchema).default([]),
-  variants: z.array(variantSchema).min(1),
-})
-
-const updateStockSchema = z.object({
-  variantId: z.string().uuid(),
-  quantity: z.number().int(),
-  type: z.enum(["purchase", "adjustment", "damaged"]),
-  notes: z.string().optional(),
+  options: z.array(productOptionInputSchema).default([]),
+  variants: z.array(productVariantInputSchema).min(1),
 })
 
 const productImageSchema = z.array(
@@ -87,6 +84,17 @@ const productImageSchema = z.array(
     isPrimary: z.boolean().default(false),
   }),
 )
+
+function createProductPublishValidationError(errors: string[]) {
+  const error = new Error(
+    errors[0] || "Product is not ready to publish",
+  ) as Error & {
+    publishErrors?: string[]
+  }
+  error.name = "ProductPublishValidationError"
+  error.publishErrors = errors
+  return error
+}
 
 function generateSlug(name: string) {
   return name
@@ -123,7 +131,7 @@ function normalizeCategoryIds(
   )
 }
 
-function normalizeOptions(options: z.infer<typeof productOptionSchema>[]) {
+function normalizeOptions(options: z.infer<typeof productOptionInputSchema>[]) {
   const seen = new Set<string>()
 
   return options
@@ -149,8 +157,23 @@ function normalizeOptions(options: z.infer<typeof productOptionSchema>[]) {
     })
 }
 
+function validateVariantInventoryConfiguration(
+  variants: z.infer<typeof productVariantInputSchema>[],
+) {
+  for (const variant of variants) {
+    if (
+      !variant.manageInventory &&
+      variant.inventoryTrackingMode === "serial"
+    ) {
+      throw new Error(
+        "Serialized tracking requires inventory management to be enabled",
+      )
+    }
+  }
+}
+
 function normalizeVariants(
-  variants: z.infer<typeof variantSchema>[],
+  variants: z.infer<typeof productVariantInputSchema>[],
   hasOptions: boolean,
 ) {
   const prepared = variants.map((variant, index) => ({
@@ -159,10 +182,10 @@ function normalizeVariants(
     compareAtPrice: variant.compareAtPrice || null,
     costPrice: variant.costPrice || null,
     weight: variant.weight || null,
-    quantity: variant.quantity,
-    lowStockThreshold: variant.lowStockThreshold,
     optionValues: hasOptions ? variant.optionValues : {},
     isDefault: index === 0 ? variant.isDefault || true : variant.isDefault,
+    manageInventory: variant.manageInventory,
+    inventoryTrackingMode: variant.inventoryTrackingMode,
   }))
 
   if (!prepared.some((variant) => variant.isDefault)) {
@@ -252,12 +275,34 @@ async function resolveModel(modelId: string | null | undefined) {
 }
 
 async function validateProductOrganization(
-  input: z.infer<typeof productMutationSchema>,
+  input: z.infer<typeof productMutationInputSchema>,
 ) {
   const resolvedModel = await resolveModel(input.modelId)
-  const resolvedBrandId = resolvedModel?.brandId || input.brandId || null
-  const resolvedPrimaryCategoryId =
-    resolvedModel?.primaryCategoryId || input.primaryCategoryId || null
+
+  if (
+    resolvedModel &&
+    input.brandId &&
+    input.brandId !== resolvedModel.brandId
+  ) {
+    throw new Error("Selected model does not belong to the selected brand")
+  }
+
+  if (
+    resolvedModel &&
+    input.primaryCategoryId &&
+    input.primaryCategoryId !== resolvedModel.primaryCategoryId
+  ) {
+    throw new Error(
+      "Selected model does not belong to the selected primary category",
+    )
+  }
+
+  const resolvedBrandId = resolvedModel
+    ? resolvedModel.brandId
+    : input.brandId || null
+  const resolvedPrimaryCategoryId = resolvedModel
+    ? resolvedModel.primaryCategoryId
+    : input.primaryCategoryId || null
 
   if (resolvedBrandId) {
     await ensureBrandExists(resolvedBrandId)
@@ -304,6 +349,212 @@ async function validateProductOrganization(
   }
 }
 
+async function resolveUniqueProductSlug(
+  name: string,
+  preferredSlug?: string,
+  excludeProductId?: string,
+) {
+  const baseSlug = preferredSlug || generateSlug(name)
+  let nextSlug = baseSlug
+  let suffix = 2
+
+  while (true) {
+    const [existing] = await db
+      .select({ id: products.id })
+      .from(products)
+      .where(eq(products.slug, nextSlug))
+      .limit(1)
+
+    if (!existing || existing.id === excludeProductId) {
+      return nextSlug
+    }
+
+    nextSlug = `${baseSlug}-${suffix}`
+    suffix += 1
+  }
+}
+
+async function validateAndPrepareProductMutation(
+  data: z.infer<typeof productMutationInputSchema>,
+  options?: {
+    existingProductId?: string
+    existingProductSlug?: string
+  },
+) {
+  const validated = productMutationInputSchema.parse(data)
+  validateVariantInventoryConfiguration(validated.variants)
+
+  const slug = await resolveUniqueProductSlug(
+    validated.name,
+    validated.slug || options?.existingProductSlug,
+    options?.existingProductId,
+  )
+  const organization = await validateProductOrganization(validated)
+
+  return {
+    validated,
+    organization,
+    slug,
+  }
+}
+
+async function getProductPublishReadiness(id: string) {
+  const [product] = await db
+    .select({
+      id: products.id,
+      brandId: products.brandId,
+      primaryCategoryId: products.primaryCategoryId,
+      modelId: products.modelId,
+      status: products.status,
+    })
+    .from(products)
+    .where(eq(products.id, id))
+    .limit(1)
+
+  if (!product) {
+    throw new Error("Product not found")
+  }
+
+  const [assignedCategories, variants, modelRows] = await Promise.all([
+    db
+      .select({
+        categoryId: productCategoryAssignments.categoryId,
+        isPrimary: productCategoryAssignments.isPrimary,
+      })
+      .from(productCategoryAssignments)
+      .where(eq(productCategoryAssignments.productId, id)),
+    db
+      .select({
+        id: productVariants.id,
+        sku: productVariants.sku,
+        manageInventory: productVariants.manageInventory,
+        inventoryTrackingMode: productVariants.inventoryTrackingMode,
+      })
+      .from(productVariants)
+      .where(eq(productVariants.productId, id)),
+    product.modelId
+      ? db
+          .select({
+            id: models.id,
+            isActive: models.isActive,
+            brandId: models.brandId,
+            primaryCategoryId: models.primaryCategoryId,
+          })
+          .from(models)
+          .where(eq(models.id, product.modelId))
+          .limit(1)
+      : Promise.resolve(
+          [] as Array<{
+            id: string
+            isActive: boolean
+            brandId: string
+            primaryCategoryId: string
+          }>,
+        ),
+  ])
+
+  const errors: string[] = []
+  const primaryAssignments = assignedCategories.filter(
+    (assignment) => assignment.isPrimary,
+  )
+
+  if (!product.brandId) {
+    errors.push("Brand is required")
+  }
+
+  if (!product.primaryCategoryId) {
+    errors.push("Primary category is required")
+  }
+
+  if (!product.modelId) {
+    errors.push("Model is required")
+  }
+
+  if (assignedCategories.length === 0) {
+    errors.push("At least one category assignment is required")
+  }
+
+  if (primaryAssignments.length !== 1) {
+    errors.push("Exactly one assigned category must be marked primary")
+  }
+
+  if (
+    product.primaryCategoryId &&
+    !assignedCategories.some(
+      (assignment) => assignment.categoryId === product.primaryCategoryId,
+    )
+  ) {
+    errors.push("Primary category must exist in the assigned categories")
+  }
+
+  const model = modelRows[0]
+  if (product.modelId && !model) {
+    errors.push("Selected model could not be found")
+  }
+
+  if (model && !model.isActive) {
+    errors.push("Selected model is inactive")
+  }
+
+  if (model && product.brandId && model.brandId !== product.brandId) {
+    errors.push("Selected model is not compatible with the product brand")
+  }
+
+  if (
+    model &&
+    product.primaryCategoryId &&
+    model.primaryCategoryId !== product.primaryCategoryId
+  ) {
+    errors.push(
+      "Selected model is not compatible with the product primary category",
+    )
+  }
+
+  if (variants.length === 0) {
+    errors.push("At least one variant is required")
+  }
+
+  const skuSet = new Set<string>()
+  for (const variant of variants) {
+    const sku = variant.sku.trim()
+    if (!sku) {
+      errors.push("Every variant must have an SKU")
+      continue
+    }
+
+    if (skuSet.has(sku)) {
+      errors.push("Variant SKUs must be unique")
+      break
+    }
+
+    skuSet.add(sku)
+
+    if (
+      !variant.manageInventory &&
+      variant.inventoryTrackingMode === "serial"
+    ) {
+      errors.push(
+        "Serialized tracking cannot be used when inventory management is disabled",
+      )
+      break
+    }
+  }
+
+  return {
+    canPublish: errors.length === 0,
+    errors,
+  }
+}
+
+function assertDraftActivationUsesPublishEndpoint(
+  nextStatus: z.infer<typeof productMutationInputSchema>["status"],
+  existingStatus?: z.infer<typeof productMutationInputSchema>["status"],
+) {
+  if (nextStatus === "active" && existingStatus !== "active") {
+    throw new Error("Use the publish endpoint to activate a product draft")
+  }
+}
+
 async function getPrimaryImageMap(productIds: string[]) {
   if (productIds.length === 0) {
     return new Map<string, string>()
@@ -342,6 +593,8 @@ async function getAssignedCategories(productId: string) {
       productMenuPriority: categories.productMenuPriority,
       createdAt: categories.createdAt,
       updatedAt: categories.updatedAt,
+      isPrimary: productCategoryAssignments.isPrimary,
+      assignmentSortOrder: productCategoryAssignments.sortOrder,
     })
     .from(productCategoryAssignments)
     .innerJoin(
@@ -349,7 +602,12 @@ async function getAssignedCategories(productId: string) {
       eq(productCategoryAssignments.categoryId, categories.id),
     )
     .where(eq(productCategoryAssignments.productId, productId))
-    .orderBy(asc(categories.sortOrder), asc(categories.name))
+    .orderBy(
+      desc(productCategoryAssignments.isPrimary),
+      asc(productCategoryAssignments.sortOrder),
+      asc(categories.sortOrder),
+      asc(categories.name),
+    )
 }
 
 async function getProductOptions(productId: string) {
@@ -400,16 +658,8 @@ async function getVariantsWithSelections(productId: string) {
     return []
   }
 
-  const [inventoryRows, selectionRows] = await Promise.all([
-    db
-      .select()
-      .from(inventoryItems)
-      .where(
-        inArray(
-          inventoryItems.variantId,
-          variants.map((variant) => variant.id),
-        ),
-      ),
+  const [inventoryMap, selectionRows] = await Promise.all([
+    getVariantInventoryAvailabilityMap(variants.map((variant) => variant.id)),
     db
       .select({
         variantId: productVariantOptionValues.variantId,
@@ -435,10 +685,6 @@ async function getVariantsWithSelections(productId: string) {
       ),
   ])
 
-  const inventoryMap = new Map(
-    inventoryRows.map((inventory) => [inventory.variantId, inventory]),
-  )
-
   return variants.map((variant) => ({
     ...variant,
     inventory: inventoryMap.get(variant.id) || null,
@@ -457,6 +703,7 @@ async function syncProductCategories(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   productId: string,
   categoryIds: string[],
+  primaryCategoryId: string | null,
 ) {
   await tx
     .delete(productCategoryAssignments)
@@ -467,9 +714,11 @@ async function syncProductCategories(
   }
 
   await tx.insert(productCategoryAssignments).values(
-    categoryIds.map((categoryId) => ({
+    categoryIds.map((categoryId, index) => ({
       productId,
       categoryId,
+      isPrimary: categoryId === primaryCategoryId,
+      sortOrder: index,
     })),
   )
 }
@@ -478,8 +727,8 @@ async function syncProductOptionsAndVariants(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   productId: string,
   productName: string,
-  optionsInput: z.infer<typeof productOptionSchema>[],
-  variantsInput: z.infer<typeof variantSchema>[],
+  optionsInput: z.infer<typeof productOptionInputSchema>[],
+  variantsInput: z.infer<typeof productVariantInputSchema>[],
 ) {
   const normalizedOptions = normalizeOptions(optionsInput)
   const normalizedVariants = normalizeVariants(
@@ -683,6 +932,8 @@ async function syncProductOptionsAndVariants(
               weight: variant.weight,
               isDefault: variant.isDefault,
               isActive: variant.isActive,
+              manageInventory: variant.manageInventory,
+              inventoryTrackingMode: variant.inventoryTrackingMode,
               sortOrder: variantIndex,
               updatedAt: new Date(),
             })
@@ -702,34 +953,14 @@ async function syncProductOptionsAndVariants(
               weight: variant.weight,
               isDefault: variant.isDefault,
               isActive: variant.isActive,
+              manageInventory: variant.manageInventory,
+              inventoryTrackingMode: variant.inventoryTrackingMode,
               sortOrder: variantIndex,
             })
             .returning()
         )[0]
 
     keepVariantIds.push(variantRecord.id)
-
-    const [inventoryRecord] = await tx
-      .insert(inventoryItems)
-      .values({
-        variantId: variantRecord.id,
-        quantity: variant.quantity,
-        reservedQuantity: 0,
-        lowStockThreshold: variant.lowStockThreshold,
-      })
-      .onConflictDoNothing()
-      .returning({ id: inventoryItems.id })
-
-    if (!inventoryRecord) {
-      await tx
-        .update(inventoryItems)
-        .set({
-          quantity: variant.quantity,
-          lowStockThreshold: variant.lowStockThreshold,
-          updatedAt: new Date(),
-        })
-        .where(eq(inventoryItems.variantId, variantRecord.id))
-    }
 
     await tx
       .delete(productVariantOptionValues)
@@ -862,8 +1093,10 @@ export async function getProducts(options?: {
         slug: products.slug,
         basePrice: products.basePrice,
         status: products.status,
+        draftStep: products.draftStep,
         isFeatured: products.isFeatured,
         createdAt: products.createdAt,
+        updatedAt: products.updatedAt,
         brandId: products.brandId,
         brandName: brands.name,
         primaryCategoryId: products.primaryCategoryId,
@@ -938,6 +1171,7 @@ export async function getProduct(id: string) {
   ])
 
   const resolvedPrimaryCategory = categoryRows[0] || null
+  const workflow = await getProductPublishReadiness(product.id)
 
   return {
     ...product,
@@ -949,6 +1183,7 @@ export async function getProduct(id: string) {
     options,
     variants,
     images,
+    workflow,
   }
 }
 
@@ -1008,6 +1243,7 @@ export async function getProductBySlug(slug: string) {
       ])
 
       const resolvedPrimaryCategory = categoryRows[0] || null
+      const workflow = await getProductPublishReadiness(product.id)
 
       return {
         ...product,
@@ -1019,9 +1255,15 @@ export async function getProductBySlug(slug: string) {
         options,
         variants,
         images,
+        workflow,
       }
     },
   )
+}
+
+export async function getProductDraftReadiness(id: string) {
+  await requireResourcePermission("product", "read")
+  return getProductPublishReadiness(id)
 }
 
 export async function getStorefrontProducts(options?: {
@@ -1205,13 +1447,12 @@ export async function getStorefrontProducts(options?: {
 
 export async function updateProduct(
   id: string,
-  data: z.infer<typeof productMutationSchema>,
+  data: z.infer<typeof productMutationInputSchema>,
 ) {
   await requireResourcePermission("product", "update")
-  const validated = productMutationSchema.parse(data)
 
   const [existingProduct] = await db
-    .select({ id: products.id, slug: products.slug })
+    .select({ id: products.id, slug: products.slug, status: products.status })
     .from(products)
     .where(eq(products.id, id))
     .limit(1)
@@ -1220,32 +1461,29 @@ export async function updateProduct(
     throw new Error("Product not found")
   }
 
-  if (validated.slug) {
-    const [duplicate] = await db
-      .select({ id: products.id })
-      .from(products)
-      .where(eq(products.slug, validated.slug))
-      .limit(1)
-
-    if (duplicate && duplicate.id !== id) {
-      throw new Error("A product with this slug already exists")
-    }
-  }
-
-  const organization = await validateProductOrganization(validated)
+  const { validated, organization, slug } =
+    await validateAndPrepareProductMutation(data, {
+      existingProductId: id,
+      existingProductSlug: existingProduct.slug,
+    })
+  assertDraftActivationUsesPublishEndpoint(
+    validated.status,
+    existingProduct.status,
+  )
 
   await db.transaction(async (tx) => {
     await tx
       .update(products)
       .set({
         name: validated.name,
-        slug: validated.slug || existingProduct.slug,
+        slug,
         description: validated.description || null,
         shortDescription: validated.shortDescription || null,
         brandId: organization.brandId,
         primaryCategoryId: organization.primaryCategoryId,
         modelId: organization.modelId,
         status: validated.status,
+        draftStep: validated.draftStep,
         isFeatured: validated.isFeatured,
         metaTitle: validated.metaTitle || null,
         metaDescription: validated.metaDescription || null,
@@ -1253,7 +1491,12 @@ export async function updateProduct(
       })
       .where(eq(products.id, id))
 
-    await syncProductCategories(tx, id, organization.categoryIds)
+    await syncProductCategories(
+      tx,
+      id,
+      organization.categoryIds,
+      organization.primaryCategoryId,
+    )
     await syncProductOptionsAndVariants(
       tx,
       id,
@@ -1262,6 +1505,85 @@ export async function updateProduct(
       validated.variants,
     )
   })
+
+  revalidatePath("/ops/products")
+  revalidatePath(`/ops/products/${id}/edit`)
+  revalidateProductCaches()
+  revalidateBrandCaches()
+  revalidateCategoryCaches()
+
+  return getProduct(id)
+}
+
+export async function createProduct(
+  data: z.infer<typeof productMutationInputSchema>,
+) {
+  await requireResourcePermission("product", "create")
+  const { validated, organization, slug } =
+    await validateAndPrepareProductMutation(data)
+  assertDraftActivationUsesPublishEndpoint(validated.status)
+
+  const created = await db.transaction(async (tx) => {
+    const [inserted] = await tx
+      .insert(products)
+      .values({
+        name: validated.name,
+        slug,
+        description: validated.description || null,
+        shortDescription: validated.shortDescription || null,
+        brandId: organization.brandId,
+        primaryCategoryId: organization.primaryCategoryId,
+        modelId: organization.modelId,
+        status: validated.status,
+        draftStep: validated.draftStep,
+        isFeatured: validated.isFeatured,
+        metaTitle: validated.metaTitle || null,
+        metaDescription: validated.metaDescription || null,
+      })
+      .returning({ id: products.id })
+
+    await syncProductCategories(
+      tx,
+      inserted.id,
+      organization.categoryIds,
+      organization.primaryCategoryId,
+    )
+    await syncProductOptionsAndVariants(
+      tx,
+      inserted.id,
+      validated.name,
+      validated.options,
+      validated.variants,
+    )
+
+    return inserted
+  })
+
+  revalidatePath("/ops/products")
+  revalidateProductCaches()
+  revalidateBrandCaches()
+  revalidateCategoryCaches()
+
+  return getProduct(created.id)
+}
+
+export async function publishProduct(id: string) {
+  await requireResourcePermission("product", "update")
+
+  const readiness = await getProductPublishReadiness(id)
+
+  if (!readiness.canPublish) {
+    throw createProductPublishValidationError(readiness.errors)
+  }
+
+  await db
+    .update(products)
+    .set({
+      status: "active",
+      draftStep: "review",
+      updatedAt: new Date(),
+    })
+    .where(eq(products.id, id))
 
   revalidatePath("/ops/products")
   revalidatePath(`/ops/products/${id}/edit`)
@@ -1282,52 +1604,6 @@ export async function deleteProduct(id: string) {
   revalidateBrandCaches()
   revalidateCategoryCaches()
 
-  return { success: true as const }
-}
-
-export async function updateStock(data: z.infer<typeof updateStockSchema>) {
-  await requireResourcePermission("inventory", "update")
-  const validated = updateStockSchema.parse(data)
-
-  const [inventoryItem] = await db
-    .select()
-    .from(inventoryItems)
-    .where(eq(inventoryItems.variantId, validated.variantId))
-    .limit(1)
-
-  if (!inventoryItem) {
-    throw new Error("Inventory item not found")
-  }
-
-  const previousQuantity = inventoryItem.quantity
-  const newQuantity = previousQuantity + validated.quantity
-
-  if (newQuantity < 0) {
-    throw new Error("Stock cannot go below zero")
-  }
-
-  await db.transaction(async (tx) => {
-    await tx
-      .update(inventoryItems)
-      .set({
-        quantity: newQuantity,
-        updatedAt: new Date(),
-      })
-      .where(eq(inventoryItems.id, inventoryItem.id))
-
-    await tx.insert(inventoryMovements).values({
-      inventoryItemId: inventoryItem.id,
-      type: validated.type,
-      quantity: validated.quantity,
-      previousQuantity,
-      newQuantity,
-      referenceType: "manual",
-      referenceId: validated.variantId,
-      notes: validated.notes || null,
-    })
-  })
-
-  revalidateProductCaches()
   return { success: true as const }
 }
 

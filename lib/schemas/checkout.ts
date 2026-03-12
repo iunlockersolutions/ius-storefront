@@ -69,6 +69,7 @@ export interface CartValidationResult {
       productName: string
       productSlug: string
       productStatus: string
+      manageInventory: boolean
       availableQuantity: number
     }>
     subtotal: number

@@ -1,14 +1,31 @@
 import { NextRequest } from "next/server"
 
-import { deleteProduct, updateProduct } from "@/lib/actions/product"
+import { deleteProduct, getProduct, updateProduct } from "@/lib/actions/product"
 import {
   auditAdminMutation,
   requireAdminApiPermission,
 } from "@/lib/auth/admin-api"
-import { mapErrorToApi, ok } from "@/lib/utils/api-response"
+import { fail, mapErrorToApi, ok } from "@/lib/utils/api-response"
 
 interface RouteProps {
   params: Promise<{ id: string }>
+}
+
+export async function GET(_request: NextRequest, { params }: RouteProps) {
+  try {
+    await requireAdminApiPermission("product", "read")
+
+    const { id } = await params
+    const product = await getProduct(id)
+
+    if (!product) {
+      return fail("NOT_FOUND", "Product not found", 404)
+    }
+
+    return ok(product)
+  } catch (error) {
+    return mapErrorToApi(error)
+  }
 }
 
 export async function PATCH(request: NextRequest, { params }: RouteProps) {

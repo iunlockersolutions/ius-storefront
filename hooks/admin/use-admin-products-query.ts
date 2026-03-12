@@ -9,6 +9,7 @@ interface Product {
   name: string
   slug: string
   status: "draft" | "active" | "archived"
+  draftStep: "basics" | "organization" | "media" | "options" | "review"
   basePrice: string
   isFeatured: boolean
   brandId: string | null
@@ -16,6 +17,7 @@ interface Product {
   primaryCategoryId: string | null
   primaryCategoryName: string | null
   createdAt: string | Date
+  updatedAt: string | Date
 }
 
 interface ProductsResponse {

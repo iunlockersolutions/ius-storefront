@@ -29,7 +29,7 @@ export async function GET(request: NextRequest, { params }: RouteProps) {
     const limit = parsePositiveNumber(searchParams.get("limit"), 20)
 
     const result = await getInventoryMovements({
-      inventoryItemId: id,
+      variantId: id,
       page,
       limit,
     })

@@ -6,8 +6,11 @@ import {
   brandCategoryAssignments,
   brands,
   categories,
-  inventoryItems,
-  inventoryMovements,
+  inventoryLevels,
+  inventoryLocations,
+  inventoryTransactions,
+  inventoryUnitIdentifiers,
+  inventoryUnits,
   models,
   productAttributeValues,
   productCategoryAssignments,
@@ -49,6 +52,7 @@ type SeedVariant = {
   costPrice?: string | null
   weight?: string | null
   quantity: number
+  inventoryTrackingMode?: "quantity" | "serial"
   isDefault?: boolean
   optionValues?: Record<string, string>
 }
@@ -766,9 +770,37 @@ function createClient() {
   return { client, db: database }
 }
 
+function defaultTrackingModeForCategory(categorySlug: string) {
+  return ["phones", "tablets", "laptops"].includes(categorySlug)
+    ? "serial"
+    : "quantity"
+}
+
+function normalizeIdentifierValue(value: string) {
+  return value.trim().toUpperCase()
+}
+
+function buildSerializedUnitIdentifiers(variantSku: string, unitIndex: number) {
+  const serial = `${variantSku}-SN-${String(unitIndex + 1).padStart(4, "0")}`
+  const barcode = `${variantSku}-BC-${String(unitIndex + 1).padStart(4, "0")}`
+  const imeiBase = `${String(unitIndex + 1).padStart(6, "0")}${variantSku
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 8)
+    .padEnd(8, "0")}`.slice(0, 14)
+
+  return {
+    serial,
+    barcode,
+    imei: `${imeiBase}1`,
+  }
+}
+
 async function clearCatalogData(db: ReturnType<typeof drizzle>) {
-  await db.delete(inventoryMovements)
-  await db.delete(inventoryItems)
+  await db.delete(inventoryUnitIdentifiers)
+  await db.delete(inventoryUnits)
+  await db.delete(inventoryTransactions)
+  await db.delete(inventoryLevels)
+  await db.delete(inventoryLocations)
   await db.delete(productVariantOptionValues)
   await db.delete(productImages)
   await db.delete(productOptionValues)
@@ -790,6 +822,18 @@ export async function seedCatalogData(logLabel: string) {
 
   try {
     await clearCatalogData(db)
+
+    console.log("📍 Seeding default inventory location...")
+    const [defaultLocation] = await db
+      .insert(inventoryLocations)
+      .values({
+        name: "Main Warehouse",
+        code: "MAIN",
+        description: "Default stock location for seeded catalog inventory.",
+        isDefault: true,
+        isActive: true,
+      })
+      .returning({ id: inventoryLocations.id })
 
     console.log("🏷️  Seeding top-level categories...")
     const categoryMap = new Map<string, string>()
@@ -937,6 +981,10 @@ export async function seedCatalogData(logLabel: string) {
         }
 
         for (const [variantIndex, variant] of product.variants.entries()) {
+          const inventoryTrackingMode =
+            variant.inventoryTrackingMode ||
+            defaultTrackingModeForCategory(model.categorySlug)
+
           const [createdVariant] = await db
             .insert(productVariants)
             .values({
@@ -949,29 +997,82 @@ export async function seedCatalogData(logLabel: string) {
               weight: variant.weight || null,
               isDefault: variant.isDefault ?? variantIndex === 0,
               isActive: true,
+              manageInventory: true,
+              inventoryTrackingMode,
               sortOrder: variantIndex,
             })
             .returning({ id: productVariants.id })
 
-          const [inventoryItem] = await db
-            .insert(inventoryItems)
+          const [inventoryLevel] = await db
+            .insert(inventoryLevels)
             .values({
               variantId: createdVariant.id,
-              quantity: variant.quantity,
+              locationId: defaultLocation.id,
+              onHandQuantity: variant.quantity,
               reservedQuantity: 0,
+              allocatedQuantity: 0,
+              availableQuantity: variant.quantity,
               lowStockThreshold: 3,
             })
-            .returning({ id: inventoryItems.id })
+            .returning({ id: inventoryLevels.id })
 
-          await db.insert(inventoryMovements).values({
-            inventoryItemId: inventoryItem.id,
-            type: "purchase",
-            quantity: variant.quantity,
-            previousQuantity: 0,
-            newQuantity: variant.quantity,
+          await db.insert(inventoryTransactions).values({
+            variantId: createdVariant.id,
+            locationId: defaultLocation.id,
+            inventoryLevelId: inventoryLevel.id,
+            type: "receipt",
+            quantityDelta: variant.quantity,
+            beforeOnHandQuantity: 0,
+            afterOnHandQuantity: variant.quantity,
+            beforeReservedQuantity: 0,
+            afterReservedQuantity: 0,
+            beforeAllocatedQuantity: 0,
+            afterAllocatedQuantity: 0,
             referenceType: "seed",
             notes: logLabel,
           })
+
+          if (inventoryTrackingMode === "serial") {
+            for (let unitIndex = 0; unitIndex < variant.quantity; unitIndex++) {
+              const [unit] = await db
+                .insert(inventoryUnits)
+                .values({
+                  variantId: createdVariant.id,
+                  locationId: defaultLocation.id,
+                  status: "available",
+                  notes: `${logLabel} serialized seed`,
+                })
+                .returning({ id: inventoryUnits.id })
+
+              const identifiers = buildSerializedUnitIdentifiers(
+                variant.sku,
+                unitIndex,
+              )
+
+              await db.insert(inventoryUnitIdentifiers).values([
+                {
+                  inventoryUnitId: unit.id,
+                  type: "serial",
+                  value: identifiers.serial,
+                  normalizedValue: normalizeIdentifierValue(identifiers.serial),
+                },
+                {
+                  inventoryUnitId: unit.id,
+                  type: "barcode",
+                  value: identifiers.barcode,
+                  normalizedValue: normalizeIdentifierValue(
+                    identifiers.barcode,
+                  ),
+                },
+                {
+                  inventoryUnitId: unit.id,
+                  type: "imei",
+                  value: identifiers.imei,
+                  normalizedValue: normalizeIdentifierValue(identifiers.imei),
+                },
+              ])
+            }
+          }
 
           for (const [optionName, optionValue] of Object.entries(
             variant.optionValues || {},

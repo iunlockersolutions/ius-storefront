@@ -8,6 +8,11 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { requireStaff } from "@/lib/auth/rbac"
 
+export const metadata = {
+  title: "Inventory History",
+  description: "Review inventory transactions for a tracked variant.",
+}
+
 interface PageProps {
   params: Promise<{ id: string }>
   searchParams: Promise<{ page?: string }>
@@ -45,10 +50,10 @@ export default async function InventoryHistoryPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Stock Movements</CardTitle>
+          <CardTitle>Inventory Transactions</CardTitle>
         </CardHeader>
         <CardContent>
-          <MovementHistoryPageClient inventoryItemId={id} page={currentPage} />
+          <MovementHistoryPageClient variantId={id} page={currentPage} />
         </CardContent>
       </Card>
     </div>

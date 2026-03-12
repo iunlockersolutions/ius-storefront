@@ -1,0 +1,127 @@
+"use client"
+
+import { ProductEditorForm } from "@/components/admin/products/product-editor-form"
+import type { AdminProductDetail } from "@/lib/types/admin-product"
+
+interface Category {
+  id: string
+  name: string
+  slug: string
+  parentId: string | null
+  level: number
+  path: string
+  optionTemplates: Array<{
+    id: string
+    name: string
+    sortOrder: number
+  }>
+}
+
+interface Brand {
+  id: string
+  name: string
+  slug: string
+}
+
+interface Model {
+  id: string
+  name: string
+  slug: string
+  primaryCategoryId: string
+  brandId: string
+  isActive: boolean
+}
+
+interface NewProductFormProps {
+  categories: Category[]
+  brands: Brand[]
+  models: Model[]
+}
+
+export function NewProductForm({
+  categories,
+  brands,
+  models,
+}: NewProductFormProps) {
+  return (
+    <ProductEditorForm
+      categories={categories}
+      brands={brands}
+      models={models}
+      initialData={{
+        id: "",
+        name: "",
+        slug: "",
+        description: null,
+        shortDescription: null,
+        brandId: null,
+        primaryCategoryId: null,
+        modelId: null,
+        status: "draft",
+        draftStep: "basics",
+        isFeatured: false,
+        metaTitle: null,
+        metaDescription: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        categories: [],
+        options: [],
+        variants: [],
+        images: [],
+        workflow: {
+          canPublish: false,
+          errors: ["Save the draft to run final publish validation."],
+        },
+      }}
+      onSave={async (productId, { images: _images, ...payload }) => {
+        const response = await fetch(
+          productId
+            ? `/api/admin/products/${productId}`
+            : "/api/admin/products",
+          {
+            method: productId ? "PATCH" : "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+          },
+        )
+
+        if (!response.ok) {
+          const errorBody = await response.json().catch(() => null)
+          throw new Error(
+            errorBody?.error?.message ||
+              errorBody?.error ||
+              "Failed to save product draft",
+          )
+        }
+
+        const body = await response.json()
+        return body.data ?? null
+      }}
+      onPublish={async (productId) => {
+        const response = await fetch(
+          `/api/admin/products/${productId}/publish`,
+          {
+            method: "POST",
+          },
+        )
+
+        if (!response.ok) {
+          const errorBody = await response.json().catch(() => null)
+          const errors = errorBody?.error?.details?.errors
+          throw new Error(
+            Array.isArray(errors) && errors.length > 0
+              ? errors.join("\n")
+              : errorBody?.error?.message ||
+                  errorBody?.error ||
+                  "Failed to publish product",
+          )
+        }
+
+        const body = await response.json()
+        return (body.data ?? null) as AdminProductDetail | null
+      }}
+    />
+  )
+}

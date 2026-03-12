@@ -6,6 +6,7 @@ import {
   getLowStockAlerts,
 } from "@/lib/actions/inventory"
 import { requireAdminApiPermission } from "@/lib/auth/admin-api"
+import type { AdminInventoryStatus } from "@/lib/types/admin-inventory"
 import { mapErrorToApi, ok } from "@/lib/utils/api-response"
 
 function parsePositiveNumber(value: string | null, fallback: number) {
@@ -29,7 +30,7 @@ function parseStockStatus(value: string | null) {
     return value
   }
 
-  return "all" as const
+  return "all" as AdminInventoryStatus
 }
 
 export async function GET(request: NextRequest) {

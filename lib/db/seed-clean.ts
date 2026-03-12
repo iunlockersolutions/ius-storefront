@@ -5,8 +5,11 @@ import {
   brandCategoryAssignments,
   brands,
   categories,
-  inventoryItems,
-  inventoryMovements,
+  inventoryLevels,
+  inventoryLocations,
+  inventoryTransactions,
+  inventoryUnitIdentifiers,
+  inventoryUnits,
   models,
   productAttributes,
   productAttributeValues,
@@ -34,13 +37,33 @@ async function cleanSeed() {
   console.log("🧹 Starting database cleanup...\n")
 
   try {
-    console.log("🗑️  Deleting inventory movements...")
-    const deletedMovements = await db.delete(inventoryMovements).returning()
-    console.log(`  ✅ Deleted ${deletedMovements.length} inventory movements`)
+    console.log("🗑️  Deleting inventory unit identifiers...")
+    const deletedUnitIdentifiers = await db
+      .delete(inventoryUnitIdentifiers)
+      .returning()
+    console.log(
+      `  ✅ Deleted ${deletedUnitIdentifiers.length} inventory unit identifiers`,
+    )
 
-    console.log("🗑️  Deleting inventory items...")
-    const deletedInventory = await db.delete(inventoryItems).returning()
-    console.log(`  ✅ Deleted ${deletedInventory.length} inventory items`)
+    console.log("🗑️  Deleting inventory units...")
+    const deletedUnits = await db.delete(inventoryUnits).returning()
+    console.log(`  ✅ Deleted ${deletedUnits.length} inventory units`)
+
+    console.log("🗑️  Deleting inventory transactions...")
+    const deletedTransactions = await db
+      .delete(inventoryTransactions)
+      .returning()
+    console.log(
+      `  ✅ Deleted ${deletedTransactions.length} inventory transactions`,
+    )
+
+    console.log("🗑️  Deleting inventory levels...")
+    const deletedLevels = await db.delete(inventoryLevels).returning()
+    console.log(`  ✅ Deleted ${deletedLevels.length} inventory levels`)
+
+    console.log("🗑️  Deleting inventory locations...")
+    const deletedLocations = await db.delete(inventoryLocations).returning()
+    console.log(`  ✅ Deleted ${deletedLocations.length} inventory locations`)
 
     console.log("🗑️  Deleting product variant option values...")
     const deletedVariantSelections = await db

@@ -5,12 +5,7 @@ import {
   auditAdminMutation,
   requireAdminApiPermission,
 } from "@/lib/auth/admin-api"
-import {
-  fail,
-  failFromMessage,
-  mapErrorToApi,
-  ok,
-} from "@/lib/utils/api-response"
+import { fail, mapErrorToApi, ok } from "@/lib/utils/api-response"
 
 interface RouteProps {
   params: Promise<{ id: string }>
@@ -34,21 +29,14 @@ export async function POST(request: NextRequest, { params }: RouteProps) {
     }
 
     const result = await adjustStock({
-      inventoryItemId: id,
+      variantId: id,
       adjustment: body.adjustment,
       reason: body.reason,
     })
 
-    if (!result.success) {
-      return failFromMessage(
-        result.error || "Failed to adjust stock",
-        "BAD_REQUEST",
-      )
-    }
-
     await auditAdminMutation({
       action: "inventory.adjust",
-      entityType: "inventory_item",
+      entityType: "inventory_variant",
       entityId: id,
       details: {
         adjustment: body.adjustment,

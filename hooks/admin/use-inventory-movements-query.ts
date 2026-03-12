@@ -2,53 +2,26 @@
 
 import { useQuery } from "@tanstack/react-query"
 
-interface Movement {
-  id: string
-  type: string
-  quantity: number
-  previousQuantity: number
-  newQuantity: number
-  referenceType: string | null
-  referenceId: string | null
-  notes: string | null
-  createdAt: string | Date
-  inventoryItemId: string
-  variantName: string
-  variantSku: string
-  productName: string
-}
-
-interface MovementsResponse {
-  movements: Movement[]
-  pagination: {
-    page: number
-    limit: number
-    total: number
-    totalPages: number
-  }
-}
+import type { AdminInventoryMovementResponse } from "@/lib/types/admin-inventory"
+import { queryKeys } from "@/lib/utils/query-keys"
 
 export function useInventoryMovementsQuery(params: {
-  inventoryItemId: string
+  variantId: string
   page: number
   limit?: number
 }) {
   return useQuery({
-    queryKey: [
-      "admin",
-      "inventory",
-      "movements",
-      params.inventoryItemId,
-      params.page,
-      params.limit ?? 20,
-    ],
-    queryFn: async (): Promise<MovementsResponse> => {
+    queryKey: queryKeys.admin.inventoryMovements(params.variantId, {
+      page: params.page,
+      limit: params.limit ?? 20,
+    }),
+    queryFn: async (): Promise<AdminInventoryMovementResponse> => {
       const searchParams = new URLSearchParams()
       searchParams.set("page", String(params.page))
       searchParams.set("limit", String(params.limit ?? 20))
 
       const response = await fetch(
-        `/api/admin/inventory/${params.inventoryItemId}/movements?${searchParams.toString()}`,
+        `/api/admin/inventory/${params.variantId}/movements?${searchParams.toString()}`,
       )
 
       if (!response.ok) {
@@ -61,9 +34,9 @@ export function useInventoryMovementsQuery(params: {
       }
 
       const body = await response.json()
-      return body.data as MovementsResponse
+      return body.data as AdminInventoryMovementResponse
     },
-    enabled: Boolean(params.inventoryItemId),
+    enabled: Boolean(params.variantId),
     staleTime: 60_000,
   })
 }

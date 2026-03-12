@@ -1,52 +1,55 @@
 "use client"
 
-import { AlertTriangle, Lock, Package, XCircle } from "lucide-react"
+import { AlertTriangle, Boxes, Lock, Package, ScanBarcode } from "lucide-react"
 
 import { Card, CardContent } from "@/components/ui/card"
+import type { AdminInventoryStats as AdminInventoryStatsData } from "@/lib/types/admin-inventory"
 
 interface InventoryStatsProps {
-  stats: {
-    totalItems: number
-    lowStockItems: number
-    outOfStockItems: number
-    totalReserved: number
-  }
+  stats: AdminInventoryStatsData
 }
 
 export function InventoryStats({ stats }: InventoryStatsProps) {
   const statCards = [
     {
       title: "Total SKUs",
-      value: stats.totalItems,
+      value: stats.totalTrackedVariants,
       icon: Package,
       color: "text-blue-600",
       bgColor: "bg-blue-100",
     },
     {
       title: "Low Stock",
-      value: stats.lowStockItems,
+      value: stats.lowStockVariants,
       icon: AlertTriangle,
       color: "text-yellow-600",
       bgColor: "bg-yellow-100",
     },
     {
-      title: "Out of Stock",
-      value: stats.outOfStockItems,
-      icon: XCircle,
-      color: "text-red-600",
-      bgColor: "bg-red-100",
+      title: "Serialized",
+      value: stats.serialTrackedVariants,
+      icon: ScanBarcode,
+      color: "text-sky-600",
+      bgColor: "bg-sky-100",
     },
     {
-      title: "Reserved",
-      value: stats.totalReserved,
+      title: "Available",
+      value: stats.totalAvailable,
       icon: Lock,
-      color: "text-purple-600",
-      bgColor: "bg-purple-100",
+      color: "text-emerald-600",
+      bgColor: "bg-emerald-100",
+    },
+    {
+      title: "On Hand",
+      value: stats.totalOnHand,
+      icon: Boxes,
+      color: "text-violet-600",
+      bgColor: "bg-violet-100",
     },
   ]
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
       {statCards.map((stat) => (
         <Card key={stat.title}>
           <CardContent className="flex items-center gap-4 p-6">

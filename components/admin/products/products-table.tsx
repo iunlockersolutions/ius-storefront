@@ -1,10 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
-import { Eye, MoreHorizontal, Pencil, Search, Trash2 } from "lucide-react"
+import { Eye, MoreHorizontal, Pencil, Plus, Search, Trash2 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -39,10 +39,12 @@ interface Product {
   slug: string
   basePrice: string
   status: "draft" | "active" | "archived"
+  draftStep: "basics" | "organization" | "media" | "options" | "review"
   isFeatured: boolean
   brandName: string | null
   primaryCategoryName: string | null
   createdAt: string | Date
+  updatedAt: string | Date
 }
 
 interface ProductsTableProps {
@@ -69,10 +71,19 @@ export function ProductsTable({
   onRefetch,
 }: ProductsTableProps) {
   const router = useRouter()
-  const [searchInput, setSearchInput] = useState(search)
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
   const deleteProductMutation = useDeleteProductMutation()
 
+  const draftStepLabels = {
+    basics: "Basics",
+    organization: "Organization",
+    media: "Media",
+    options: "Options & Variants",
+    review: "Review",
+  } as const
+
   const handleSearch = () => {
+    const searchInput = searchInputRef.current?.value.trim() || ""
     const params = new URLSearchParams()
     if (searchInput) params.set("search", searchInput)
     if (status) params.set("status", status)
@@ -119,9 +130,10 @@ export function ProductsTable({
       <div className="flex gap-4">
         <div className="flex flex-1 gap-2">
           <Input
+            key={search}
+            ref={searchInputRef}
             placeholder="Search products..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
+            defaultValue={search}
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
             className="max-w-sm"
           />
@@ -140,6 +152,12 @@ export function ProductsTable({
             <SelectItem value="archived">Archived</SelectItem>
           </SelectContent>
         </Select>
+        <Button asChild>
+          <Link href="/ops/products/new">
+            <Plus className="h-4 w-4" />
+            Create Product
+          </Link>
+        </Button>
       </div>
 
       {errorMessage && (
@@ -190,6 +208,16 @@ export function ProductsTable({
                       <div className="text-sm text-neutral-500">
                         {product.slug}
                       </div>
+                      {product.status === "draft" ? (
+                        <div className="text-xs text-neutral-500">
+                          Resume at {draftStepLabels[product.draftStep]} · Last
+                          saved{" "}
+                          {new Intl.DateTimeFormat(undefined, {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          }).format(new Date(product.updatedAt))}
+                        </div>
+                      ) : null}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -236,7 +264,9 @@ export function ProductsTable({
                         <DropdownMenuItem asChild>
                           <Link href={`/ops/products/${product.id}/edit`}>
                             <Pencil className="mr-2 h-4 w-4" />
-                            Edit
+                            {product.status === "draft"
+                              ? "Resume Draft"
+                              : "Edit"}
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem

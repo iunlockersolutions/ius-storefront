@@ -9,16 +9,16 @@ import {
 import { useInventoryMovementsQuery } from "@/hooks/admin/use-inventory-movements-query"
 
 interface MovementHistoryPageClientProps {
-  inventoryItemId: string
+  variantId: string
   page: number
 }
 
 export function MovementHistoryPageClient({
-  inventoryItemId,
+  variantId,
   page,
 }: MovementHistoryPageClientProps) {
   const movementsQuery = useInventoryMovementsQuery({
-    inventoryItemId,
+    variantId,
     page,
     limit: 20,
   })

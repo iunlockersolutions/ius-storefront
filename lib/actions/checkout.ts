@@ -6,6 +6,10 @@ import { cookies } from "next/headers"
 import { eq } from "drizzle-orm"
 import { nanoid } from "nanoid"
 
+import {
+  getVariantInventoryAvailabilityMap,
+  reserveInventory,
+} from "@/lib/actions/inventory"
 import { getServerSession } from "@/lib/auth/rbac"
 import { db } from "@/lib/db"
 import {
@@ -13,8 +17,6 @@ import {
   carts,
   customerAddresses,
   customerProfiles,
-  inventoryItems,
-  inventoryMovements,
   orderItems,
   orders,
   orderStatusHistory,
@@ -104,7 +106,6 @@ export async function validateCartForCheckout(): Promise<CartValidationResult> {
       variant: {
         with: {
           product: true,
-          inventory: true,
         },
       },
     },
@@ -117,12 +118,16 @@ export async function validateCartForCheckout(): Promise<CartValidationResult> {
   const errors: string[] = []
   const validatedItems = []
   let subtotal = 0
+  const availabilityByVariant = await getVariantInventoryAvailabilityMap(
+    items.map((item) => item.variant.id),
+  )
 
   for (const item of items) {
-    const availableQuantity = item.variant.inventory
-      ? item.variant.inventory.quantity -
-        item.variant.inventory.reservedQuantity
-      : 0
+    const availability = availabilityByVariant.get(item.variant.id)
+    const managesInventory = availability?.manageInventory ?? false
+    const availableQuantity = managesInventory
+      ? (availability?.availableQuantity ?? 0)
+      : Number.MAX_SAFE_INTEGER
 
     // Check if product is still active
     if (item.variant.product.status !== "active") {
@@ -163,6 +168,7 @@ export async function validateCartForCheckout(): Promise<CartValidationResult> {
       productName: item.variant.product.name,
       productSlug: item.variant.product.slug,
       productStatus: item.variant.product.status,
+      manageInventory: managesInventory,
       availableQuantity,
     })
   }
@@ -265,35 +271,17 @@ export async function createOrder(
           sku: item.variantSku,
         })
 
-        // 3. Reserve inventory
-        const [inventory] = await tx
-          .select()
-          .from(inventoryItems)
-          .where(eq(inventoryItems.variantId, item.variantId))
-          .for("update")
-
-        if (inventory) {
-          const newReserved = inventory.reservedQuantity + item.quantity
-
-          await tx
-            .update(inventoryItems)
-            .set({
-              reservedQuantity: newReserved,
-              updatedAt: new Date(),
-            })
-            .where(eq(inventoryItems.id, inventory.id))
-
-          // Record inventory movement
-          await tx.insert(inventoryMovements).values({
-            inventoryItemId: inventory.id,
-            type: "reserved",
-            quantity: -item.quantity,
-            previousQuantity: inventory.quantity - inventory.reservedQuantity,
-            newQuantity: inventory.quantity - newReserved,
-            referenceType: "order",
-            referenceId: order.id,
-            notes: `Reserved for order ${orderNumber}`,
-          })
+        if (item.manageInventory) {
+          await reserveInventory(
+            {
+              variantId: item.variantId,
+              quantity: item.quantity,
+              referenceType: "order",
+              referenceId: order.id,
+              notes: `Reserved for order ${orderNumber}`,
+            },
+            { tx },
+          )
         }
       }
 

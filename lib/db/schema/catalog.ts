@@ -12,8 +12,12 @@ import {
   uuid,
 } from "drizzle-orm/pg-core"
 
-import { productStatusEnum } from "./enums"
-import { inventoryItems } from "./inventory"
+import {
+  inventoryTrackingModeEnum,
+  productDraftStepEnum,
+  productStatusEnum,
+} from "./enums"
+import { inventoryLevels } from "./inventory"
 
 /**
  * Brands - First-class catalog brands.
@@ -220,6 +224,7 @@ export const products = pgTable(
     compareAtPrice: decimal("compare_at_price", { precision: 10, scale: 2 }),
     costPrice: decimal("cost_price", { precision: 10, scale: 2 }),
     status: productStatusEnum("status").notNull().default("draft"),
+    draftStep: productDraftStepEnum("draft_step").notNull().default("basics"),
     isFeatured: boolean("is_featured").notNull().default(false),
     metaTitle: text("meta_title"),
     metaDescription: text("meta_description"),
@@ -236,6 +241,7 @@ export const products = pgTable(
     index("products_primary_category_id_idx").on(table.primaryCategoryId),
     index("products_model_id_idx").on(table.modelId),
     index("products_status_idx").on(table.status),
+    index("products_draft_step_idx").on(table.draftStep),
     index("products_is_featured_idx").on(table.isFeatured),
   ],
 )
@@ -253,6 +259,8 @@ export const productCategoryAssignments = pgTable(
     categoryId: uuid("category_id")
       .notNull()
       .references(() => categories.id, { onDelete: "cascade" }),
+    isPrimary: boolean("is_primary").notNull().default(false),
+    sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -341,6 +349,10 @@ export const productVariants = pgTable(
     weight: decimal("weight", { precision: 10, scale: 3 }),
     isDefault: boolean("is_default").notNull().default(false),
     isActive: boolean("is_active").notNull().default(true),
+    manageInventory: boolean("manage_inventory").notNull().default(true),
+    inventoryTrackingMode: inventoryTrackingModeEnum("inventory_tracking_mode")
+      .notNull()
+      .default("quantity"),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -583,10 +595,7 @@ export const productVariantsRelations = relations(
     }),
     optionSelections: many(productVariantOptionValues),
     images: many(productImages),
-    inventory: one(inventoryItems, {
-      fields: [productVariants.id],
-      references: [inventoryItems.variantId],
-    }),
+    levels: many(inventoryLevels),
   }),
 )
 

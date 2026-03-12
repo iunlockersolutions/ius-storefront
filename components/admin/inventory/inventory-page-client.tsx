@@ -29,10 +29,15 @@ export function InventoryPageClient({
       <InventoryStats
         stats={
           inventoryQuery.data?.stats ?? {
-            totalItems: 0,
-            lowStockItems: 0,
-            outOfStockItems: 0,
+            totalTrackedVariants: 0,
+            quantityTrackedVariants: 0,
+            serialTrackedVariants: 0,
+            lowStockVariants: 0,
+            outOfStockVariants: 0,
+            totalOnHand: 0,
+            totalAvailable: 0,
             totalReserved: 0,
+            totalAllocated: 0,
           }
         }
       />
@@ -45,6 +50,7 @@ export function InventoryPageClient({
             </CardHeader>
             <CardContent>
               <InventoryTable
+                key={`${search}:${stockStatus}:${page}`}
                 items={inventoryQuery.data?.inventory.items ?? []}
                 pagination={
                   inventoryQuery.data?.inventory.pagination ?? {

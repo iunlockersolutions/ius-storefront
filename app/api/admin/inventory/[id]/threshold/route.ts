@@ -5,12 +5,7 @@ import {
   auditAdminMutation,
   requireAdminApiPermission,
 } from "@/lib/auth/admin-api"
-import {
-  fail,
-  failFromMessage,
-  mapErrorToApi,
-  ok,
-} from "@/lib/utils/api-response"
+import { fail, mapErrorToApi, ok } from "@/lib/utils/api-response"
 
 interface RouteProps {
   params: Promise<{ id: string }>
@@ -29,16 +24,9 @@ export async function PATCH(request: NextRequest, { params }: RouteProps) {
 
     const result = await updateLowStockThreshold(id, body.threshold)
 
-    if (!result.success) {
-      return failFromMessage(
-        result.error || "Failed to update low stock threshold",
-        "BAD_REQUEST",
-      )
-    }
-
     await auditAdminMutation({
       action: "inventory.adjust",
-      entityType: "inventory_item",
+      entityType: "inventory_variant",
       entityId: id,
       details: {
         threshold: body.threshold,

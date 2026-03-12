@@ -6,6 +6,10 @@ import {
   useUpdateProductImagesMutation,
   useUpdateProductMutation,
 } from "@/hooks/admin/use-update-product-mutations"
+import type {
+  AdminProductDetail,
+  AdminProductImage,
+} from "@/lib/types/admin-product"
 
 interface Category {
   id: string
@@ -36,66 +40,14 @@ interface Model {
   isActive: boolean
 }
 
-interface Product {
-  id: string
-  name: string
-  slug: string
-  description: string | null
-  shortDescription: string | null
-  brandId: string | null
-  primaryCategoryId: string | null
-  modelId: string | null
-  status: "draft" | "active" | "archived"
-  isFeatured: boolean
-  metaTitle: string | null
-  metaDescription: string | null
-  categories: Array<{ id: string }>
-  options: Array<{
-    id: string
-    name: string
-    values: Array<{
-      id: string
-      value: string
-    }>
-  }>
-  variants: Array<{
-    id: string
-    sku: string
-    name: string
-    price: string
-    compareAtPrice: string | null
-    costPrice: string | null
-    weight: string | null
-    isDefault: boolean
-    isActive: boolean
-    inventory?: {
-      quantity: number
-      reservedQuantity: number
-      lowStockThreshold: number | null
-    } | null
-    selections?: Array<{
-      optionName: string
-      optionValue: string
-    }>
-  }>
-}
-
-interface ProductImage {
-  id: string
-  url: string
-  altText: string | null
-  variantId?: string | null
-  isPrimary: boolean
-}
-
-const EMPTY_IMAGES: ProductImage[] = []
+const EMPTY_IMAGES: AdminProductImage[] = []
 
 interface EditProductFormProps {
-  product: Product
+  product: AdminProductDetail
   categories: Category[]
   brands: Brand[]
   models: Model[]
-  images?: ProductImage[]
+  images?: AdminProductImage[]
 }
 
 export function EditProductForm({
@@ -131,6 +83,29 @@ export function EditProductForm({
       }}
       onDelete={async () => {
         await deleteProductMutation.mutateAsync(product.id)
+      }}
+      onPublish={async (productId) => {
+        const response = await fetch(
+          `/api/admin/products/${productId}/publish`,
+          {
+            method: "POST",
+          },
+        )
+
+        if (!response.ok) {
+          const errorBody = await response.json().catch(() => null)
+          const errors = errorBody?.error?.details?.errors
+          throw new Error(
+            Array.isArray(errors) && errors.length > 0
+              ? errors.join("\n")
+              : errorBody?.error?.message ||
+                  errorBody?.error ||
+                  "Failed to publish product",
+          )
+        }
+
+        const body = await response.json()
+        return body.data ?? null
       }}
     />
   )

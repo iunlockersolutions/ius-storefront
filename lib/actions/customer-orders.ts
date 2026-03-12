@@ -11,6 +11,7 @@ import {
   payments,
   productImages,
 } from "@/lib/db/schema"
+import { releaseOrderInventoryReservationsTx } from "@/lib/orders/inventory-reservations"
 
 // ============================================
 // Get Customer Orders
@@ -199,28 +200,31 @@ export async function cancelCustomerOrder(orderId: string, reason?: string) {
     }
   }
 
-  // Update order status
-  await db
-    .update(orders)
-    .set({
-      status: "cancelled",
-      updatedAt: new Date(),
+  await db.transaction(async (tx) => {
+    await releaseOrderInventoryReservationsTx(
+      tx,
+      orderId,
+      "Released after customer cancellation",
+    )
+
+    await tx
+      .update(orders)
+      .set({
+        status: "cancelled",
+        updatedAt: new Date(),
+      })
+      .where(eq(orders.id, orderId))
+
+    await tx.insert(orderStatusHistory).values({
+      orderId,
+      fromStatus: order.status,
+      toStatus: "cancelled",
+      notes: reason
+        ? `Customer requested cancellation: ${reason}`
+        : "Cancelled by customer",
+      changedBy: session.user.id,
     })
-    .where(eq(orders.id, orderId))
-
-  // Record status change
-  await db.insert(orderStatusHistory).values({
-    orderId,
-    fromStatus: order.status,
-    toStatus: "cancelled",
-    notes: reason
-      ? `Customer requested cancellation: ${reason}`
-      : "Cancelled by customer",
-    changedBy: session.user.id,
   })
-
-  // TODO: Release reserved inventory if order was paid
-  // TODO: Initiate refund if payment was made
 
   return { success: true }
 }

@@ -7,23 +7,10 @@ import { AlertTriangle, ArrowRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-
-interface LowStockItem {
-  id: string
-  variantId: string
-  quantity: number
-  reservedQuantity: number
-  lowStockThreshold: number | null
-  availableQuantity: number
-  isOutOfStock: boolean
-  variantName: string
-  variantSku: string
-  productName: string
-  productSlug: string
-}
+import type { AdminInventoryLowStockAlert } from "@/lib/types/admin-inventory"
 
 interface LowStockAlertsProps {
-  alerts: LowStockItem[]
+  alerts: AdminInventoryLowStockAlert[]
 }
 
 export function LowStockAlerts({ alerts }: LowStockAlertsProps) {
@@ -38,7 +25,7 @@ export function LowStockAlerts({ alerts }: LowStockAlertsProps) {
         </CardHeader>
         <CardContent>
           <p className="text-center text-muted-foreground py-4">
-            All items are well stocked! 🎉
+            All tracked variants are above threshold.
           </p>
         </CardContent>
       </Card>
@@ -61,13 +48,13 @@ export function LowStockAlerts({ alerts }: LowStockAlertsProps) {
       <CardContent className="space-y-3">
         {alerts.map((item) => (
           <div
-            key={item.id}
+            key={item.variantId}
             className="flex items-center justify-between p-3 rounded-lg border bg-muted/30"
           >
             <div className="min-w-0 flex-1">
               <p className="font-medium truncate">{item.productName}</p>
               <p className="text-sm text-muted-foreground truncate">
-                {item.variantSku}
+                {item.variantSku} • {item.trackingMode}
               </p>
             </div>
             <div className="flex items-center gap-2 ml-2">
