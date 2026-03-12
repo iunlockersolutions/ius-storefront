@@ -2,8 +2,9 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 
-import { Eye, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
+import { Eye, MoreHorizontal, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
 import {
@@ -56,6 +57,7 @@ export function BrandsTable({
   errorMessage = null,
   onRefetch,
 }: BrandsTableProps) {
+  const router = useRouter()
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const deleteBrandMutation = useDeleteBrandMutation()
@@ -121,7 +123,19 @@ export function BrandsTable({
               </TableRow>
             ) : (
               brands.map((brand) => (
-                <TableRow key={brand.id}>
+                <TableRow
+                  key={brand.id}
+                  role="link"
+                  tabIndex={0}
+                  className="cursor-pointer outline-none focus-visible:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring"
+                  onClick={() => router.push(`/ops/brands/${brand.id}`)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault()
+                      router.push(`/ops/brands/${brand.id}`)
+                    }
+                  }}
+                >
                   <TableCell className="font-medium">{brand.name}</TableCell>
                   <TableCell className="text-neutral-500">
                     {brand.slug}
@@ -139,10 +153,15 @@ export function BrandsTable({
                   </TableCell>
                   <TableCell>{brand.productCount}</TableCell>
                   <TableCell>{brand.sortOrder}</TableCell>
-                  <TableCell>
+                  <TableCell onClick={(event) => event.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-10 gap-2 px-3">
+                        <Button
+                          variant="ghost"
+                          className="h-10 gap-2 px-3"
+                          onClick={(event) => event.stopPropagation()}
+                          onKeyDown={(event) => event.stopPropagation()}
+                        >
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -153,14 +172,8 @@ export function BrandsTable({
                             View
                           </Link>
                         </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link href={`/ops/brands/${brand.id}`}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Edit
-                          </Link>
-                        </DropdownMenuItem>
                         <DropdownMenuItem
-                          className="text-red-600"
+                          variant="destructive"
                           onClick={() => setDeleteId(brand.id)}
                         >
                           <Trash2 className="mr-2 h-4 w-4" />

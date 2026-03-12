@@ -1,17 +1,18 @@
-import { redirect } from "next/navigation"
+import { EditProductModelGroupPageClient } from "@/app/ops/product-model-groups/[id]/page-client"
 
 interface ProductModelGroupPageProps {
   params: Promise<{ id: string }>
 }
 
 export const metadata = {
-  title: "Edit Model | Operations",
-  description: "Update model details.",
+  title: "Model Details | Operations",
+  description: "Review and update model details by section.",
 }
 
-export default async function EditProductModelGroupPage({
+export default async function ProductModelGroupDetailsPage({
   params,
 }: ProductModelGroupPageProps) {
   const { id } = await params
-  redirect(`/ops/catalog-setup?tab=models&model=${id}`)
+
+  return <EditProductModelGroupPageClient modelId={id} />
 }

@@ -38,6 +38,7 @@ export interface MutationInvalidationContext {
   brandId?: string
   categoryId?: string
   customerId?: string
+  modelId?: string
   orderId?: string
 }
 
@@ -69,8 +70,16 @@ function getInvalidationTargets(
 
     case "model.create":
     case "model.delete":
-    case "model.update":
       return [queryKeys.admin.models(), queryKeys.admin.products()]
+
+    case "model.update":
+      return context.modelId
+        ? [
+            queryKeys.admin.models(),
+            queryKeys.admin.model(context.modelId),
+            queryKeys.admin.products(),
+          ]
+        : [queryKeys.admin.models(), queryKeys.admin.products()]
 
     case "review.moderate":
     case "review.bulkModerate":

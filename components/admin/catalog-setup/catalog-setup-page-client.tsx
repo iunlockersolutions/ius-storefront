@@ -4,12 +4,29 @@ import { useMemo, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 
-import { Pencil, Plus } from "lucide-react"
+import { Eye, MoreHorizontal, Plus, Trash2 } from "lucide-react"
+import { toast } from "sonner"
 
-import { BrandEditorForm } from "@/components/admin/brands/brand-editor-form"
-import { ProductModelGroupForm } from "@/components/admin/product-model-groups/product-model-group-form"
+import { BrandCreateDialog } from "@/components/admin/catalog-setup/brand-create-dialog"
+import { ModelCreateDialog } from "@/components/admin/catalog-setup/model-create-dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import {
   Table,
@@ -20,13 +37,8 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  useCreateBrandMutation,
-  useDeleteBrandMutation,
-  useUpdateBrandMutation,
-} from "@/hooks/admin/use-brand-mutations"
-
-import { ResponsiveEditorPanel } from "./responsive-editor-panel"
+import { useDeleteBrandMutation } from "@/hooks/admin/use-brand-mutations"
+import { useDeleteProductModelGroupMutation } from "@/hooks/admin/use-product-model-group-mutations"
 
 type CategoryOption = {
   id: string
@@ -75,9 +87,11 @@ type ModelRow = {
 
 type CatalogTab = "brands" | "models"
 
-type EditorState =
-  | { kind: "brand"; mode: "create" | "edit"; id?: string }
-  | { kind: "model"; mode: "create" | "edit"; id?: string }
+type CreateState = { kind: "brand" | "model" } | null
+
+type DeleteState =
+  | { kind: "brand"; id: string; name: string }
+  | { kind: "model"; id: string; name: string }
   | null
 
 interface CatalogSetupPageClientProps {
@@ -85,8 +99,6 @@ interface CatalogSetupPageClientProps {
   brands: BrandRow[]
   models: ModelRow[]
   initialTab: CatalogTab
-  initialBrandId?: string | null
-  initialModelId?: string | null
   initialCreate?: "brand" | "model" | null
 }
 
@@ -95,8 +107,6 @@ export function CatalogSetupPageClient({
   brands,
   models,
   initialTab,
-  initialBrandId,
-  initialModelId,
   initialCreate,
 }: CatalogSetupPageClientProps) {
   const router = useRouter()
@@ -106,42 +116,20 @@ export function CatalogSetupPageClient({
   const [activeTab, setActiveTab] = useState<CatalogTab>(initialTab)
   const [brandQuery, setBrandQuery] = useState("")
   const [modelQuery, setModelQuery] = useState("")
-  const [editorState, setEditorState] = useState<EditorState>(() => {
+  const [createState, setCreateState] = useState<CreateState>(() => {
     if (initialCreate === "brand") {
-      return { kind: "brand", mode: "create" }
+      return { kind: "brand" }
     }
 
     if (initialCreate === "model") {
-      return { kind: "model", mode: "create" }
-    }
-
-    if (initialBrandId && brands.some((brand) => brand.id === initialBrandId)) {
-      return { kind: "brand", mode: "edit", id: initialBrandId }
-    }
-
-    if (initialModelId && models.some((model) => model.id === initialModelId)) {
-      return { kind: "model", mode: "edit", id: initialModelId }
+      return { kind: "model" }
     }
 
     return null
   })
-
-  const createBrandMutation = useCreateBrandMutation()
+  const [deleteState, setDeleteState] = useState<DeleteState>(null)
   const deleteBrandMutation = useDeleteBrandMutation()
-  const updateBrandMutation = useUpdateBrandMutation(
-    editorState?.kind === "brand" && editorState.mode === "edit"
-      ? editorState.id || ""
-      : "",
-  )
-
-  const selectedBrand =
-    editorState?.kind === "brand" && editorState.mode === "edit"
-      ? (brands.find((brand) => brand.id === editorState.id) ?? null)
-      : null
-  const selectedModel =
-    editorState?.kind === "model" && editorState.mode === "edit"
-      ? (models.find((model) => model.id === editorState.id) ?? null)
-      : null
+  const deleteModelMutation = useDeleteProductModelGroupMutation()
 
   const brandOptionsForModels = useMemo(
     () =>
@@ -186,32 +174,14 @@ export function CatalogSetupPageClient({
 
   const syncSearchParams = (
     nextTab: CatalogTab,
-    nextEditorState: EditorState = null,
+    nextCreateState: CreateState = null,
   ) => {
     const params = new URLSearchParams(searchParams.toString())
     params.set("tab", nextTab)
-    params.delete("brand")
-    params.delete("model")
     params.delete("create")
 
-    if (nextEditorState?.mode === "create") {
-      params.set("create", nextEditorState.kind)
-    }
-
-    if (
-      nextEditorState?.mode === "edit" &&
-      nextEditorState.kind === "brand" &&
-      nextEditorState.id
-    ) {
-      params.set("brand", nextEditorState.id)
-    }
-
-    if (
-      nextEditorState?.mode === "edit" &&
-      nextEditorState.kind === "model" &&
-      nextEditorState.id
-    ) {
-      params.set("model", nextEditorState.id)
+    if (nextCreateState) {
+      params.set("create", nextCreateState.kind)
     }
 
     const nextQuery = params.toString()
@@ -220,8 +190,8 @@ export function CatalogSetupPageClient({
     })
   }
 
-  const openEditor = (nextState: Exclude<EditorState, null>) => {
-    setEditorState(nextState)
+  const openCreateDialog = (nextState: NonNullable<CreateState>) => {
+    setCreateState(nextState)
     setActiveTab(nextState.kind === "brand" ? "brands" : "models")
     syncSearchParams(
       nextState.kind === "brand" ? "brands" : "models",
@@ -229,35 +199,40 @@ export function CatalogSetupPageClient({
     )
   }
 
-  const closeEditor = () => {
-    setEditorState(null)
+  const closeCreateDialog = () => {
+    setCreateState(null)
     syncSearchParams(activeTab)
   }
 
   const handleTabChange = (value: string) => {
     const nextTab = value as CatalogTab
     setActiveTab(nextTab)
-    setEditorState(null)
+    setCreateState(null)
     syncSearchParams(nextTab)
   }
 
-  const panelTitle =
-    editorState?.kind === "brand"
-      ? editorState.mode === "create"
-        ? "Create Brand"
-        : `Edit Brand${selectedBrand ? `: ${selectedBrand.name}` : ""}`
-      : editorState?.kind === "model"
-        ? editorState.mode === "create"
-          ? "Create Model"
-          : `Edit Model${selectedModel ? `: ${selectedModel.name}` : ""}`
-        : ""
+  const handleDelete = async () => {
+    if (!deleteState) {
+      return
+    }
 
-  const panelDescription =
-    editorState?.kind === "brand"
-      ? "Manage brand details, category assignments, and storefront navigation defaults."
-      : editorState?.kind === "model"
-        ? "Manage model metadata, category placement, and storefront menu visibility."
-        : ""
+    try {
+      if (deleteState.kind === "brand") {
+        await deleteBrandMutation.mutateAsync(deleteState.id)
+        toast.success("Brand deleted successfully")
+      } else {
+        await deleteModelMutation.mutateAsync(deleteState.id)
+        toast.success("Model deleted successfully")
+      }
+
+      setDeleteState(null)
+      router.refresh()
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to delete item",
+      )
+    }
+  }
 
   return (
     <>
@@ -279,9 +254,8 @@ export function CatalogSetupPageClient({
 
             <Button
               onClick={() =>
-                openEditor({
+                openCreateDialog({
                   kind: activeTab === "brands" ? "brand" : "model",
-                  mode: "create",
                 })
               }
             >
@@ -329,7 +303,19 @@ export function CatalogSetupPageClient({
                   </TableRow>
                 ) : (
                   filteredBrands.map((brand) => (
-                    <TableRow key={brand.id}>
+                    <TableRow
+                      key={brand.id}
+                      role="link"
+                      tabIndex={0}
+                      className="cursor-pointer outline-none focus-visible:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring"
+                      onClick={() => router.push(`/ops/brands/${brand.id}`)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault()
+                          router.push(`/ops/brands/${brand.id}`)
+                        }
+                      }}
+                    >
                       <TableCell>
                         <div className="space-y-1">
                           <div className="font-medium">{brand.name}</div>
@@ -348,22 +334,47 @@ export function CatalogSetupPageClient({
                           {brand.isActive ? "Active" : "Inactive"}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            openEditor({
-                              kind: "brand",
-                              mode: "edit",
-                              id: brand.id,
-                            })
-                          }
-                        >
-                          <Pencil className="mr-2 size-4" />
-                          Edit
-                        </Button>
+                      <TableCell
+                        className="text-right"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              className="h-10 gap-2 px-3"
+                              aria-label={`Actions for ${brand.name}`}
+                              onClick={(event) => event.stopPropagation()}
+                              onKeyDown={(event) => event.stopPropagation()}
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild>
+                              <Link
+                                href={`/brands/${brand.slug}`}
+                                target="_blank"
+                              >
+                                <Eye className="mr-2 h-4 w-4" />
+                                View
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              variant="destructive"
+                              onClick={() =>
+                                setDeleteState({
+                                  kind: "brand",
+                                  id: brand.id,
+                                  name: brand.name,
+                                })
+                              }
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))
@@ -411,7 +422,19 @@ export function CatalogSetupPageClient({
                   </TableRow>
                 ) : (
                   filteredModels.map((model) => (
-                    <TableRow key={model.id}>
+                    <TableRow
+                      key={model.id}
+                      role="link"
+                      tabIndex={0}
+                      className="cursor-pointer outline-none focus-visible:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring"
+                      onClick={() => router.push(`/ops/models/${model.id}`)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault()
+                          router.push(`/ops/models/${model.id}`)
+                        }
+                      }}
+                    >
                       <TableCell>
                         <div className="space-y-1">
                           <div className="font-medium">{model.name}</div>
@@ -442,32 +465,47 @@ export function CatalogSetupPageClient({
                         </div>
                       </TableCell>
                       <TableCell>{model.productCount}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button variant="ghost" size="sm" asChild>
-                            <Link
-                              href={`/products/models/${model.slug}`}
-                              target="_blank"
+                      <TableCell
+                        className="text-right"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              className="h-10 gap-2 px-3"
+                              aria-label={`Actions for ${model.name}`}
+                              onClick={(event) => event.stopPropagation()}
+                              onKeyDown={(event) => event.stopPropagation()}
                             >
-                              View
-                            </Link>
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() =>
-                              openEditor({
-                                kind: "model",
-                                mode: "edit",
-                                id: model.id,
-                              })
-                            }
-                          >
-                            <Pencil className="mr-2 size-4" />
-                            Edit
-                          </Button>
-                        </div>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem asChild>
+                              <Link
+                                href={`/products/models/${model.slug}`}
+                                target="_blank"
+                              >
+                                <Eye className="mr-2 h-4 w-4" />
+                                View
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              variant="destructive"
+                              onClick={() =>
+                                setDeleteState({
+                                  kind: "model",
+                                  id: model.id,
+                                  name: model.name,
+                                })
+                              }
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))
@@ -478,49 +516,67 @@ export function CatalogSetupPageClient({
         </TabsContent>
       </Tabs>
 
-      <ResponsiveEditorPanel
-        open={Boolean(editorState)}
+      <BrandCreateDialog
+        open={createState?.kind === "brand"}
         onOpenChange={(open) => {
           if (!open) {
-            closeEditor()
+            closeCreateDialog()
           }
         }}
-        title={panelTitle}
-        description={panelDescription}
-      >
-        {editorState?.kind === "brand" ? (
-          <BrandEditorForm
-            mode={editorState.mode}
-            categories={categories}
-            initialData={selectedBrand ?? undefined}
-            redirectTo={null}
-            onCancel={closeEditor}
-            onCompleted={closeEditor}
-            onSave={(payload) =>
-              editorState.mode === "create"
-                ? createBrandMutation.mutateAsync(payload)
-                : updateBrandMutation.mutateAsync(payload)
-            }
-            onDelete={
-              selectedBrand
-                ? () => deleteBrandMutation.mutateAsync(selectedBrand.id)
-                : undefined
-            }
-          />
-        ) : null}
+        categories={categories}
+      />
 
-        {editorState?.kind === "model" ? (
-          <ProductModelGroupForm
-            mode={editorState.mode}
-            categories={categories}
-            brands={brandOptionsForModels}
-            initialData={selectedModel ?? undefined}
-            redirectTo={null}
-            onCancel={closeEditor}
-            onCompleted={closeEditor}
-          />
-        ) : null}
-      </ResponsiveEditorPanel>
+      <ModelCreateDialog
+        open={createState?.kind === "model"}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeCreateDialog()
+          }
+        }}
+        categories={categories}
+        brands={brandOptionsForModels}
+      />
+
+      <AlertDialog
+        open={Boolean(deleteState)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteState(null)
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete {deleteState?.kind === "brand" ? "brand" : "model"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteState?.kind === "brand"
+                ? `Delete ${deleteState.name}. Brands assigned to models or products must be cleaned up first.`
+                : `Delete ${deleteState?.name}. You must reassign or remove linked products before deleting this model.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              disabled={
+                deleteBrandMutation.isPending || deleteModelMutation.isPending
+              }
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={
+                deleteBrandMutation.isPending || deleteModelMutation.isPending
+              }
+            >
+              {deleteBrandMutation.isPending || deleteModelMutation.isPending
+                ? "Deleting..."
+                : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

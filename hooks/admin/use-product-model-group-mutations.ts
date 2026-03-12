@@ -76,7 +76,9 @@ export function useUpdateProductModelGroupMutation(groupId: string) {
       return response.json()
     },
     onSuccess: () => {
-      invalidateMutationCaches(queryClient, "model.update")
+      invalidateMutationCaches(queryClient, "model.update", {
+        modelId: groupId,
+      })
     },
   })
 }

@@ -14,8 +14,6 @@ export const metadata = {
 interface CatalogSetupPageProps {
   searchParams?: Promise<{
     tab?: string
-    brand?: string
-    model?: string
     create?: string
   }>
 }
@@ -44,8 +42,6 @@ async function CatalogSetupPageContent({
       brands={brands}
       models={models}
       initialTab={resolvedSearchParams.tab === "models" ? "models" : "brands"}
-      initialBrandId={resolvedSearchParams.brand ?? null}
-      initialModelId={resolvedSearchParams.model ?? null}
       initialCreate={
         resolvedSearchParams.create === "brand" ||
         resolvedSearchParams.create === "model"

@@ -204,6 +204,8 @@ export async function getModel(id: string) {
       showInProductMenu: models.showInProductMenu,
       navPriority: models.navPriority,
       isActive: models.isActive,
+      createdAt: models.createdAt,
+      updatedAt: models.updatedAt,
       productCount: sql<number>`(
         select count(*)::int
         from "products"

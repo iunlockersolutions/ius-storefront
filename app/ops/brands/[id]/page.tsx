@@ -1,15 +1,18 @@
-import { redirect } from "next/navigation"
+import { EditBrandPageClient } from "@/app/ops/brands/[id]/page-client"
 
-interface EditBrandPageProps {
+interface BrandDetailsPageProps {
   params: Promise<{ id: string }>
 }
 
 export const metadata = {
-  title: "Edit Brand | Operations",
-  description: "Edit brand details",
+  title: "Brand Details | Operations",
+  description: "Review and update brand details by section",
 }
 
-export default async function EditBrandPage({ params }: EditBrandPageProps) {
+export default async function BrandDetailsPage({
+  params,
+}: BrandDetailsPageProps) {
   const { id } = await params
-  redirect(`/ops/catalog-setup?tab=brands&brand=${id}`)
+
+  return <EditBrandPageClient brandId={id} />
 }

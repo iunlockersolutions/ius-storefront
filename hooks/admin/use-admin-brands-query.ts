@@ -17,6 +17,8 @@ export interface AdminBrand {
   metaDescription: string | null
   productCount: number
   modelCount?: number
+  createdAt?: string | Date
+  updatedAt?: string | Date
   categoryAssignments: Array<{
     categoryId: string
     categoryName: string
