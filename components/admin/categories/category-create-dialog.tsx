@@ -17,18 +17,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetTitle,
-} from "@/components/ui/sheet"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { Drawer, DrawerContent } from "@/components/ui/drawer"
 import { useIsMobile } from "@/hooks/use-mobile"
 
 interface CategoryCreateDialogCategory {
@@ -58,11 +48,16 @@ export function CategoryCreateDialog({
 }: CategoryCreateDialogProps) {
   const isMobile = useIsMobile()
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (nextOpen) {
       onOpenChange(true)
+      return
+    }
+
+    if (isSubmitting) {
       return
     }
 
@@ -82,54 +77,49 @@ export function CategoryCreateDialog({
 
   const content = (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
-        {isLoading ? (
+      {isLoading ? (
+        <div className="flex flex-1 items-center justify-center px-5 py-8 sm:px-7">
           <AdminQueryLoadingState
-            wrapperClassName="space-y-4"
-            skeletonClassName="h-96 w-full"
+            wrapperClassName="w-full max-w-3xl space-y-4"
+            skeletonClassName="h-[640px] w-full"
           />
-        ) : errorMessage ? (
-          <AdminQueryErrorState message={errorMessage} onRetry={onRetry} />
-        ) : (
-          <NewCategoryForm
-            categories={categories}
-            onSuccess={() => {
-              setHasUnsavedChanges(false)
-              onOpenChange(false)
-            }}
-            onCancel={() => handleOpenChange(false)}
-            onDirtyChange={setHasUnsavedChanges}
-          />
-        )}
-      </div>
+        </div>
+      ) : errorMessage ? (
+        <div className="flex flex-1 items-center justify-center px-5 py-8 sm:px-7">
+          <div className="w-full max-w-xl">
+            <AdminQueryErrorState message={errorMessage} onRetry={onRetry} />
+          </div>
+        </div>
+      ) : (
+        <NewCategoryForm
+          categories={categories}
+          onSuccess={() => {
+            setHasUnsavedChanges(false)
+            setIsSubmitting(false)
+            onOpenChange(false)
+          }}
+          onCancel={() => handleOpenChange(false)}
+          onDirtyChange={setHasUnsavedChanges}
+          onSubmittingChange={setIsSubmitting}
+        />
+      )}
     </div>
   )
 
   return (
     <>
       {isMobile ? (
-        <Sheet open={open} onOpenChange={handleOpenChange}>
-          <SheetContent className="flex h-full w-full max-w-none flex-col overflow-hidden p-0 sm:max-w-none">
-            <div className="border-b bg-background px-6 py-5">
-              <SheetTitle>Create Category</SheetTitle>
-              <SheetDescription>
-                Add category basics, variant names, and storefront settings in
-                one guided flow.
-              </SheetDescription>
-            </div>
+        <Drawer open={open} onOpenChange={handleOpenChange}>
+          <DrawerContent className="mx-auto flex h-[92vh] max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden p-0">
             {content}
-          </SheetContent>
-        </Sheet>
+          </DrawerContent>
+        </Drawer>
       ) : (
         <Dialog open={open} onOpenChange={handleOpenChange}>
-          <DialogContent className="flex h-[min(90vh,820px)] sm:max-w-5xl flex-col overflow-hidden p-0">
-            <div className="border-b bg-background px-6 py-5">
-              <DialogTitle>Create Category</DialogTitle>
-              <DialogDescription>
-                Add category basics, variant names, and storefront settings in
-                one guided flow.
-              </DialogDescription>
-            </div>
+          <DialogContent
+            showCloseButton={false}
+            className="flex h-[min(84vh,860px)] w-[72vw] max-w-[72vw] sm:max-w-4xl flex-col overflow-hidden p-0"
+          >
             {content}
           </DialogContent>
         </Dialog>
