@@ -791,9 +791,11 @@ export function NewCategoryForm({
 
           {isLastStep ? (
             <Button
-              type="submit"
+              key="save-category"
+              type="button"
               disabled={createCategoryMutation.isPending}
               className="min-w-28"
+              onClick={() => void handleSubmit(onSubmit)()}
             >
               {createCategoryMutation.isPending ? (
                 <>
@@ -805,7 +807,7 @@ export function NewCategoryForm({
               )}
             </Button>
           ) : (
-            <Button type="button" onClick={goToNextStep}>
+            <Button key="next-step" type="button" onClick={goToNextStep}>
               Next
               <ArrowRight className="ml-2 size-4" />
             </Button>
