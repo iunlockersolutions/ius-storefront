@@ -60,22 +60,22 @@ export function CategoryOptionTemplatesEditor({
       <FieldGroup>
         <Field orientation="horizontal" className="items-center">
           <FieldContent>
-            <FieldTitle>Option Templates</FieldTitle>
+            <FieldTitle>Variant Names</FieldTitle>
             <FieldDescription>
-              Suggest reusable option names for products in this category, such
-              as Color, Storage, or RAM.
+              Define the reusable variant names for this category, such as
+              Color, Storage, or RAM.
             </FieldDescription>
           </FieldContent>
           <Button type="button" variant="outline" onClick={addTemplate}>
             <Plus className="mr-2 h-4 w-4" />
-            Add option template
+            Add variant name
           </Button>
         </Field>
 
         {value.length === 0 ? (
           <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-            No option templates yet. Products in this category can still use
-            custom option names.
+            No variant names yet. Products in this category can still use custom
+            option names later.
           </div>
         ) : (
           value.map((template, index) => (
@@ -86,7 +86,7 @@ export function CategoryOptionTemplatesEditor({
               <Field orientation="horizontal" className="items-start gap-4">
                 <FieldContent>
                   <FieldLabel htmlFor={`category-template-${template.key}`}>
-                    Template {index + 1}
+                    Variant Name {index + 1}
                   </FieldLabel>
                   <Input
                     id={`category-template-${template.key}`}
@@ -102,7 +102,7 @@ export function CategoryOptionTemplatesEditor({
                   variant="ghost"
                   size="icon"
                   onClick={() => removeTemplate(template.key)}
-                  aria-label={`Remove option template ${index + 1}`}
+                  aria-label={`Remove variant name ${index + 1}`}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>

@@ -160,7 +160,7 @@ export function EditCategoryForm({
 
   const onSubmit = async (data: CategoryFormData) => {
     if (duplicateTemplateNames.length > 0) {
-      toast.error("Option template names must be unique")
+      toast.error("Variant names must be unique")
       return
     }
 
@@ -330,14 +330,21 @@ export function EditCategoryForm({
               />
             </div>
           </div>
+        </CardContent>
+      </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Variant Names</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
           <CategoryOptionTemplatesEditor
             value={optionTemplates}
             onChange={setOptionTemplates}
           />
           {duplicateTemplateNames.length > 0 ? (
             <p className="text-sm text-red-500">
-              Duplicate option template names are not allowed.
+              Duplicate variant names are not allowed.
             </p>
           ) : null}
         </CardContent>

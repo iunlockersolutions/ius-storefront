@@ -1,15 +1,12 @@
 "use client"
 
-import Link from "next/link"
-
-import { EditCategoryForm } from "@/components/admin/categories/edit-category-form"
+import { CategoryDetail } from "@/components/admin/categories/category-detail"
 import {
   AdminQueryEmptyState,
   AdminQueryErrorState,
   AdminQueryLoadingState,
   getQueryErrorMessage,
 } from "@/components/admin/query-state"
-import { Button } from "@/components/ui/button"
 import { useAdminCategoriesQuery } from "@/hooks/admin/use-admin-categories-query"
 import { useAdminCategoryQuery } from "@/hooks/admin/use-admin-category-query"
 
@@ -74,11 +71,23 @@ export function EditCategoryPageClient({
       level: cat.level || 0,
       path: cat.path || cat.name,
     }))
+  const currentCategoryListItem = (categoriesQuery.data ?? []).find(
+    (cat) => cat.id === categoryId,
+  )
+  const parentName =
+    (categoriesQuery.data ?? []).find(
+      (cat) => cat.id === categoryQuery.data.parentId,
+    )?.name ?? null
 
   return (
-    <EditCategoryForm
+    <CategoryDetail
       category={categoryQuery.data}
+      path={currentCategoryListItem?.path || categoryQuery.data.name}
+      parentName={parentName}
       parentOptions={parentOptions}
+      onRefresh={() =>
+        Promise.all([categoryQuery.refetch(), categoriesQuery.refetch()])
+      }
     />
   )
 }

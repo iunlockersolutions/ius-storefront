@@ -1,9 +1,7 @@
-import Link from "next/link"
-
-import { Plus } from "lucide-react"
+import { Suspense } from "react"
 
 import { CategoriesPageClient } from "@/components/admin/categories/categories-page-client"
-import { Button } from "@/components/ui/button"
+import { AdminQueryLoadingState } from "@/components/admin/query-state"
 
 export const metadata = {
   title: "Categories | Operations",
@@ -12,21 +10,18 @@ export const metadata = {
 
 export default function CategoriesPage() {
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Categories</h1>
-          <p className="text-neutral-500">Manage your product categories</p>
+    <Suspense
+      fallback={
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <div className="h-8 w-40 rounded bg-muted" />
+            <div className="h-5 w-64 rounded bg-muted" />
+          </div>
+          <AdminQueryLoadingState skeletonClassName="h-96 w-full" />
         </div>
-        <Button asChild>
-          <Link href="/ops/categories/new">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Category
-          </Link>
-        </Button>
-      </div>
-
+      }
+    >
       <CategoriesPageClient />
-    </div>
+    </Suspense>
   )
 }

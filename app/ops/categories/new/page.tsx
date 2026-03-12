@@ -1,9 +1,4 @@
-import Link from "next/link"
-
-import { ChevronLeft } from "lucide-react"
-
-import { NewCategoryPageClient } from "@/components/admin/categories/new-category-page-client"
-import { Button } from "@/components/ui/button"
+import { redirect } from "next/navigation"
 
 export const metadata = {
   title: "Add New Category | Operations",
@@ -11,21 +6,5 @@ export const metadata = {
 }
 
 export default function NewCategoryPage() {
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" asChild>
-          <Link href="/ops/categories">
-            <ChevronLeft className="h-4 w-4" />
-          </Link>
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold">Add New Category</h1>
-          <p className="text-neutral-500">Create a new product category</p>
-        </div>
-      </div>
-
-      <NewCategoryPageClient />
-    </div>
-  )
+  redirect("/ops/categories?create=1")
 }

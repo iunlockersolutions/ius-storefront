@@ -18,6 +18,8 @@ export interface AdminCategory {
   showInProductMenu: boolean
   productMenuPriority: number
   productCount: number
+  createdAt?: string | Date
+  updatedAt?: string | Date
   optionTemplates: Array<{
     id: string
     name: string
