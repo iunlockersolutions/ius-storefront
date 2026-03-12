@@ -18,7 +18,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Drawer, DrawerContent } from "@/components/ui/drawer"
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer"
 import { useIsMobile } from "@/hooks/use-mobile"
 
 interface CreateFlowDialogShellProps {
@@ -77,6 +82,9 @@ export function CreateFlowDialogShell({
       {isMobile ? (
         <Drawer open={open} onOpenChange={handleOpenChange}>
           <DrawerContent className="mx-auto flex h-[92vh] max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden p-0">
+            <DrawerHeader className="sr-only">
+              <DrawerTitle>{dialogTitle}</DrawerTitle>
+            </DrawerHeader>
             {children({ requestClose })}
           </DrawerContent>
         </Drawer>
