@@ -17,7 +17,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Drawer, DrawerContent } from "@/components/ui/drawer"
 import { useIsMobile } from "@/hooks/use-mobile"
 
@@ -120,6 +125,9 @@ export function CategoryCreateDialog({
             showCloseButton={false}
             className="flex h-[min(84vh,860px)] w-[72vw] max-w-[72vw] sm:max-w-4xl flex-col overflow-hidden p-0"
           >
+            <DialogHeader className="sr-only">
+              <DialogTitle>Create Category</DialogTitle>
+            </DialogHeader>
             {content}
           </DialogContent>
         </Dialog>

@@ -38,6 +38,7 @@ export function ModelCreateDialog({
       onOpenChange={onOpenChange}
       isDirty={isDirty}
       isSubmitting={isSubmitting}
+      dialogTitle="Create Model"
       discardTitle="Discard model draft?"
       discardDescription="Your unsaved model details will be lost if you close this dialog now."
     >

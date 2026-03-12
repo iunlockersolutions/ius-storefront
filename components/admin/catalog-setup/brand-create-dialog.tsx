@@ -29,6 +29,7 @@ export function BrandCreateDialog({
       onOpenChange={onOpenChange}
       isDirty={isDirty}
       isSubmitting={isSubmitting}
+      dialogTitle="Create Brand"
       discardTitle="Discard brand draft?"
       discardDescription="Your unsaved brand details will be lost if you close this dialog now."
     >
