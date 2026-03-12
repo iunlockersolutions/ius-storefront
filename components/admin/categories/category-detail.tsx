@@ -1,23 +1,12 @@
 "use client"
 
-import { type ComponentType, type ReactNode, useEffect, useState } from "react"
+import { type ReactNode, useEffect, useState } from "react"
 import { useForm, useWatch } from "react-hook-form"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
 import { zodResolver } from "@hookform/resolvers/zod"
-import {
-  Clock3,
-  ExternalLink,
-  FolderTree,
-  ImageIcon,
-  Loader2,
-  Pencil,
-  Plus,
-  Search,
-  ShoppingBag,
-  Trash2,
-} from "lucide-react"
+import { ExternalLink, Loader2, Pencil, Plus, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { z } from "zod"
 
@@ -34,13 +23,6 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -50,6 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import {
   Table,
@@ -136,16 +119,17 @@ function SectionCard({
   children: ReactNode
 }) {
   return (
-    <Card>
-      <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <section className="space-y-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="space-y-1">
-          <CardTitle>{title}</CardTitle>
-          <CardDescription>{description}</CardDescription>
+          <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
+          <p className="text-sm text-muted-foreground">{description}</p>
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}
-      </CardHeader>
-      <CardContent>{children}</CardContent>
-    </Card>
+      </div>
+      <div>{children}</div>
+      <Separator />
+    </section>
   )
 }
 
@@ -294,263 +278,235 @@ export function CategoryDetail({
           </Button>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-          <div className="space-y-6">
-            <SectionCard
-              title="Identity & Hierarchy"
-              description="Core naming and catalog placement for this category."
-              action={
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setActiveEditor("identity")}
-                >
-                  <Pencil className="mr-2 h-4 w-4" />
-                  Edit
-                </Button>
-              }
-            >
-              <div className="grid gap-4 sm:grid-cols-2">
-                <DetailItem label="Category name" value={category.name} />
-                <DetailItem label="Slug" value={`/${category.slug}`} />
-                <DetailItem
-                  label="Parent category"
-                  value={parentName ?? "None"}
-                />
-                <DetailItem label="Hierarchy path" value={path} />
-              </div>
-            </SectionCard>
+        <div className="space-y-8">
+          <SectionCard
+            title="Identity & Hierarchy"
+            description="Core naming and catalog placement for this category."
+            action={
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActiveEditor("identity")}
+              >
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit
+              </Button>
+            }
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              <DetailItem label="Category name" value={category.name} />
+              <DetailItem label="Slug" value={`/${category.slug}`} />
+              <DetailItem
+                label="Parent category"
+                value={parentName ?? "None"}
+              />
+              <DetailItem label="Hierarchy path" value={path} />
+            </div>
+          </SectionCard>
 
-            <SectionCard
-              title="Description"
-              description="Merchant-facing description and supporting copy."
-              action={
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setActiveEditor("description")}
-                >
-                  <Pencil className="mr-2 h-4 w-4" />
-                  Edit
-                </Button>
-              }
-            >
-              {category.description ? (
-                <p className="whitespace-pre-wrap text-sm leading-7">
-                  {category.description}
-                </p>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  No description has been added yet.
-                </p>
-              )}
-            </SectionCard>
-
-            <SectionCard
-              title="Variant Names"
-              description="Reusable option names for products in this category."
-              action={
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setEditingVariantName(null)
-                    setActiveEditor("variant")
-                  }}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add variant name
-                </Button>
-              }
-            >
-              {category.optionTemplates.length === 0 ? (
-                <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                  No variant names yet. Add reusable names like Color, Storage,
-                  or RAM to guide product creation later.
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead className="w-32 text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {category.optionTemplates.map((template) => (
-                      <TableRow key={template.id}>
-                        <TableCell className="font-medium">
-                          {template.name}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setEditingVariantName(template)
-                                setActiveEditor("variant")
-                              }}
-                            >
-                              Edit
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-destructive hover:text-destructive"
-                              onClick={() => setVariantNameToRemove(template)}
-                            >
-                              Remove
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </SectionCard>
-
-            <SectionCard
-              title="Storefront Settings"
-              description="Visibility, ordering, image, and menu placement."
-              action={
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setActiveEditor("storefront")}
-                >
-                  <Pencil className="mr-2 h-4 w-4" />
-                  Edit
-                </Button>
-              }
-            >
-              <div className="grid gap-4 sm:grid-cols-2">
-                <DetailItem
-                  label="Active"
-                  value={category.isActive ? "Yes" : "No"}
-                />
-                <DetailItem
-                  label="Sort order"
-                  value={String(category.sortOrder)}
-                />
-                <DetailItem
-                  label="Show in product menu"
-                  value={category.showInProductMenu ? "Yes" : "No"}
-                />
-                <DetailItem
-                  label="Product menu priority"
-                  value={String(category.productMenuPriority)}
-                />
-                <DetailItem
-                  label="Image URL"
-                  value={category.image || "No image URL set"}
-                  className="sm:col-span-2"
-                />
-              </div>
-            </SectionCard>
-
-            <SectionCard
-              title="SEO"
-              description="Metadata used by search engines and social previews."
-              action={
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setActiveEditor("seo")}
-                >
-                  <Pencil className="mr-2 h-4 w-4" />
-                  Edit
-                </Button>
-              }
-            >
-              <div className="grid gap-4">
-                <DetailItem
-                  label="Meta title"
-                  value={category.metaTitle || "No meta title"}
-                />
-                <DetailItem
-                  label="Meta description"
-                  value={category.metaDescription || "No meta description"}
-                />
-              </div>
-            </SectionCard>
-
-            <SectionCard
-              title="Danger Zone"
-              description="Delete this category if it is no longer needed."
-              action={
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => setDeleteDialogOpen(true)}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete category
-                </Button>
-              }
-            >
-              <p className="text-sm text-muted-foreground">
-                Categories with subcategories or assigned products must be
-                cleaned up before deletion.
+          <SectionCard
+            title="Description"
+            description="Merchant-facing description and supporting copy."
+            action={
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActiveEditor("description")}
+              >
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit
+              </Button>
+            }
+          >
+            {category.description ? (
+              <p className="whitespace-pre-wrap text-sm leading-7">
+                {category.description}
               </p>
-            </SectionCard>
-          </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No description has been added yet.
+              </p>
+            )}
+          </SectionCard>
 
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Summary</CardTitle>
-                <CardDescription>
-                  Quick reference details for this category.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                <SummaryItem
-                  icon={FolderTree}
-                  title="Hierarchy Path"
-                  value={path}
-                />
-                <SummaryItem
-                  icon={ShoppingBag}
-                  title="Assigned Products"
-                  value={String(category.productCount)}
-                />
-                <SummaryItem
-                  icon={ImageIcon}
-                  title="Image"
-                  value={category.image ? "Configured" : "Not set"}
-                />
-                <SummaryItem
-                  icon={Search}
-                  title="SEO"
-                  value={
-                    category.metaTitle || category.metaDescription
-                      ? "Configured"
-                      : "Not set"
-                  }
-                />
-                <SummaryItem
-                  icon={Clock3}
-                  title="Created"
-                  value={
-                    category.createdAt
-                      ? formatDate(category.createdAt)
-                      : "Unknown"
-                  }
-                />
-                <SummaryItem
-                  icon={Clock3}
-                  title="Updated"
-                  value={
-                    category.updatedAt
-                      ? formatDate(category.updatedAt)
-                      : "Unknown"
-                  }
-                />
-              </CardContent>
-            </Card>
-          </div>
+          <SectionCard
+            title="Variant Names"
+            description="Reusable option names for products in this category."
+            action={
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setEditingVariantName(null)
+                  setActiveEditor("variant")
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add variant name
+              </Button>
+            }
+          >
+            {category.optionTemplates.length === 0 ? (
+              <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                No variant names yet. Add reusable names like Color, Storage, or
+                RAM to guide product creation later.
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead className="w-32 text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {category.optionTemplates.map((template) => (
+                    <TableRow key={template.id}>
+                      <TableCell className="font-medium">
+                        {template.name}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setEditingVariantName(template)
+                              setActiveEditor("variant")
+                            }}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => setVariantNameToRemove(template)}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </SectionCard>
+
+          <SectionCard
+            title="Storefront Settings"
+            description="Visibility, ordering, image, and menu placement."
+            action={
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActiveEditor("storefront")}
+              >
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit
+              </Button>
+            }
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              <DetailItem
+                label="Active"
+                value={category.isActive ? "Yes" : "No"}
+              />
+              <DetailItem
+                label="Sort order"
+                value={String(category.sortOrder)}
+              />
+              <DetailItem
+                label="Show in product menu"
+                value={category.showInProductMenu ? "Yes" : "No"}
+              />
+              <DetailItem
+                label="Product menu priority"
+                value={String(category.productMenuPriority)}
+              />
+              <DetailItem
+                label="Image URL"
+                value={category.image || "No image URL set"}
+                className="sm:col-span-2"
+              />
+            </div>
+          </SectionCard>
+
+          <SectionCard
+            title="SEO"
+            description="Metadata used by search engines and social previews."
+            action={
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActiveEditor("seo")}
+              >
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit
+              </Button>
+            }
+          >
+            <div className="grid gap-4">
+              <DetailItem
+                label="Meta title"
+                value={category.metaTitle || "No meta title"}
+              />
+              <DetailItem
+                label="Meta description"
+                value={category.metaDescription || "No meta description"}
+              />
+            </div>
+          </SectionCard>
+
+          <SectionCard
+            title="Timestamps"
+            description="Creation and update history for this category."
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              <DetailItem
+                label="Created"
+                value={
+                  category.createdAt
+                    ? formatDate(category.createdAt)
+                    : "Unknown"
+                }
+              />
+              <DetailItem
+                label="Updated"
+                value={
+                  category.updatedAt
+                    ? formatDate(category.updatedAt)
+                    : "Unknown"
+                }
+              />
+            </div>
+          </SectionCard>
+
+          <section className="space-y-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="space-y-1">
+                <h2 className="text-xl font-semibold tracking-tight">
+                  Danger Zone
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Delete this category if it is no longer needed.
+                </p>
+              </div>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setDeleteDialogOpen(true)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete category
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Categories with subcategories or assigned products must be cleaned
+              up before deletion.
+            </p>
+          </section>
         </div>
       </div>
 
@@ -742,26 +698,6 @@ function DetailItem({
         {label}
       </p>
       <p className="mt-1 break-all font-medium">{value}</p>
-    </div>
-  )
-}
-
-function SummaryItem({
-  icon: Icon,
-  title,
-  value,
-}: {
-  icon: ComponentType<{ className?: string }>
-  title: string
-  value: string
-}) {
-  return (
-    <div className="flex items-start gap-3">
-      <Icon className="mt-0.5 h-4 w-4 text-muted-foreground" />
-      <div className="space-y-1">
-        <p className="text-sm font-medium">{title}</p>
-        <p className="text-sm text-muted-foreground">{value}</p>
-      </div>
     </div>
   )
 }
