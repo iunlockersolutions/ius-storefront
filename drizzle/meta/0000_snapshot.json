@@ -1,5 +1,5 @@
 {
-  "id": "a2d9884e-8c55-41db-bb4d-6f0c624b8109",
+  "id": "47ad46d9-0919-468b-be9f-666331131f29",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -1243,6 +1243,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "normalized_name": {
+          "name": "normalized_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "slug": {
           "name": "slug",
           "type": "text",
@@ -1324,6 +1330,21 @@
           "method": "btree",
           "with": {}
         },
+        "brands_normalized_name_idx": {
+          "name": "brands_normalized_name_idx",
+          "columns": [
+            {
+              "expression": "normalized_name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "brands_is_active_idx": {
           "name": "brands_is_active_idx",
           "columns": [
@@ -1348,6 +1369,13 @@
           "nullsNotDistinct": false,
           "columns": [
             "slug"
+          ]
+        },
+        "brands_normalized_name_unique": {
+          "name": "brands_normalized_name_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "normalized_name"
           ]
         }
       },
@@ -1512,6 +1540,119 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.category_option_templates": {
+      "name": "category_option_templates",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "category_id": {
+          "name": "category_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "normalized_name": {
+          "name": "normalized_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "category_option_templates_category_id_idx": {
+          "name": "category_option_templates_category_id_idx",
+          "columns": [
+            {
+              "expression": "category_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "category_option_templates_normalized_name_idx": {
+          "name": "category_option_templates_normalized_name_idx",
+          "columns": [
+            {
+              "expression": "normalized_name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "category_option_templates_category_id_categories_id_fk": {
+          "name": "category_option_templates_category_id_categories_id_fk",
+          "tableFrom": "category_option_templates",
+          "tableTo": "categories",
+          "columnsFrom": [
+            "category_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "category_option_templates_category_name_unique": {
+          "name": "category_option_templates_category_name_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "category_id",
+            "normalized_name"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.models": {
       "name": "models",
       "schema": "",
@@ -1541,6 +1682,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "normalized_name": {
+          "name": "normalized_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "slug": {
           "name": "slug",
           "type": "text",
@@ -1549,6 +1696,18 @@
         },
         "description": {
           "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "meta_title": {
+          "name": "meta_title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "meta_description": {
+          "name": "meta_description",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -1620,6 +1779,21 @@
           "method": "btree",
           "with": {}
         },
+        "models_normalized_name_idx": {
+          "name": "models_normalized_name_idx",
+          "columns": [
+            {
+              "expression": "normalized_name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "models_slug_idx": {
           "name": "models_slug_idx",
           "columns": [
@@ -1673,13 +1847,13 @@
             "slug"
           ]
         },
-        "models_brand_category_name_unique": {
-          "name": "models_brand_category_name_unique",
+        "models_brand_category_normalized_name_unique": {
+          "name": "models_brand_category_normalized_name_unique",
           "nullsNotDistinct": false,
           "columns": [
             "brand_id",
             "primary_category_id",
-            "name"
+            "normalized_name"
           ]
         }
       },

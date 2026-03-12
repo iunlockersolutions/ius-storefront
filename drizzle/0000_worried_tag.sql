@@ -143,6 +143,7 @@ CREATE TABLE "brand_category_assignments" (
 CREATE TABLE "brands" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"name" text NOT NULL,
+	"normalized_name" text NOT NULL,
 	"slug" text NOT NULL,
 	"description" text,
 	"logo" text,
@@ -153,7 +154,8 @@ CREATE TABLE "brands" (
 	"meta_description" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "brands_slug_unique" UNIQUE("slug")
+	CONSTRAINT "brands_slug_unique" UNIQUE("slug"),
+	CONSTRAINT "brands_normalized_name_unique" UNIQUE("normalized_name")
 );
 --> statement-breakpoint
 CREATE TABLE "categories" (
@@ -174,20 +176,34 @@ CREATE TABLE "categories" (
 	CONSTRAINT "categories_slug_unique" UNIQUE("slug")
 );
 --> statement-breakpoint
+CREATE TABLE "category_option_templates" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"category_id" uuid NOT NULL,
+	"name" text NOT NULL,
+	"normalized_name" text NOT NULL,
+	"sort_order" integer DEFAULT 0 NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "category_option_templates_category_name_unique" UNIQUE("category_id","normalized_name")
+);
+--> statement-breakpoint
 CREATE TABLE "models" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"brand_id" uuid NOT NULL,
 	"primary_category_id" uuid NOT NULL,
 	"name" text NOT NULL,
+	"normalized_name" text NOT NULL,
 	"slug" text NOT NULL,
 	"description" text,
+	"meta_title" text,
+	"meta_description" text,
 	"is_active" boolean DEFAULT true NOT NULL,
 	"show_in_product_menu" boolean DEFAULT true NOT NULL,
 	"nav_priority" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "models_slug_unique" UNIQUE("slug"),
-	CONSTRAINT "models_brand_category_name_unique" UNIQUE("brand_id","primary_category_id","name")
+	CONSTRAINT "models_brand_category_normalized_name_unique" UNIQUE("brand_id","primary_category_id","normalized_name")
 );
 --> statement-breakpoint
 CREATE TABLE "product_attribute_values" (
@@ -505,6 +521,7 @@ ALTER TABLE "carts" ADD CONSTRAINT "carts_user_id_user_id_fk" FOREIGN KEY ("user
 ALTER TABLE "brand_category_assignments" ADD CONSTRAINT "brand_category_assignments_brand_id_brands_id_fk" FOREIGN KEY ("brand_id") REFERENCES "public"."brands"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "brand_category_assignments" ADD CONSTRAINT "brand_category_assignments_category_id_categories_id_fk" FOREIGN KEY ("category_id") REFERENCES "public"."categories"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "categories" ADD CONSTRAINT "categories_parent_id_categories_id_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."categories"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "category_option_templates" ADD CONSTRAINT "category_option_templates_category_id_categories_id_fk" FOREIGN KEY ("category_id") REFERENCES "public"."categories"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "models" ADD CONSTRAINT "models_brand_id_brands_id_fk" FOREIGN KEY ("brand_id") REFERENCES "public"."brands"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "models" ADD CONSTRAINT "models_primary_category_id_categories_id_fk" FOREIGN KEY ("primary_category_id") REFERENCES "public"."categories"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "product_attribute_values" ADD CONSTRAINT "product_attribute_values_product_id_products_id_fk" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -565,11 +582,15 @@ CREATE INDEX "carts_session_id_idx" ON "carts" USING btree ("session_id");--> st
 CREATE INDEX "brand_category_assignments_brand_id_idx" ON "brand_category_assignments" USING btree ("brand_id");--> statement-breakpoint
 CREATE INDEX "brand_category_assignments_category_id_idx" ON "brand_category_assignments" USING btree ("category_id");--> statement-breakpoint
 CREATE INDEX "brands_slug_idx" ON "brands" USING btree ("slug");--> statement-breakpoint
+CREATE INDEX "brands_normalized_name_idx" ON "brands" USING btree ("normalized_name");--> statement-breakpoint
 CREATE INDEX "brands_is_active_idx" ON "brands" USING btree ("is_active");--> statement-breakpoint
 CREATE INDEX "categories_slug_idx" ON "categories" USING btree ("slug");--> statement-breakpoint
 CREATE INDEX "categories_parent_id_idx" ON "categories" USING btree ("parent_id");--> statement-breakpoint
+CREATE INDEX "category_option_templates_category_id_idx" ON "category_option_templates" USING btree ("category_id");--> statement-breakpoint
+CREATE INDEX "category_option_templates_normalized_name_idx" ON "category_option_templates" USING btree ("normalized_name");--> statement-breakpoint
 CREATE INDEX "models_brand_id_idx" ON "models" USING btree ("brand_id");--> statement-breakpoint
 CREATE INDEX "models_primary_category_id_idx" ON "models" USING btree ("primary_category_id");--> statement-breakpoint
+CREATE INDEX "models_normalized_name_idx" ON "models" USING btree ("normalized_name");--> statement-breakpoint
 CREATE INDEX "models_slug_idx" ON "models" USING btree ("slug");--> statement-breakpoint
 CREATE INDEX "product_attribute_values_product_id_idx" ON "product_attribute_values" USING btree ("product_id");--> statement-breakpoint
 CREATE INDEX "product_attribute_values_attribute_id_idx" ON "product_attribute_values" USING btree ("attribute_id");--> statement-breakpoint

@@ -5,22 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1773223128565,
-      "tag": "0000_optimal_gladiator",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1773227985373,
-      "tag": "0001_slippery_kree",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1773248810123,
-      "tag": "0002_charming_steve_rogers",
+      "when": 1773307315945,
+      "tag": "0000_worried_tag",
       "breakpoints": true
     }
   ]
