@@ -1,16 +1,8 @@
 import { NextRequest } from "next/server"
 
-import { createProduct, getProducts } from "@/lib/actions/product"
-import {
-  auditAdminMutation,
-  requireAdminApiPermission,
-} from "@/lib/auth/admin-api"
-import {
-  fail,
-  failFromMessage,
-  mapErrorToApi,
-  ok,
-} from "@/lib/utils/api-response"
+import { getProducts } from "@/lib/actions/product"
+import { requireAdminApiPermission } from "@/lib/auth/admin-api"
+import { fail, mapErrorToApi, ok } from "@/lib/utils/api-response"
 
 function parsePositiveNumber(value: string | null, fallback: number) {
   if (!value) return fallback
@@ -48,32 +40,6 @@ export async function GET(request: NextRequest) {
     })
 
     return ok(products)
-  } catch (error) {
-    return mapErrorToApi(error)
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    await requireAdminApiPermission("product", "create")
-
-    const body = await request.json()
-    const result = await createProduct(body)
-
-    if (!result.success) {
-      return failFromMessage(
-        result.error || "Failed to create product",
-        "BAD_REQUEST",
-      )
-    }
-
-    await auditAdminMutation({
-      action: "product.create",
-      entityType: "product",
-      entityId: result.data?.id,
-    })
-
-    return ok(result.data, 201)
   } catch (error) {
     return mapErrorToApi(error)
   }

@@ -151,7 +151,7 @@ type ModelOption = {
 }
 
 type ProductEditorInitialData = {
-  id?: string
+  id: string
   name: string
   slug: string
   description: string | null
@@ -202,18 +202,10 @@ type ProductEditorInitialData = {
 }
 
 interface ProductEditorFormProps {
-  mode: "create" | "edit"
   categories: CategoryOption[]
   brands: BrandOption[]
   models: ModelOption[]
-  initialData?: ProductEditorInitialData
-  onCreateDraft?: (payload: {
-    name: string
-    slug?: string
-    description?: string
-    shortDescription?: string
-    status?: "draft" | "active" | "archived"
-  }) => Promise<{ id: string }>
+  initialData: ProductEditorInitialData
   onSave: (
     productId: string,
     payload: {
@@ -257,7 +249,7 @@ const STEP_DEFINITIONS = [
   {
     id: "basics",
     title: "Basics",
-    description: "Create the draft product record.",
+    description: "Core product details and publishing status.",
   },
   {
     id: "organization",
@@ -364,31 +356,28 @@ function normalizeNumberInput(value: string, fallback: number) {
 }
 
 export function ProductEditorForm({
-  mode,
   categories,
   brands,
   models,
   initialData,
-  onCreateDraft,
   onSave,
   onDelete,
 }: ProductEditorFormProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [currentStep, setCurrentStep] = useState(0)
-  const [draftId, setDraftId] = useState(initialData?.id ?? null)
   const [categoryIds, setCategoryIds] = useState<string[]>(() =>
     Array.from(
       new Set(
-        initialData?.categories.map((category) => category.id) ??
-          (initialData?.primaryCategoryId
+        initialData.categories.map((category) => category.id) ??
+          (initialData.primaryCategoryId
             ? [initialData.primaryCategoryId]
             : []),
       ),
     ),
   )
   const [images, setImages] = useState<UploadedImage[]>(() =>
-    (initialData?.images ?? []).map((image) => ({
+    (initialData.images ?? []).map((image) => ({
       id: image.id,
       url: image.url,
       altText: image.altText || undefined,
@@ -398,7 +387,7 @@ export function ProductEditorForm({
   )
   const [options, setOptions] = useState<OptionEditorValue[]>(
     () =>
-      initialData?.options.map((option) => ({
+      initialData.options.map((option) => ({
         key: option.id,
         name: option.name,
         values: option.values.map((value) => ({
@@ -408,7 +397,7 @@ export function ProductEditorForm({
       })) ?? [],
   )
   const [variants, setVariants] = useState<VariantEditorValue[]>(() =>
-    initialData?.variants.length
+    initialData.variants.length
       ? initialData.variants.map((variant) => ({
           key: variant.id,
           id: variant.id,
@@ -439,17 +428,17 @@ export function ProductEditorForm({
   const form = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
     defaultValues: {
-      name: initialData?.name || "",
-      slug: initialData?.slug || "",
-      shortDescription: initialData?.shortDescription || "",
-      description: initialData?.description || "",
-      brandId: initialData?.brandId || "",
-      primaryCategoryId: initialData?.primaryCategoryId || "",
-      modelId: initialData?.modelId || "",
-      status: initialData?.status || "draft",
-      isFeatured: initialData?.isFeatured || false,
-      metaTitle: initialData?.metaTitle || "",
-      metaDescription: initialData?.metaDescription || "",
+      name: initialData.name,
+      slug: initialData.slug,
+      shortDescription: initialData.shortDescription || "",
+      description: initialData.description || "",
+      brandId: initialData.brandId || "",
+      primaryCategoryId: initialData.primaryCategoryId || "",
+      modelId: initialData.modelId || "",
+      status: initialData.status,
+      isFeatured: initialData.isFeatured,
+      metaTitle: initialData.metaTitle || "",
+      metaDescription: initialData.metaDescription || "",
     },
     mode: "onChange",
   })
@@ -459,7 +448,6 @@ export function ProductEditorForm({
     setValue,
     watch,
     handleSubmit,
-    trigger,
     formState: { errors },
   } = form
 
@@ -766,7 +754,6 @@ export function ProductEditorForm({
   }
 
   const hydrateFromSavedProduct = (savedProduct: ProductEditorInitialData) => {
-    setDraftId(savedProduct.id ?? draftId)
     setCategoryIds(
       Array.from(
         new Set(
@@ -1016,10 +1003,7 @@ export function ProductEditorForm({
     }
   }
 
-  const buildPayload = (
-    data: ProductFormData,
-    overrides?: Partial<Pick<ProductFormData, "status">>,
-  ) => ({
+  const buildPayload = (data: ProductFormData) => ({
     name: data.name,
     slug: data.slug,
     description: data.description || undefined,
@@ -1028,7 +1012,7 @@ export function ProductEditorForm({
     primaryCategoryId: data.primaryCategoryId || null,
     modelId: data.modelId || null,
     categoryIds: selectedCategoryIds,
-    status: overrides?.status ?? data.status,
+    status: data.status,
     isFeatured: data.isFeatured,
     metaTitle: data.metaTitle || undefined,
     metaDescription: data.metaDescription || undefined,
@@ -1053,105 +1037,31 @@ export function ProductEditorForm({
     images,
   })
 
-  const persistProduct = async (
-    data: ProductFormData,
-    overrides?: Partial<Pick<ProductFormData, "status">>,
-  ) => {
-    if (!draftId) {
-      throw new Error("Create the draft product before saving other steps")
-    }
-
+  const persistProduct = async (data: ProductFormData) => {
     if (optionWarnings.length > 0) {
       throw new Error(optionWarnings[0])
     }
 
-    const savedProduct = await onSave(draftId, buildPayload(data, overrides))
+    const savedProduct = await onSave(initialData.id, buildPayload(data))
     if (savedProduct) {
       hydrateFromSavedProduct(savedProduct)
     }
   }
 
-  const saveDraft = async () => {
-    const valid = await trigger([
-      "name",
-      "slug",
-      "shortDescription",
-      "description",
-    ])
-    if (!valid) {
-      return
-    }
-
-    const data = form.getValues()
-
-    startTransition(async () => {
-      try {
-        if (!draftId) {
-          if (!onCreateDraft) {
-            throw new Error("Draft creation is not available")
-          }
-
-          const created = await onCreateDraft({
-            name: data.name,
-            slug: data.slug,
-            description: data.description || undefined,
-            shortDescription: data.shortDescription || undefined,
-            status: "draft",
-          })
-          setDraftId(created.id)
-          toast.success("Draft created")
-          return
-        }
-
-        await persistProduct(data, { status: "draft" })
-        toast.success("Draft saved")
-      } catch (error) {
-        toast.error(
-          error instanceof Error ? error.message : "Failed to save draft",
-        )
-      }
-    })
-  }
-
   const handleContinue = async (data: ProductFormData) => {
     startTransition(async () => {
       try {
-        if (currentStep === 0 && !draftId) {
-          if (!onCreateDraft) {
-            throw new Error("Draft creation is not available")
-          }
-
-          const created = await onCreateDraft({
-            name: data.name,
-            slug: data.slug,
-            description: data.description || undefined,
-            shortDescription: data.shortDescription || undefined,
-            status: "draft",
-          })
-
-          setDraftId(created.id)
-          setCurrentStep(1)
-          toast.success("Draft created. Continue configuring the product.")
-          return
-        }
-
         if (currentStep < STEP_DEFINITIONS.length - 1) {
-          await persistProduct(data, {
-            status: mode === "create" && !draftId ? "draft" : data.status,
-          })
+          await persistProduct(data)
           setCurrentStep((step) =>
             Math.min(step + 1, STEP_DEFINITIONS.length - 1),
           )
-          toast.success("Draft updated")
+          toast.success("Product updated")
           return
         }
 
         await persistProduct(data)
-        toast.success(
-          mode === "create"
-            ? "Product created successfully!"
-            : "Product updated successfully!",
-        )
+        toast.success("Product updated successfully!")
         router.push("/ops/products")
         router.refresh()
       } catch (error) {
@@ -1715,8 +1625,8 @@ export function ProductEditorForm({
           <CardContent className="space-y-4">
             <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
               {variants.length} sellable variant
-              {variants.length === 1 ? "" : "s"} will be created from the
-              current option values.
+              {variants.length === 1 ? "" : "s"} are derived from the current
+              option values.
             </div>
 
             <div className="overflow-x-auto rounded-lg border">
@@ -1954,29 +1864,13 @@ export function ProductEditorForm({
     <form onSubmit={handleSubmit(handleContinue)} className="space-y-6">
       <Card>
         <CardContent className="flex flex-col gap-4 pt-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
-              <Badge variant={draftId ? "outline" : "secondary"}>
-                {draftId ? "Draft in progress" : "Not saved yet"}
-              </Badge>
+              <Badge variant="outline">Editing product</Badge>
               <span className="text-sm text-muted-foreground">
-                {draftId
-                  ? `Product ID: ${draftId}`
-                  : "Complete basics to create the draft product record."}
+                Product ID: {initialData.id}
               </span>
             </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isPending}
-              onClick={saveDraft}
-            >
-              {isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
-              Save Draft
-            </Button>
           </div>
 
           <div className="grid gap-3 md:grid-cols-6">
@@ -2084,11 +1978,7 @@ export function ProductEditorForm({
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : null}
             {currentStep === STEP_DEFINITIONS.length - 1 ? (
-              mode === "create" ? (
-                "Create Product"
-              ) : (
-                "Save Product"
-              )
+              "Save Product"
             ) : (
               <>
                 Continue

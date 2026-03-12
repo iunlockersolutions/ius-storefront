@@ -20,7 +20,6 @@ export type AdminMutationKey =
   | "order.updateStatus"
   | "order.updateNotes"
   | "payment.verifyBankTransfer"
-  | "product.create"
   | "product.update"
   | "product.updateImages"
   | "product.delete"
@@ -118,7 +117,6 @@ function getInvalidationTargets(
             queryKeys.admin.orders(),
           ]
 
-    case "product.create":
     case "product.update":
     case "product.updateImages":
     case "product.delete":

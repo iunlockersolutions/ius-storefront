@@ -111,7 +111,6 @@ export function EditProductForm({
 
   return (
     <ProductEditorForm
-      mode="edit"
       categories={categories}
       brands={brands}
       models={models}
