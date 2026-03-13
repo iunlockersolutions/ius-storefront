@@ -1,14 +1,16 @@
 "use client"
 
-import { useDeferredValue, useState, useTransition } from "react"
+import { Fragment, useDeferredValue, useState, useTransition } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
 import {
-  ChevronLeft,
-  ChevronRight,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   History,
   Loader2,
+  MoreHorizontal,
   Plus,
   ScanBarcode,
   Search,
@@ -26,8 +28,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 import {
   Select,
   SelectContent,
@@ -48,7 +65,11 @@ import {
   useAdjustStockMutation,
   useUpdateLowStockThresholdMutation,
 } from "@/hooks/admin/use-inventory-mutations"
-import type { AdminInventoryListItem } from "@/lib/types/admin-inventory"
+import type {
+  AdminInventoryListItem,
+  AdminInventorySortField,
+  AdminInventorySortOrder,
+} from "@/lib/types/admin-inventory"
 
 interface InventoryTableProps {
   items: AdminInventoryListItem[]
@@ -60,6 +81,8 @@ interface InventoryTableProps {
   }
   search: string
   stockStatus: string
+  sortBy: AdminInventorySortField
+  sortOrder: AdminInventorySortOrder
   isLoading?: boolean
   errorMessage?: string | null
   onRefetch?: () => Promise<unknown>
@@ -70,12 +93,14 @@ export function InventoryTable({
   pagination,
   search,
   stockStatus,
+  sortBy,
+  sortOrder,
   isLoading = false,
   errorMessage = null,
   onRefetch,
 }: InventoryTableProps) {
   const router = useRouter()
-  const [searchValue, setSearchValue] = useState("")
+  const [searchValue, setSearchValue] = useState(search)
   const deferredSearch = useDeferredValue(searchValue)
   const [isPending, startTransition] = useTransition()
 
@@ -90,27 +115,55 @@ export function InventoryTable({
   const adjustStockMutation = useAdjustStockMutation()
   const updateThresholdMutation = useUpdateLowStockThresholdMutation()
 
-  function updateFilters(updates: Record<string, string>) {
+  function buildHref(
+    overrides: Partial<{
+      page: number
+      search: string
+      status: string
+      sortBy: AdminInventorySortField
+      sortOrder: AdminInventorySortOrder
+    }> = {},
+  ) {
     const params = new URLSearchParams()
+    const nextSearch = overrides.search ?? search
+    const nextStatus = overrides.status ?? stockStatus
+    const nextSortBy = overrides.sortBy ?? sortBy
+    const nextSortOrder = overrides.sortOrder ?? sortOrder
+    const nextPage = overrides.page ?? pagination.page
 
-    if (search) {
-      params.set("search", search)
+    if (nextSearch.trim()) {
+      params.set("search", nextSearch.trim())
     }
 
-    if (stockStatus && stockStatus !== "all") {
-      params.set("status", stockStatus)
+    if (nextStatus && nextStatus !== "all") {
+      params.set("status", nextStatus)
     }
 
-    Object.entries(updates).forEach(([key, value]) => {
-      if (value) {
-        params.set(key, value)
-      } else {
-        params.delete(key)
-      }
-    })
-    params.delete("page")
+    if (nextSortBy !== "updated") {
+      params.set("sortBy", nextSortBy)
+    }
+
+    if (!(nextSortBy === "updated" && nextSortOrder === "desc")) {
+      params.set("sortOrder", nextSortOrder)
+    }
+
+    if (nextPage > 1) {
+      params.set("page", nextPage.toString())
+    }
+
+    const query = params.toString()
+    return query ? `/ops/inventory?${query}` : "/ops/inventory"
+  }
+
+  function updateFilters(updates: Record<string, string>) {
     startTransition(() => {
-      router.push(`/ops/inventory?${params.toString()}`)
+      router.push(
+        buildHref({
+          page: 1,
+          search: updates.search ?? search,
+          status: updates.status ?? stockStatus,
+        }),
+      )
     })
   }
 
@@ -120,23 +173,71 @@ export function InventoryTable({
   }
 
   function goToPage(page: number) {
-    const params = new URLSearchParams()
+    startTransition(() => {
+      router.push(buildHref({ page }))
+    })
+  }
 
-    if (search) {
-      params.set("search", search)
-    }
-
-    if (stockStatus && stockStatus !== "all") {
-      params.set("status", stockStatus)
-    }
-
-    if (page > 1) {
-      params.set("page", page.toString())
-    }
+  function toggleSort(field: AdminInventorySortField) {
+    const nextOrder =
+      sortBy === field ? (sortOrder === "asc" ? "desc" : "asc") : "desc"
 
     startTransition(() => {
-      router.push(`/ops/inventory?${params.toString()}`)
+      router.push(
+        buildHref({
+          page: 1,
+          sortBy: field,
+          sortOrder: nextOrder,
+        }),
+      )
     })
+  }
+
+  function renderSortIcon(field: AdminInventorySortField) {
+    if (sortBy !== field) {
+      return <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+    }
+
+    return sortOrder === "asc" ? (
+      <ArrowUp className="h-3.5 w-3.5" />
+    ) : (
+      <ArrowDown className="h-3.5 w-3.5" />
+    )
+  }
+
+  function renderSortableHead(
+    label: string,
+    field: AdminInventorySortField,
+    className?: string,
+  ) {
+    return (
+      <TableHead className={className}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="-ml-2 h-8 px-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground hover:text-foreground"
+          onClick={() => toggleSort(field)}
+        >
+          {label}
+          {renderSortIcon(field)}
+        </Button>
+      </TableHead>
+    )
+  }
+
+  function getPaginationItems() {
+    const pages = new Set<number>([
+      1,
+      pagination.totalPages,
+      pagination.page - 1,
+      pagination.page,
+      pagination.page + 1,
+    ])
+
+    return [...pages]
+      .filter((value) => value >= 1 && value <= pagination.totalPages)
+      .sort((left, right) => left - right)
   }
 
   async function handleAdjustStock() {
@@ -234,19 +335,27 @@ export function InventoryTable({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <form onSubmit={handleSearch} className="flex gap-2">
-          <div className="relative">
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <form
+          onSubmit={handleSearch}
+          className="flex flex-col gap-2 md:flex-row md:items-center"
+        >
+          <div className="relative min-w-0 flex-1 md:min-w-[22rem]">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search product, variant, or SKU..."
               value={searchValue}
               onChange={(event) => setSearchValue(event.target.value)}
-              className="w-72 pl-9"
+              className="w-full pl-9"
             />
           </div>
-          <Button type="submit" variant="secondary" disabled={isPending}>
+          <Button
+            type="submit"
+            variant="secondary"
+            disabled={isPending}
+            className="sm:shrink-0"
+          >
             Search
           </Button>
         </form>
@@ -255,7 +364,7 @@ export function InventoryTable({
           value={stockStatus}
           onValueChange={(value) => updateFilters({ status: value })}
         >
-          <SelectTrigger className="w-44">
+          <SelectTrigger className="w-full md:w-44">
             <SelectValue placeholder="Stock Status" />
           </SelectTrigger>
           <SelectContent>
@@ -273,19 +382,21 @@ export function InventoryTable({
         </div>
       ) : null}
 
-      <div className="rounded-md border">
+      <div className="space-y-4">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Product / SKU</TableHead>
-              <TableHead>Mode</TableHead>
-              <TableHead className="text-center">Available</TableHead>
-              <TableHead className="text-center">Reserved</TableHead>
-              <TableHead className="text-center">Allocated</TableHead>
-              <TableHead className="text-center">On Hand</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Updated</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              {renderSortableHead("Product", "product")}
+              {renderSortableHead("SKU", "sku")}
+              {renderSortableHead("Available", "available", "text-center")}
+              {renderSortableHead("Reserved", "reserved", "text-center")}
+              {renderSortableHead("Allocated", "allocated", "text-center")}
+              {renderSortableHead("On Hand", "onHand", "text-center")}
+              {renderSortableHead("Status", "status")}
+              {renderSortableHead("Updated", "updated")}
+              <TableHead className="w-12 text-right text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Actions
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -319,14 +430,12 @@ export function InventoryTable({
                         {item.productName}
                       </Link>
                       <p className="text-sm text-muted-foreground">
-                        {item.variantName} • {item.variantSku}
+                        {item.variantName}
                       </p>
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="capitalize">
-                      {item.trackingMode}
-                    </Badge>
+                  <TableCell className="font-mono text-sm text-muted-foreground">
+                    {item.variantSku}
                   </TableCell>
                   <TableCell className="text-center font-medium">
                     {item.availableQuantity}
@@ -352,92 +461,143 @@ export function InventoryTable({
                     {formatUpdatedAt(item.updatedAt)}
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex flex-wrap justify-end gap-2">
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link href={`/ops/inventory/${item.variantId}`}>
-                          Details
-                        </Link>
-                      </Button>
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link
-                          href={`/ops/inventory/${item.variantId}?tab=receipts`}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Actions for ${item.productName}`}
                         >
-                          <ScanBarcode className="mr-1 h-4 w-4" />
-                          Receive
-                        </Link>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedItem(item)
-                          setAdjustment(0)
-                          setAdjustReason("")
-                          setAdjustDialogOpen(true)
-                        }}
-                      >
-                        <Plus className="mr-1 h-4 w-4" />
-                        Adjust
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedItem(item)
-                          setNewThreshold(item.lowStockThreshold)
-                          setThresholdDialogOpen(true)
-                        }}
-                      >
-                        <Settings className="mr-1 h-4 w-4" />
-                        Threshold
-                      </Button>
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link href={`/ops/inventory/${item.variantId}/history`}>
-                          <History className="mr-1 h-4 w-4" />
-                          History
-                        </Link>
-                      </Button>
-                    </div>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem asChild>
+                          <Link href={`/ops/inventory/${item.variantId}`}>
+                            Details
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link
+                            href={`/ops/inventory/${item.variantId}?tab=receipts`}
+                          >
+                            <ScanBarcode className="mr-2 h-4 w-4" />
+                            Receive
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setSelectedItem(item)
+                            setAdjustment(0)
+                            setAdjustReason("")
+                            setAdjustDialogOpen(true)
+                          }}
+                        >
+                          <Plus className="mr-2 h-4 w-4" />
+                          Adjust stock
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setSelectedItem(item)
+                            setNewThreshold(item.lowStockThreshold)
+                            setThresholdDialogOpen(true)
+                          }}
+                        >
+                          <Settings className="mr-2 h-4 w-4" />
+                          Update threshold
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link
+                            href={`/ops/inventory/${item.variantId}/history`}
+                          >
+                            <History className="mr-2 h-4 w-4" />
+                            History
+                          </Link>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))
             )}
           </TableBody>
         </Table>
-      </div>
 
-      {pagination.totalPages > 1 ? (
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">
             Showing {(pagination.page - 1) * pagination.limit + 1} to{" "}
             {Math.min(pagination.page * pagination.limit, pagination.total)} of{" "}
             {pagination.total} variants
           </p>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => goToPage(pagination.page - 1)}
-              disabled={pagination.page <= 1 || isPending}
-            >
-              <ChevronLeft className="mr-1 h-4 w-4" />
-              Previous
-            </Button>
-            <span className="text-sm">
-              Page {pagination.page} of {pagination.totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => goToPage(pagination.page + 1)}
-              disabled={pagination.page >= pagination.totalPages || isPending}
-            >
-              Next
-              <ChevronRight className="ml-1 h-4 w-4" />
-            </Button>
-          </div>
+          <Pagination className="mx-0 w-auto justify-start sm:justify-end">
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious
+                  href={buildHref({ page: Math.max(1, pagination.page - 1) })}
+                  onClick={(event) => {
+                    event.preventDefault()
+                    if (pagination.page > 1 && !isPending) {
+                      goToPage(pagination.page - 1)
+                    }
+                  }}
+                  aria-disabled={pagination.page <= 1 || isPending}
+                  className={
+                    pagination.page <= 1 || isPending
+                      ? "pointer-events-none opacity-50"
+                      : ""
+                  }
+                />
+              </PaginationItem>
+
+              {getPaginationItems().map((pageNumber, index, pages) => (
+                <Fragment key={pageNumber}>
+                  {index > 0 && pageNumber - pages[index - 1] > 1 ? (
+                    <PaginationItem>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  ) : null}
+                  <PaginationItem>
+                    <PaginationLink
+                      href={buildHref({ page: pageNumber })}
+                      isActive={pageNumber === pagination.page}
+                      onClick={(event) => {
+                        event.preventDefault()
+                        if (!isPending) {
+                          goToPage(pageNumber)
+                        }
+                      }}
+                    >
+                      {pageNumber}
+                    </PaginationLink>
+                  </PaginationItem>
+                </Fragment>
+              ))}
+
+              <PaginationItem>
+                <PaginationNext
+                  href={buildHref({
+                    page: Math.min(pagination.totalPages, pagination.page + 1),
+                  })}
+                  onClick={(event) => {
+                    event.preventDefault()
+                    if (pagination.page < pagination.totalPages && !isPending) {
+                      goToPage(pagination.page + 1)
+                    }
+                  }}
+                  aria-disabled={
+                    pagination.page >= pagination.totalPages || isPending
+                  }
+                  className={
+                    pagination.page >= pagination.totalPages || isPending
+                      ? "pointer-events-none opacity-50"
+                      : ""
+                  }
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
         </div>
-      ) : null}
+      </div>
 
       <Dialog open={adjustDialogOpen} onOpenChange={setAdjustDialogOpen}>
         <DialogContent>

@@ -26,6 +26,8 @@ import type {
   AdminInventoryListResponse,
   AdminInventoryLowStockAlert,
   AdminInventoryMovementResponse,
+  AdminInventorySortField,
+  AdminInventorySortOrder,
   AdminInventoryStats,
   AdminInventoryTrackingMode,
   AdminInventoryTransactionType,
@@ -49,6 +51,19 @@ const inventoryListInputSchema = z.object({
   limit: z.number().int().positive().max(100).default(20),
   search: z.string().trim().default(""),
   stockStatus: inventoryStatusSchema.default("all"),
+  sortBy: z
+    .enum([
+      "product",
+      "sku",
+      "available",
+      "reserved",
+      "allocated",
+      "onHand",
+      "status",
+      "updated",
+    ])
+    .default("updated"),
+  sortOrder: z.enum(["asc", "desc"]).default("desc"),
 })
 
 const stockAdjustmentSchema = z.object({
@@ -605,6 +620,66 @@ function filterInventoryByStatus(
   return items.filter((item) => !item.isLowStock && !item.isOutOfStock)
 }
 
+function getInventoryStatusRank(item: AdminInventoryListItem) {
+  if (item.isOutOfStock) {
+    return 0
+  }
+
+  if (item.isLowStock) {
+    return 1
+  }
+
+  return 2
+}
+
+function sortInventoryItems(
+  items: AdminInventoryListItem[],
+  sortBy: AdminInventorySortField,
+  sortOrder: AdminInventorySortOrder,
+) {
+  const direction = sortOrder === "asc" ? 1 : -1
+
+  return [...items].sort((left, right) => {
+    const compare = (() => {
+      switch (sortBy) {
+        case "product":
+          return (
+            left.productName.localeCompare(right.productName) ||
+            left.variantName.localeCompare(right.variantName) ||
+            left.variantSku.localeCompare(right.variantSku)
+          )
+        case "sku":
+          return left.variantSku.localeCompare(right.variantSku)
+        case "available":
+          return left.availableQuantity - right.availableQuantity
+        case "reserved":
+          return left.reservedQuantity - right.reservedQuantity
+        case "allocated":
+          return left.allocatedQuantity - right.allocatedQuantity
+        case "onHand":
+          return left.onHandQuantity - right.onHandQuantity
+        case "status":
+          return (
+            getInventoryStatusRank(left) - getInventoryStatusRank(right) ||
+            left.availableQuantity - right.availableQuantity
+          )
+        case "updated":
+        default:
+          return (
+            new Date(left.updatedAt).getTime() -
+            new Date(right.updatedAt).getTime()
+          )
+      }
+    })()
+
+    if (compare !== 0) {
+      return compare * direction
+    }
+
+    return left.productName.localeCompare(right.productName)
+  })
+}
+
 async function getInventoryListBase() {
   const variants = await db
     .select({
@@ -676,7 +751,7 @@ export async function getInventoryStats(): Promise<AdminInventoryStats> {
 export async function getInventoryItems(
   input: z.input<typeof inventoryListInputSchema> = {},
 ): Promise<AdminInventoryListResponse["inventory"]> {
-  const { page, limit, search, stockStatus } =
+  const { page, limit, search, stockStatus, sortBy, sortOrder } =
     inventoryListInputSchema.parse(input)
   const searchValue = search.trim().toLowerCase()
 
@@ -694,16 +769,17 @@ export async function getInventoryItems(
   })
 
   const filteredItems = filterInventoryByStatus(matchingItems, stockStatus)
+  const sortedItems = sortInventoryItems(filteredItems, sortBy, sortOrder)
   const offset = (page - 1) * limit
-  const paginatedItems = filteredItems.slice(offset, offset + limit)
+  const paginatedItems = sortedItems.slice(offset, offset + limit)
 
   return {
     items: paginatedItems,
     pagination: {
       page,
       limit,
-      total: filteredItems.length,
-      totalPages: Math.max(1, Math.ceil(filteredItems.length / limit)),
+      total: sortedItems.length,
+      totalPages: Math.max(1, Math.ceil(sortedItems.length / limit)),
     },
   }
 }

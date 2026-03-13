@@ -2,7 +2,11 @@
 
 import { useQuery } from "@tanstack/react-query"
 
-import type { AdminInventoryListResponse } from "@/lib/types/admin-inventory"
+import type {
+  AdminInventoryListResponse,
+  AdminInventorySortField,
+  AdminInventorySortOrder,
+} from "@/lib/types/admin-inventory"
 import { queryKeys } from "@/lib/utils/query-keys"
 
 type StockStatus = "all" | "low" | "out" | "normal"
@@ -12,6 +16,8 @@ interface InventoryParams {
   limit?: number
   search?: string
   status?: StockStatus
+  sortBy?: AdminInventorySortField
+  sortOrder?: AdminInventorySortOrder
 }
 
 function buildUrl(params?: InventoryParams) {
@@ -21,6 +27,8 @@ function buildUrl(params?: InventoryParams) {
   if (params?.limit) searchParams.set("limit", String(params.limit))
   if (params?.search) searchParams.set("search", params.search)
   if (params?.status) searchParams.set("status", params.status)
+  if (params?.sortBy) searchParams.set("sortBy", params.sortBy)
+  if (params?.sortOrder) searchParams.set("sortOrder", params.sortOrder)
 
   const query = searchParams.toString()
   return query ? `/api/admin/inventory?${query}` : "/api/admin/inventory"

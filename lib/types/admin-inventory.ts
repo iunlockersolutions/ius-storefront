@@ -2,6 +2,18 @@ export type AdminInventoryTrackingMode = "quantity" | "serial"
 
 export type AdminInventoryStatus = "all" | "low" | "out" | "normal"
 
+export type AdminInventorySortField =
+  | "product"
+  | "sku"
+  | "available"
+  | "reserved"
+  | "allocated"
+  | "onHand"
+  | "status"
+  | "updated"
+
+export type AdminInventorySortOrder = "asc" | "desc"
+
 export type AdminInventoryTransactionType =
   | "receipt"
   | "adjustment_increase"
