@@ -25,6 +25,7 @@ export type AdminMutationKey =
   | "product.update"
   | "product.publish"
   | "product.updateImages"
+  | "product.updateMedia"
   | "product.delete"
   | "settings.updateSite"
   | "profile.update"
@@ -135,6 +136,7 @@ function getInvalidationTargets(
     case "product.update":
     case "product.publish":
     case "product.updateImages":
+    case "product.updateMedia":
     case "product.delete":
       return context.productId
         ? [

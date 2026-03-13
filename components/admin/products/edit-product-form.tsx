@@ -3,12 +3,12 @@
 import { ProductEditorForm } from "@/components/admin/products/product-editor-form"
 import { useDeleteProductMutation } from "@/hooks/admin/use-delete-product-mutation"
 import {
-  useUpdateProductImagesMutation,
+  useUpdateProductMediaMutation,
   useUpdateProductMutation,
 } from "@/hooks/admin/use-update-product-mutations"
 import type {
   AdminProductDetail,
-  AdminProductImage,
+  AdminProductMedia,
 } from "@/lib/types/admin-product"
 
 interface Category {
@@ -40,14 +40,14 @@ interface Model {
   isActive: boolean
 }
 
-const EMPTY_IMAGES: AdminProductImage[] = []
+const EMPTY_MEDIA: AdminProductMedia[] = []
 
 interface EditProductFormProps {
   product: AdminProductDetail
   categories: Category[]
   brands: Brand[]
   models: Model[]
-  images?: AdminProductImage[]
+  media?: AdminProductMedia[]
 }
 
 export function EditProductForm({
@@ -55,10 +55,10 @@ export function EditProductForm({
   categories,
   brands,
   models,
-  images = EMPTY_IMAGES,
+  media = EMPTY_MEDIA,
 }: EditProductFormProps) {
   const updateProductMutation = useUpdateProductMutation(product.id)
-  const updateProductImagesMutation = useUpdateProductImagesMutation(product.id)
+  const updateProductMediaMutation = useUpdateProductMediaMutation(product.id)
   const deleteProductMutation = useDeleteProductMutation()
 
   return (
@@ -68,16 +68,17 @@ export function EditProductForm({
       models={models}
       initialData={{
         ...product,
-        images,
+        media,
       }}
-      onSave={async (_productId, { images: nextImages, ...payload }) => {
+      onSave={async (_productId, { media: nextMedia, ...payload }) => {
         const updatedProductResponse =
           await updateProductMutation.mutateAsync(payload)
-        await updateProductImagesMutation.mutateAsync(nextImages)
+        const updatedMediaResponse =
+          await updateProductMediaMutation.mutateAsync(nextMedia)
         return updatedProductResponse.data
           ? {
               ...updatedProductResponse.data,
-              images: nextImages,
+              media: updatedMediaResponse.data ?? [],
             }
           : null
       }}

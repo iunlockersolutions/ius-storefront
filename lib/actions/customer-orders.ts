@@ -9,8 +9,9 @@ import {
   orders,
   orderStatusHistory,
   payments,
-  productImages,
+  productVariants,
 } from "@/lib/db/schema"
+import { getPrimaryProductImageMap } from "@/lib/media/service"
 import { releaseOrderInventoryReservationsTx } from "@/lib/orders/inventory-reservations"
 
 // ============================================
@@ -63,21 +64,25 @@ export async function getCustomerOrders(page: number = 1, limit: number = 10) {
           .where(inArray(orderItems.orderId, orderIds))
       : []
 
-  // Get images for the variants
   const variantIds = [
     ...new Set(firstItems.map((i) => i.variantId).filter(Boolean)),
   ] as string[]
-
-  const images =
+  const productVariantsForOrders =
     variantIds.length > 0
       ? await db
           .select({
-            productId: productImages.productId,
-            url: productImages.url,
+            id: productVariants.id,
+            productId: productVariants.productId,
           })
-          .from(productImages)
-          .where(eq(productImages.isPrimary, true))
+          .from(productVariants)
+          .where(inArray(productVariants.id, variantIds))
       : []
+  const productIdByVariantId = new Map(
+    productVariantsForOrders.map((variant) => [variant.id, variant.productId]),
+  )
+  const imageMap = await getPrimaryProductImageMap(
+    productVariantsForOrders.map((variant) => variant.productId),
+  )
 
   // Create order-to-image mapping
   const orderImageMap = new Map<
@@ -87,10 +92,12 @@ export async function getCustomerOrders(page: number = 1, limit: number = 10) {
   for (const order of customerOrders) {
     const firstItem = firstItems.find((i) => i.orderId === order.id)
     if (firstItem) {
-      const image = images.find((img) => img.productId)
+      const productId = firstItem.variantId
+        ? productIdByVariantId.get(firstItem.variantId)
+        : undefined
       orderImageMap.set(order.id, {
         productName: firstItem.productName,
-        imageUrl: image?.url || null,
+        imageUrl: productId ? imageMap.get(productId) || null : null,
       })
     }
   }

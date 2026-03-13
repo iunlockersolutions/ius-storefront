@@ -11,6 +11,7 @@ import { getVariantInventoryAvailabilityMap } from "@/lib/actions/inventory"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { cartItems, carts, products, productVariants } from "@/lib/db/schema"
+import { getPrimaryProductImageMap } from "@/lib/media/service"
 
 const CART_SESSION_COOKIE = "cart_session_id"
 const CART_SESSION_EXPIRY = 30 * 24 * 60 * 60 * 1000 // 30 days
@@ -112,36 +113,27 @@ export async function getCart() {
     items.map((item) => item.variant.id),
   )
 
-  // Get primary image for each product
-  const itemsWithImages = await Promise.all(
-    items.map(async (item) => {
-      const [image] = await db
-        .select({ url: sql<string>`url` })
-        .from(sql`product_images`)
-        .where(
-          and(eq(sql`product_id`, item.product.id), eq(sql`is_primary`, true)),
-        )
-        .limit(1)
-
-      return {
-        ...item,
-        inventory: availabilityByVariant.get(item.variant.id)
-          ? {
-              availableQuantity:
-                availabilityByVariant.get(item.variant.id)?.availableQuantity ??
-                null,
-              lowStockThreshold:
-                availabilityByVariant.get(item.variant.id)?.lowStockThreshold ??
-                null,
-              manageInventory:
-                availabilityByVariant.get(item.variant.id)?.manageInventory ??
-                false,
-            }
-          : null,
-        image: image?.url || null,
-      }
-    }),
+  const imageMap = await getPrimaryProductImageMap(
+    items.map((item) => item.product.id),
   )
+
+  const itemsWithImages = items.map((item) => ({
+    ...item,
+    inventory: availabilityByVariant.get(item.variant.id)
+      ? {
+          availableQuantity:
+            availabilityByVariant.get(item.variant.id)?.availableQuantity ??
+            null,
+          lowStockThreshold:
+            availabilityByVariant.get(item.variant.id)?.lowStockThreshold ??
+            null,
+          manageInventory:
+            availabilityByVariant.get(item.variant.id)?.manageInventory ??
+            false,
+        }
+      : null,
+    image: imageMap.get(item.product.id) || null,
+  }))
 
   // Calculate totals
   const subtotal = itemsWithImages.reduce((sum, item) => {

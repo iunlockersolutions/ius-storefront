@@ -18,6 +18,10 @@ import { z } from "zod"
 
 import { CreatableEntityCombobox } from "@/components/admin/products/creatable-entity-combobox"
 import {
+  ProductMediaField,
+  type ProductMediaFieldValue,
+} from "@/components/admin/products/product-media-field"
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -61,7 +65,7 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import type {
   AdminProductDetail,
-  AdminProductImage,
+  AdminProductMedia,
   AdminProductMutationPayload,
   AdminProductWorkflow,
 } from "@/lib/types/admin-product"
@@ -84,9 +88,8 @@ const productSchema = z.object({
 
 type ProductFormData = z.infer<typeof productSchema>
 
-type UploadedImage = Omit<AdminProductImage, "altText"> & {
-  altText?: string
-}
+type UploadedMedia = ProductMediaFieldValue &
+  Partial<Pick<AdminProductMedia, "assetId">>
 
 type OptionValueEditorValue = {
   key: string
@@ -144,6 +147,13 @@ type ModelOption = {
   isActive: boolean
 }
 
+function mapInitialMedia(initialData: AdminProductDetail): UploadedMedia[] {
+  return (initialData.media ?? []).map((item) => ({
+    ...item,
+    persisted: true,
+  }))
+}
+
 interface ProductEditorFormProps {
   categories: CategoryOption[]
   brands: BrandOption[]
@@ -152,7 +162,7 @@ interface ProductEditorFormProps {
   onSave: (
     productId: string,
     payload: AdminProductMutationPayload & {
-      images: UploadedImage[]
+      media: UploadedMedia[]
     },
   ) => Promise<AdminProductDetail | null | void>
   onPublish?: (productId: string) => Promise<AdminProductDetail | null | void>
@@ -173,7 +183,7 @@ const STEP_DEFINITIONS = [
   {
     id: "media",
     title: "Media",
-    description: "Placeholder for future media upload support.",
+    description: "Upload and organize product images and videos.",
   },
   {
     id: "options",
@@ -302,14 +312,8 @@ export function ProductEditorForm({
       ),
     ),
   )
-  const [images, setImages] = useState<UploadedImage[]>(() =>
-    (initialData.images ?? []).map((image) => ({
-      id: image.id,
-      url: image.url,
-      altText: image.altText || undefined,
-      variantId: image.variantId || null,
-      isPrimary: image.isPrimary,
-    })),
+  const [media, setMedia] = useState<UploadedMedia[]>(() =>
+    mapInitialMedia(initialData),
   )
   const [options, setOptions] = useState<OptionEditorValue[]>(
     () =>
@@ -807,15 +811,7 @@ export function ProductEditorForm({
         ),
       })),
     )
-    setImages(
-      (savedProduct.images ?? []).map((image) => ({
-        id: image.id,
-        url: image.url,
-        altText: image.altText || undefined,
-        variantId: image.variantId || null,
-        isPrimary: image.isPrimary,
-      })),
-    )
+    setMedia(mapInitialMedia(savedProduct))
     setPendingOptionValues({})
   }
 
@@ -1069,7 +1065,7 @@ export function ProductEditorForm({
   const buildPayload = (
     data: ProductFormData,
     draftStep: ProductWizardStep,
-  ): AdminProductMutationPayload & { images: UploadedImage[] } => ({
+  ): AdminProductMutationPayload & { media: UploadedMedia[] } => ({
     name: data.name,
     slug: data.slug,
     description: data.description || undefined,
@@ -1101,7 +1097,7 @@ export function ProductEditorForm({
       inventoryTrackingMode: variant.inventoryTrackingMode,
       optionValues: variant.optionValues,
     })),
-    images,
+    media,
   })
 
   const persistProduct = async (
@@ -1453,11 +1449,30 @@ export function ProductEditorForm({
                 <p className="font-medium">Image upload is deferred</p>
                 <p className="text-sm text-muted-foreground">
                   This step is intentionally a placeholder for the future bucket
-                  upload workflow. Continue building the product draft now and
-                  attach media later.
+                  Upload images and videos for the product gallery. Images can
+                  be marked as the primary storefront image, and each media item
+                  can be assigned to a specific variant if needed.
                 </p>
               </div>
             </div>
+            {currentProductId ? (
+              <ProductMediaField
+                productId={currentProductId}
+                value={media}
+                onChange={setMedia}
+                variants={variants
+                  .filter((variant) => Boolean(variant.id))
+                  .map((variant) => ({
+                    id: variant.id!,
+                    name: variant.name,
+                  }))}
+                disabled={isPending}
+              />
+            ) : (
+              <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+                Save the draft first to enable media uploads.
+              </div>
+            )}
           </CardContent>
         </Card>
       )

@@ -11,10 +11,12 @@ import {
   inventoryTransactions,
   inventoryUnitIdentifiers,
   inventoryUnits,
+  mediaAssets,
+  mediaDerivatives,
   models,
   productAttributeValues,
   productCategoryAssignments,
-  productImages,
+  productMedia,
   productOptions,
   productOptionValues,
   products,
@@ -802,7 +804,9 @@ async function clearCatalogData(db: ReturnType<typeof drizzle>) {
   await db.delete(inventoryLevels)
   await db.delete(inventoryLocations)
   await db.delete(productVariantOptionValues)
-  await db.delete(productImages)
+  await db.delete(productMedia)
+  await db.delete(mediaDerivatives)
+  await db.delete(mediaAssets)
   await db.delete(productOptionValues)
   await db.delete(productOptions)
   await db.delete(productCategoryAssignments)
@@ -1094,12 +1098,36 @@ export async function seedCatalogData(logLabel: string) {
           }
         }
 
-        await db.insert(productImages).values({
+        const placeholderUrl = `/placeholder/${product.slug}.svg`
+
+        const [mediaAsset] = await db
+          .insert(mediaAssets)
+          .values({
+            provider: "external_url",
+            access: "public",
+            kind: "image",
+            status: "ready",
+            pathname: `seed/product-media/${createdProduct.id}`,
+            url: placeholderUrl,
+            downloadUrl: null,
+            mimeType: "image/svg+xml",
+            byteSize: 0,
+            width: null,
+            height: null,
+            durationSeconds: null,
+            etag: null,
+            originalFilename: `${product.slug}.svg`,
+            placeholderDataUrl: null,
+            createdBy: null,
+          })
+          .returning({ id: mediaAssets.id })
+
+        await db.insert(productMedia).values({
           productId: createdProduct.id,
-          url: `/placeholder/${product.slug}.svg`,
+          mediaAssetId: mediaAsset.id,
           altText: product.name,
           sortOrder: 0,
-          isPrimary: true,
+          isPrimaryImage: true,
         })
       }
     }

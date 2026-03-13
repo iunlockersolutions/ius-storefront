@@ -10,10 +10,10 @@ import {
   orderItems,
   orders,
   productCategoryAssignments,
-  productImages,
   products,
   productVariants,
 } from "@/lib/db/schema"
+import { getPrimaryProductImageMap } from "@/lib/media/service"
 
 import { withStorefrontCatalogFallback } from "./storefront-catalog-read"
 
@@ -49,26 +49,10 @@ export async function getFeaturedProducts(limit: number = 8) {
       const imageMap = await withStorefrontCatalogFallback(
         "storefront:getFeaturedProducts:images",
         new Map<string, string>(),
-        async () => {
-          const productIds = featuredProducts.map((product) => product.id)
-          const images =
-            productIds.length > 0
-              ? await db
-                  .select({
-                    productId: productImages.productId,
-                    url: productImages.url,
-                  })
-                  .from(productImages)
-                  .where(
-                    and(
-                      inArray(productImages.productId, productIds),
-                      eq(productImages.isPrimary, true),
-                    ),
-                  )
-              : []
-
-          return new Map(images.map((image) => [image.productId, image.url]))
-        },
+        () =>
+          getPrimaryProductImageMap(
+            featuredProducts.map((product) => product.id),
+          ),
       )
 
       return featuredProducts.map((product) => ({
@@ -124,26 +108,8 @@ export async function getNewArrivals(limit: number = 8) {
       const imageMap = await withStorefrontCatalogFallback(
         "storefront:getNewArrivals:images",
         new Map<string, string>(),
-        async () => {
-          const productIds = newProducts.map((product) => product.id)
-          const images =
-            productIds.length > 0
-              ? await db
-                  .select({
-                    productId: productImages.productId,
-                    url: productImages.url,
-                  })
-                  .from(productImages)
-                  .where(
-                    and(
-                      inArray(productImages.productId, productIds),
-                      eq(productImages.isPrimary, true),
-                    ),
-                  )
-              : []
-
-          return new Map(images.map((image) => [image.productId, image.url]))
-        },
+        () =>
+          getPrimaryProductImageMap(newProducts.map((product) => product.id)),
       )
 
       return newProducts.map((product) => ({
@@ -230,22 +196,7 @@ export async function getBestSellers(limit: number = 8) {
       const imageMap = await withStorefrontCatalogFallback(
         "storefront:getBestSellers:images",
         new Map<string, string>(),
-        async () => {
-          const images = await db
-            .select({
-              productId: productImages.productId,
-              url: productImages.url,
-            })
-            .from(productImages)
-            .where(
-              and(
-                inArray(productImages.productId, productIds),
-                eq(productImages.isPrimary, true),
-              ),
-            )
-
-          return new Map(images.map((image) => [image.productId, image.url]))
-        },
+        () => getPrimaryProductImageMap(productIds),
       )
       const salesMap = new Map(
         topSelling.map((product) => [product.productId, product.totalSold]),
@@ -376,26 +327,7 @@ export async function getDealProducts(limit: number = 8) {
       const imageMap = await withStorefrontCatalogFallback(
         "storefront:getDealProducts:images",
         new Map<string, string>(),
-        async () => {
-          const productIds = deals.map((product) => product.id)
-          const images =
-            productIds.length > 0
-              ? await db
-                  .select({
-                    productId: productImages.productId,
-                    url: productImages.url,
-                  })
-                  .from(productImages)
-                  .where(
-                    and(
-                      inArray(productImages.productId, productIds),
-                      eq(productImages.isPrimary, true),
-                    ),
-                  )
-              : []
-
-          return new Map(images.map((image) => [image.productId, image.url]))
-        },
+        () => getPrimaryProductImageMap(deals.map((product) => product.id)),
       )
 
       return deals.map((product) => ({

@@ -129,6 +129,42 @@ export const productDraftStepEnum = pgEnum("product_draft_step", [
 ])
 
 /**
+ * Storage provider backing a media asset.
+ */
+export const mediaStorageProviderEnum = pgEnum("media_storage_provider", [
+  "vercel_blob",
+  "external_url",
+])
+
+/**
+ * Access level for a media asset in the backing store.
+ */
+export const mediaAccessEnum = pgEnum("media_access", ["public", "private"])
+
+/**
+ * Supported first-class media asset kinds.
+ */
+export const mediaKindEnum = pgEnum("media_kind", ["image", "video"])
+
+/**
+ * Lifecycle state for media assets managed by the app.
+ */
+export const mediaStatusEnum = pgEnum("media_status", [
+  "pending",
+  "ready",
+  "failed",
+  "deleted",
+])
+
+/**
+ * Derivative assets generated from a source media asset.
+ */
+export const mediaDerivativeKindEnum = pgEnum("media_derivative_kind", [
+  "blur",
+  "poster",
+])
+
+/**
  * Review status for moderation workflow.
  */
 export const reviewStatusEnum = pgEnum("review_status", [

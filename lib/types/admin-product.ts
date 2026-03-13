@@ -47,12 +47,40 @@ export interface AdminProductVariant {
   selections?: AdminProductVariantSelection[]
 }
 
-export interface AdminProductImage {
+export interface AdminProductMediaDerivative {
   id: string
+  kind: "blur" | "poster"
+  pathname: string
   url: string
+  downloadUrl: string | null
+  mimeType: string
+  byteSize: number | null
+  width: number | null
+  height: number | null
+}
+
+export interface AdminProductMedia {
+  id: string
+  assetId: string
+  kind: "image" | "video"
+  provider: "vercel_blob" | "external_url"
+  access: "public" | "private"
+  status: "pending" | "ready" | "failed" | "deleted"
+  pathname: string
+  url: string
+  downloadUrl: string | null
+  mimeType: string
+  byteSize: number
+  width: number | null
+  height: number | null
+  durationSeconds: number | null
+  originalFilename: string
+  placeholderDataUrl: string | null
   altText: string | null
   variantId?: string | null
-  isPrimary: boolean
+  isPrimaryImage: boolean
+  sortOrder: number
+  derivatives: AdminProductMediaDerivative[]
 }
 
 export interface AdminProductDetail {
@@ -74,7 +102,7 @@ export interface AdminProductDetail {
   categories: AdminProductCategoryAssignment[]
   options: AdminProductOption[]
   variants: AdminProductVariant[]
-  images?: AdminProductImage[]
+  media?: AdminProductMedia[]
   workflow: AdminProductWorkflow
 }
 

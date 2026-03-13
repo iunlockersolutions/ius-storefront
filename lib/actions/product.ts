@@ -14,13 +14,16 @@ import {
   categories,
   models,
   productCategoryAssignments,
-  productImages,
   productOptions,
   productOptionValues,
   products,
   productVariantOptionValues,
   productVariants,
 } from "@/lib/db/schema"
+import {
+  getPrimaryProductImageMap,
+  getProductMedia as getProductMediaRecords,
+} from "@/lib/media/service"
 import {
   revalidateBrandCaches,
   revalidateCategoryCaches,
@@ -74,16 +77,6 @@ const productMutationInputSchema = z.object({
   options: z.array(productOptionInputSchema).default([]),
   variants: z.array(productVariantInputSchema).min(1),
 })
-
-const productImageSchema = z.array(
-  z.object({
-    id: z.string().uuid().optional(),
-    url: z.string().url(),
-    altText: z.string().optional().nullable(),
-    variantId: z.string().uuid().optional().nullable(),
-    isPrimary: z.boolean().default(false),
-  }),
-)
 
 function createProductPublishValidationError(errors: string[]) {
   const error = new Error(
@@ -556,24 +549,7 @@ function assertDraftActivationUsesPublishEndpoint(
 }
 
 async function getPrimaryImageMap(productIds: string[]) {
-  if (productIds.length === 0) {
-    return new Map<string, string>()
-  }
-
-  const rows = await db
-    .select({
-      productId: productImages.productId,
-      url: productImages.url,
-    })
-    .from(productImages)
-    .where(
-      and(
-        inArray(productImages.productId, productIds),
-        eq(productImages.isPrimary, true),
-      ),
-    )
-
-  return new Map(rows.map((row) => [row.productId, row.url]))
+  return getPrimaryProductImageMap(productIds)
 }
 
 async function getAssignedCategories(productId: string) {
@@ -1145,7 +1121,7 @@ export async function getProduct(id: string) {
     assignedCategories,
     options,
     variants,
-    images,
+    media,
   ] = await Promise.all([
     product.brandId
       ? db.select().from(brands).where(eq(brands.id, product.brandId)).limit(1)
@@ -1163,11 +1139,7 @@ export async function getProduct(id: string) {
     getAssignedCategories(product.id),
     getProductOptions(product.id),
     getVariantsWithSelections(product.id),
-    db
-      .select()
-      .from(productImages)
-      .where(eq(productImages.productId, product.id))
-      .orderBy(asc(productImages.sortOrder)),
+    getProductMediaRecords(product.id),
   ])
 
   const resolvedPrimaryCategory = categoryRows[0] || null
@@ -1182,7 +1154,7 @@ export async function getProduct(id: string) {
     categories: assignedCategories,
     options,
     variants,
-    images,
+    media,
     workflow,
   }
 }
@@ -1209,7 +1181,7 @@ export async function getProductBySlug(slug: string) {
         assignedCategories,
         options,
         variants,
-        images,
+        media,
       ] = await Promise.all([
         product.brandId
           ? db
@@ -1235,11 +1207,7 @@ export async function getProductBySlug(slug: string) {
         getAssignedCategories(product.id),
         getProductOptions(product.id),
         getVariantsWithSelections(product.id),
-        db
-          .select()
-          .from(productImages)
-          .where(eq(productImages.productId, product.id))
-          .orderBy(asc(productImages.sortOrder)),
+        getProductMediaRecords(product.id),
       ])
 
       const resolvedPrimaryCategory = categoryRows[0] || null
@@ -1254,7 +1222,7 @@ export async function getProductBySlug(slug: string) {
         categories: assignedCategories,
         options,
         variants,
-        images,
+        media,
         workflow,
       }
     },
@@ -1604,32 +1572,5 @@ export async function deleteProduct(id: string) {
   revalidateBrandCaches()
   revalidateCategoryCaches()
 
-  return { success: true as const }
-}
-
-export async function updateProductImages(
-  productId: string,
-  images: z.infer<typeof productImageSchema>,
-) {
-  await requireResourcePermission("product", "update")
-  const validated = productImageSchema.parse(images)
-
-  await db.delete(productImages).where(eq(productImages.productId, productId))
-
-  if (validated.length > 0) {
-    await db.insert(productImages).values(
-      validated.map((image, index) => ({
-        productId,
-        url: image.url,
-        altText: image.altText || null,
-        variantId: image.variantId || null,
-        isPrimary: image.isPrimary || index === 0,
-        sortOrder: index,
-      })),
-    )
-  }
-
-  revalidatePath("/ops/products")
-  revalidateProductCaches()
   return { success: true as const }
 }

@@ -3,6 +3,11 @@ CREATE TYPE "public"."inventory_identifier_type" AS ENUM('serial', 'imei', 'imei
 CREATE TYPE "public"."inventory_tracking_mode" AS ENUM('quantity', 'serial');--> statement-breakpoint
 CREATE TYPE "public"."inventory_transaction_type" AS ENUM('receipt', 'adjustment_increase', 'adjustment_decrease', 'reservation', 'reservation_release', 'allocation', 'allocation_release', 'shipment', 'return', 'damage', 'loss', 'transfer_out', 'transfer_in');--> statement-breakpoint
 CREATE TYPE "public"."inventory_unit_status" AS ENUM('received', 'available', 'reserved', 'allocated', 'packed', 'shipped', 'returned', 'damaged', 'lost');--> statement-breakpoint
+CREATE TYPE "public"."media_access" AS ENUM('public', 'private');--> statement-breakpoint
+CREATE TYPE "public"."media_derivative_kind" AS ENUM('blur', 'poster');--> statement-breakpoint
+CREATE TYPE "public"."media_kind" AS ENUM('image', 'video');--> statement-breakpoint
+CREATE TYPE "public"."media_status" AS ENUM('pending', 'ready', 'failed', 'deleted');--> statement-breakpoint
+CREATE TYPE "public"."media_storage_provider" AS ENUM('vercel_blob', 'external_url');--> statement-breakpoint
 CREATE TYPE "public"."order_status" AS ENUM('draft', 'pending_payment', 'paid', 'processing', 'packing', 'shipped', 'delivered', 'cancelled', 'refunded');--> statement-breakpoint
 CREATE TYPE "public"."payment_method" AS ENUM('card', 'bank_transfer', 'cash_on_delivery');--> statement-breakpoint
 CREATE TYPE "public"."payment_status" AS ENUM('pending', 'processing', 'completed', 'failed', 'refunded', 'cancelled');--> statement-breakpoint
@@ -191,6 +196,46 @@ CREATE TABLE "category_option_templates" (
 	CONSTRAINT "category_option_templates_category_name_unique" UNIQUE("category_id","normalized_name")
 );
 --> statement-breakpoint
+CREATE TABLE "media_assets" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"provider" "media_storage_provider" DEFAULT 'vercel_blob' NOT NULL,
+	"access" "media_access" DEFAULT 'public' NOT NULL,
+	"kind" "media_kind" NOT NULL,
+	"status" "media_status" DEFAULT 'ready' NOT NULL,
+	"pathname" text NOT NULL,
+	"url" text NOT NULL,
+	"download_url" text,
+	"mime_type" text NOT NULL,
+	"byte_size" bigint NOT NULL,
+	"width" integer,
+	"height" integer,
+	"duration_seconds" integer,
+	"etag" text,
+	"original_filename" text NOT NULL,
+	"placeholder_data_url" text,
+	"created_by" uuid,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "media_assets_pathname_unique" UNIQUE("pathname")
+);
+--> statement-breakpoint
+CREATE TABLE "media_derivatives" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"media_asset_id" uuid NOT NULL,
+	"kind" "media_derivative_kind" NOT NULL,
+	"pathname" text NOT NULL,
+	"url" text NOT NULL,
+	"download_url" text,
+	"mime_type" text NOT NULL,
+	"byte_size" bigint,
+	"width" integer,
+	"height" integer,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "media_derivatives_pathname_unique" UNIQUE("pathname"),
+	CONSTRAINT "media_derivatives_media_asset_kind_unique" UNIQUE("media_asset_id","kind")
+);
+--> statement-breakpoint
 CREATE TABLE "models" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"brand_id" uuid NOT NULL,
@@ -239,15 +284,17 @@ CREATE TABLE "product_category_assignments" (
 	CONSTRAINT "product_category_assignments_unique" UNIQUE("product_id","category_id")
 );
 --> statement-breakpoint
-CREATE TABLE "product_images" (
+CREATE TABLE "product_media" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"product_id" uuid NOT NULL,
+	"media_asset_id" uuid NOT NULL,
 	"variant_id" uuid,
-	"url" text NOT NULL,
 	"alt_text" text,
 	"sort_order" integer DEFAULT 0 NOT NULL,
-	"is_primary" boolean DEFAULT false NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+	"is_primary_image" boolean DEFAULT false NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "product_media_product_media_asset_unique" UNIQUE("product_id","media_asset_id")
 );
 --> statement-breakpoint
 CREATE TABLE "product_option_values" (
@@ -604,14 +651,17 @@ ALTER TABLE "brand_category_assignments" ADD CONSTRAINT "brand_category_assignme
 ALTER TABLE "brand_category_assignments" ADD CONSTRAINT "brand_category_assignments_category_id_categories_id_fk" FOREIGN KEY ("category_id") REFERENCES "public"."categories"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "categories" ADD CONSTRAINT "categories_parent_id_categories_id_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."categories"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "category_option_templates" ADD CONSTRAINT "category_option_templates_category_id_categories_id_fk" FOREIGN KEY ("category_id") REFERENCES "public"."categories"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "media_assets" ADD CONSTRAINT "media_assets_created_by_user_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "media_derivatives" ADD CONSTRAINT "media_derivatives_media_asset_id_media_assets_id_fk" FOREIGN KEY ("media_asset_id") REFERENCES "public"."media_assets"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "models" ADD CONSTRAINT "models_brand_id_brands_id_fk" FOREIGN KEY ("brand_id") REFERENCES "public"."brands"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "models" ADD CONSTRAINT "models_primary_category_id_categories_id_fk" FOREIGN KEY ("primary_category_id") REFERENCES "public"."categories"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "product_attribute_values" ADD CONSTRAINT "product_attribute_values_product_id_products_id_fk" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "product_attribute_values" ADD CONSTRAINT "product_attribute_values_attribute_id_product_attributes_id_fk" FOREIGN KEY ("attribute_id") REFERENCES "public"."product_attributes"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "product_category_assignments" ADD CONSTRAINT "product_category_assignments_product_id_products_id_fk" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "product_category_assignments" ADD CONSTRAINT "product_category_assignments_category_id_categories_id_fk" FOREIGN KEY ("category_id") REFERENCES "public"."categories"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "product_images" ADD CONSTRAINT "product_images_product_id_products_id_fk" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "product_images" ADD CONSTRAINT "product_images_variant_id_product_variants_id_fk" FOREIGN KEY ("variant_id") REFERENCES "public"."product_variants"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "product_media" ADD CONSTRAINT "product_media_product_id_products_id_fk" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "product_media" ADD CONSTRAINT "product_media_media_asset_id_media_assets_id_fk" FOREIGN KEY ("media_asset_id") REFERENCES "public"."media_assets"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "product_media" ADD CONSTRAINT "product_media_variant_id_product_variants_id_fk" FOREIGN KEY ("variant_id") REFERENCES "public"."product_variants"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "product_option_values" ADD CONSTRAINT "product_option_values_option_id_product_options_id_fk" FOREIGN KEY ("option_id") REFERENCES "public"."product_options"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "product_options" ADD CONSTRAINT "product_options_product_id_products_id_fk" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "product_variant_option_values" ADD CONSTRAINT "product_variant_option_values_variant_id_product_variants_id_fk" FOREIGN KEY ("variant_id") REFERENCES "public"."product_variants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -683,6 +733,12 @@ CREATE INDEX "categories_slug_idx" ON "categories" USING btree ("slug");--> stat
 CREATE INDEX "categories_parent_id_idx" ON "categories" USING btree ("parent_id");--> statement-breakpoint
 CREATE INDEX "category_option_templates_category_id_idx" ON "category_option_templates" USING btree ("category_id");--> statement-breakpoint
 CREATE INDEX "category_option_templates_normalized_name_idx" ON "category_option_templates" USING btree ("normalized_name");--> statement-breakpoint
+CREATE INDEX "media_assets_provider_idx" ON "media_assets" USING btree ("provider");--> statement-breakpoint
+CREATE INDEX "media_assets_access_idx" ON "media_assets" USING btree ("access");--> statement-breakpoint
+CREATE INDEX "media_assets_kind_idx" ON "media_assets" USING btree ("kind");--> statement-breakpoint
+CREATE INDEX "media_assets_status_idx" ON "media_assets" USING btree ("status");--> statement-breakpoint
+CREATE INDEX "media_assets_created_by_idx" ON "media_assets" USING btree ("created_by");--> statement-breakpoint
+CREATE INDEX "media_derivatives_media_asset_id_idx" ON "media_derivatives" USING btree ("media_asset_id");--> statement-breakpoint
 CREATE INDEX "models_brand_id_idx" ON "models" USING btree ("brand_id");--> statement-breakpoint
 CREATE INDEX "models_primary_category_id_idx" ON "models" USING btree ("primary_category_id");--> statement-breakpoint
 CREATE INDEX "models_normalized_name_idx" ON "models" USING btree ("normalized_name");--> statement-breakpoint
@@ -691,8 +747,9 @@ CREATE INDEX "product_attribute_values_product_id_idx" ON "product_attribute_val
 CREATE INDEX "product_attribute_values_attribute_id_idx" ON "product_attribute_values" USING btree ("attribute_id");--> statement-breakpoint
 CREATE INDEX "product_category_assignments_product_id_idx" ON "product_category_assignments" USING btree ("product_id");--> statement-breakpoint
 CREATE INDEX "product_category_assignments_category_id_idx" ON "product_category_assignments" USING btree ("category_id");--> statement-breakpoint
-CREATE INDEX "product_images_product_id_idx" ON "product_images" USING btree ("product_id");--> statement-breakpoint
-CREATE INDEX "product_images_variant_id_idx" ON "product_images" USING btree ("variant_id");--> statement-breakpoint
+CREATE INDEX "product_media_product_id_idx" ON "product_media" USING btree ("product_id");--> statement-breakpoint
+CREATE INDEX "product_media_media_asset_id_idx" ON "product_media" USING btree ("media_asset_id");--> statement-breakpoint
+CREATE INDEX "product_media_variant_id_idx" ON "product_media" USING btree ("variant_id");--> statement-breakpoint
 CREATE INDEX "product_option_values_option_id_idx" ON "product_option_values" USING btree ("option_id");--> statement-breakpoint
 CREATE INDEX "product_options_product_id_idx" ON "product_options" USING btree ("product_id");--> statement-breakpoint
 CREATE INDEX "product_variant_option_values_variant_id_idx" ON "product_variant_option_values" USING btree ("variant_id");--> statement-breakpoint

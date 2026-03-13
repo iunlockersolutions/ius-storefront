@@ -2,15 +2,39 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 
-import type {
-  AdminProductImage,
-  AdminProductMutationPayload,
-} from "@/lib/types/admin-product"
+import type { AdminProductMutationPayload } from "@/lib/types/admin-product"
 import { invalidateMutationCaches } from "@/lib/utils/query-invalidation-map"
 
-type ProductImagePayload = Omit<AdminProductImage, "id" | "altText"> & {
+type ProductMediaPayload = {
   id?: string
-  altText?: string
+  assetId?: string
+  kind: "image" | "video"
+  provider?: "vercel_blob" | "external_url"
+  access: "public" | "private"
+  pathname: string
+  url: string
+  downloadUrl?: string | null
+  mimeType: string
+  byteSize: number
+  width?: number | null
+  height?: number | null
+  durationSeconds?: number | null
+  etag?: string | null
+  originalFilename: string
+  placeholderDataUrl?: string | null
+  altText?: string | null
+  variantId?: string | null
+  isPrimaryImage?: boolean
+  derivatives?: Array<{
+    kind: "blur" | "poster"
+    pathname: string
+    url: string
+    downloadUrl?: string | null
+    mimeType: string
+    byteSize?: number | null
+    width?: number | null
+    height?: number | null
+  }>
 }
 
 async function readApiError(response: Response, fallback: string) {
@@ -106,27 +130,27 @@ export function usePublishProductMutation(productId: string) {
   })
 }
 
-export function useUpdateProductImagesMutation(productId: string) {
+export function useUpdateProductMediaMutation(productId: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (images: ProductImagePayload[]) => {
-      const response = await fetch(`/api/admin/products/${productId}/images`, {
+    mutationFn: async (media: ProductMediaPayload[]) => {
+      const response = await fetch(`/api/admin/products/${productId}/media`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ images }),
+        body: JSON.stringify({ media }),
       })
 
       if (!response.ok) {
-        await readApiError(response, "Failed to update product images")
+        await readApiError(response, "Failed to update product media")
       }
 
       return response.json()
     },
     onSuccess: () => {
-      invalidateMutationCaches(queryClient, "product.updateImages", {
+      invalidateMutationCaches(queryClient, "product.updateMedia", {
         productId,
       })
     },

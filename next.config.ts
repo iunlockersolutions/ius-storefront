@@ -1,17 +1,21 @@
 import type { NextConfig } from "next"
 
+const mediaRemoteHosts = (
+  process.env.MEDIA_REMOTE_HOSTS ||
+  "*.public.blob.vercel-storage.com,*.vercel-storage.com"
+)
+  .split(",")
+  .map((value) => value.trim())
+  .filter(Boolean)
+
 const nextConfig: NextConfig = {
   images: {
     formats: ["image/avif", "image/webp"],
     remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "*.public.blob.vercel-storage.com",
-      },
-      {
-        protocol: "https",
-        hostname: "*.vercel-storage.com",
-      },
+      ...mediaRemoteHosts.map((hostname) => ({
+        protocol: "https" as const,
+        hostname,
+      })),
       {
         protocol: "https",
         hostname: "images.unsplash.com",

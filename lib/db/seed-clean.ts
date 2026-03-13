@@ -10,11 +10,13 @@ import {
   inventoryTransactions,
   inventoryUnitIdentifiers,
   inventoryUnits,
+  mediaAssets,
+  mediaDerivatives,
   models,
   productAttributes,
   productAttributeValues,
   productCategoryAssignments,
-  productImages,
+  productMedia,
   productOptions,
   productOptionValues,
   products,
@@ -73,9 +75,21 @@ async function cleanSeed() {
       `  ✅ Deleted ${deletedVariantSelections.length} product variant option values`,
     )
 
-    console.log("🗑️  Deleting product images...")
-    const deletedImages = await db.delete(productImages).returning()
-    console.log(`  ✅ Deleted ${deletedImages.length} product images`)
+    console.log("🗑️  Deleting product media...")
+    const deletedProductMedia = await db.delete(productMedia).returning()
+    console.log(`  ✅ Deleted ${deletedProductMedia.length} product media rows`)
+
+    console.log("🗑️  Deleting media derivatives...")
+    const deletedMediaDerivatives = await db
+      .delete(mediaDerivatives)
+      .returning()
+    console.log(
+      `  ✅ Deleted ${deletedMediaDerivatives.length} media derivative rows`,
+    )
+
+    console.log("🗑️  Deleting media assets...")
+    const deletedMediaAssets = await db.delete(mediaAssets).returning()
+    console.log(`  ✅ Deleted ${deletedMediaAssets.length} media assets`)
 
     console.log("🗑️  Deleting product category assignments...")
     const deletedAssignments = await db

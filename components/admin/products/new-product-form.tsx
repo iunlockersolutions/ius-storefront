@@ -67,13 +67,13 @@ export function NewProductForm({
         categories: [],
         options: [],
         variants: [],
-        images: [],
+        media: [],
         workflow: {
           canPublish: false,
           errors: ["Save the draft to run final publish validation."],
         },
       }}
-      onSave={async (productId, { images: _images, ...payload }) => {
+      onSave={async (productId, { media, ...payload }) => {
         const response = await fetch(
           productId
             ? `/api/admin/products/${productId}`
@@ -97,7 +97,37 @@ export function NewProductForm({
         }
 
         const body = await response.json()
-        return body.data ?? null
+        const savedProduct = (body.data ?? null) as AdminProductDetail | null
+
+        if (!savedProduct?.id) {
+          return savedProduct
+        }
+
+        const mediaResponse = await fetch(
+          `/api/admin/products/${savedProduct.id}/media`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ media }),
+          },
+        )
+
+        if (!mediaResponse.ok) {
+          const errorBody = await mediaResponse.json().catch(() => null)
+          throw new Error(
+            errorBody?.error?.message ||
+              errorBody?.error ||
+              "Failed to save product media",
+          )
+        }
+
+        const mediaBody = await mediaResponse.json()
+        return {
+          ...savedProduct,
+          media: mediaBody.data ?? [],
+        }
       }}
       onPublish={async (productId) => {
         const response = await fetch(

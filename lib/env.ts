@@ -32,6 +32,7 @@ const serverEnvSchema = z.object({
   PAYMENT_PROVIDER_SECRET: z.string().optional(),
   PAYMENT_PROVIDER_WEBHOOK_SECRET: z.string().optional(),
   BLOB_READ_WRITE_TOKEN: z.string().optional(),
+  MEDIA_REMOTE_HOSTS: z.string().optional(),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GITHUB_CLIENT_ID: z.string().optional(),

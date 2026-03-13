@@ -21,6 +21,7 @@ import {
   orders,
   orderStatusHistory,
 } from "@/lib/db/schema"
+import { getPrimaryProductImageMap } from "@/lib/media/service"
 import {
   type AddressForCheckout,
   calculateOrderTotals,
@@ -389,14 +390,7 @@ export async function getCheckoutSummary(): Promise<CheckoutSummary | null> {
     with: {
       variant: {
         with: {
-          product: {
-            with: {
-              images: {
-                where: (images, { eq }) => eq(images.isPrimary, true),
-                limit: 1,
-              },
-            },
-          },
+          product: true,
         },
       },
     },
@@ -405,6 +399,10 @@ export async function getCheckoutSummary(): Promise<CheckoutSummary | null> {
   if (items.length === 0) {
     return null
   }
+
+  const imageMap = await getPrimaryProductImageMap(
+    items.map((item) => item.variant.product.id),
+  )
 
   let subtotal = 0
   const formattedItems = items.map((item) => {
@@ -417,7 +415,7 @@ export async function getCheckoutSummary(): Promise<CheckoutSummary | null> {
       variant: item.variant.name,
       price,
       quantity: item.quantity,
-      image: item.variant.product.images[0]?.url || null,
+      image: imageMap.get(item.variant.product.id) || null,
     }
   })
 
