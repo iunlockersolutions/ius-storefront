@@ -18,12 +18,6 @@ import { z } from "zod"
 
 import { CreatableEntityCombobox } from "@/components/admin/products/creatable-entity-combobox"
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion"
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -236,18 +230,18 @@ function createEmptyOption(): OptionEditorValue {
   }
 }
 
-function createEmptyOptionValue(): OptionValueEditorValue {
-  return {
-    key: crypto.randomUUID(),
-    value: "",
-  }
-}
-
 function buildOptionKey(optionValues: Record<string, string>) {
   return Object.entries(optionValues)
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([name, value]) => `${name}:${value}`)
     .join("|")
+}
+
+function splitOptionValueInput(rawValue: string) {
+  return rawValue
+    .split(/[\n,]+/)
+    .map((value) => value.trim())
+    .filter(Boolean)
 }
 
 function buildCombinations(options: Array<{ name: string; values: string[] }>) {
@@ -356,6 +350,9 @@ export function ProductEditorForm({
   const [createdModels, setCreatedModels] = useState<ModelOption[]>([])
   const [isInlineBrandPending, setIsInlineBrandPending] = useState(false)
   const [isInlineModelPending, setIsInlineModelPending] = useState(false)
+  const [pendingOptionValues, setPendingOptionValues] = useState<
+    Record<string, string>
+  >({})
   const [workflow, setWorkflow] = useState<AdminProductWorkflow>(
     initialData.workflow,
   )
@@ -520,14 +517,40 @@ export function ProductEditorForm({
       .sort((left, right) => left.sortOrder - right.sortOrder)
   }, [categories, selectedCategoryIds])
 
+  const selectedOptionNameSet = useMemo(
+    () =>
+      new Set(
+        options
+          .map((option) => normalizeEntityName(option.name))
+          .filter(Boolean),
+      ),
+    [options],
+  )
+
   const normalizedOptions = useMemo(
     () =>
       options
         .map((option) => ({
           name: option.name.trim(),
-          values: option.values
-            .map((value) => value.value.trim())
-            .filter(Boolean),
+          values: option.values.reduce<string[]>((uniqueValues, value) => {
+            const trimmedValue = value.value.trim()
+
+            if (!trimmedValue) {
+              return uniqueValues
+            }
+
+            const normalizedValue = normalizeEntityName(trimmedValue)
+            const alreadyExists = uniqueValues.some(
+              (existingValue) =>
+                normalizeEntityName(existingValue) === normalizedValue,
+            )
+
+            if (alreadyExists) {
+              return uniqueValues
+            }
+
+            return [...uniqueValues, trimmedValue]
+          }, []),
         }))
         .filter((option) => option.name.length > 0),
     [options],
@@ -557,8 +580,33 @@ export function ProductEditorForm({
       warnings.push("Every option must include at least one value.")
     }
 
+    const hasDuplicateValues = options.some((option) => {
+      const seen = new Set<string>()
+
+      for (const value of option.values) {
+        const trimmedValue = value.value.trim()
+
+        if (!trimmedValue) {
+          continue
+        }
+
+        const normalizedValue = normalizeEntityName(trimmedValue)
+        if (seen.has(normalizedValue)) {
+          return true
+        }
+
+        seen.add(normalizedValue)
+      }
+
+      return false
+    })
+
+    if (hasDuplicateValues) {
+      warnings.push("Option values must be unique within each option.")
+    }
+
     return warnings
-  }, [normalizedOptions, optionNameDuplicates])
+  }, [normalizedOptions, optionNameDuplicates, options])
 
   useEffect(() => {
     const optionInputs = normalizedOptions.filter(
@@ -768,6 +816,7 @@ export function ProductEditorForm({
         isPrimary: image.isPrimary,
       })),
     )
+    setPendingOptionValues({})
   }
 
   const setDefaultVariant = (variantKey: string) => {
@@ -779,8 +828,16 @@ export function ProductEditorForm({
     )
   }
 
-  const addOption = () => {
-    setOptions((current) => [...current, createEmptyOption()])
+  const addOption = (name = "") => {
+    const trimmedName = name.trim()
+
+    setOptions((current) => [
+      ...current,
+      {
+        ...createEmptyOption(),
+        name: trimmedName,
+      },
+    ])
   }
 
   const updateOption = (
@@ -798,35 +855,78 @@ export function ProductEditorForm({
     setOptions((current) =>
       current.filter((option) => option.key !== optionKey),
     )
+    setPendingOptionValues((current) => {
+      const next = { ...current }
+      delete next[optionKey]
+      return next
+    })
   }
 
-  const addOptionValue = (optionKey: string) => {
-    setOptions((current) =>
-      current.map((option) =>
-        option.key === optionKey
-          ? { ...option, values: [...option.values, createEmptyOptionValue()] }
-          : option,
-      ),
-    )
+  const updatePendingOptionValue = (optionKey: string, nextValue: string) => {
+    setPendingOptionValues((current) => ({
+      ...current,
+      [optionKey]: nextValue,
+    }))
   }
 
-  const updateOptionValue = (
+  const addOptionValues = (
     optionKey: string,
-    valueKey: string,
-    nextValue: string,
+    rawValue: string,
+    options?: {
+      clearInput?: boolean
+    },
   ) => {
+    const nextValues = splitOptionValueInput(rawValue)
+
+    if (nextValues.length === 0) {
+      return
+    }
+
     setOptions((current) =>
-      current.map((option) =>
-        option.key === optionKey
-          ? {
-              ...option,
-              values: option.values.map((value) =>
-                value.key === valueKey ? { ...value, value: nextValue } : value,
-              ),
+      current.map((option) => {
+        if (option.key !== optionKey) {
+          return option
+        }
+
+        const existingValueSet = new Set(
+          option.values
+            .map((value) => value.value.trim())
+            .filter(Boolean)
+            .map((value) => normalizeEntityName(value)),
+        )
+
+        const valuesToAppend = nextValues
+          .filter((value) => {
+            const normalizedValue = normalizeEntityName(value)
+            if (existingValueSet.has(normalizedValue)) {
+              return false
             }
-          : option,
-      ),
+
+            existingValueSet.add(normalizedValue)
+            return true
+          })
+          .map<OptionValueEditorValue>((value) => ({
+            key: crypto.randomUUID(),
+            value,
+          }))
+
+        if (valuesToAppend.length === 0) {
+          return option
+        }
+
+        return {
+          ...option,
+          values: [...option.values, ...valuesToAppend],
+        }
+      }),
     )
+
+    if (options?.clearInput ?? true) {
+      setPendingOptionValues((current) => ({
+        ...current,
+        [optionKey]: "",
+      }))
+    }
   }
 
   const removeOptionValue = (optionKey: string, valueKey: string) => {
@@ -1375,24 +1475,51 @@ export function ProductEditorForm({
                   you can still create product-specific options.
                 </p>
               </div>
-              <Button type="button" variant="outline" onClick={addOption}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => addOption()}
+              >
                 <Plus className="mr-2 h-4 w-4" />
                 Add option
               </Button>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex flex-wrap gap-2">
-                {availableOptionTemplateNames.length > 0 ? (
-                  availableOptionTemplateNames.map((template) => (
-                    <Badge key={template.id} variant="outline">
-                      {template.name}
-                    </Badge>
-                  ))
-                ) : (
-                  <span className="text-sm text-muted-foreground">
-                    No category templates yet. Add custom options as needed.
-                  </span>
-                )}
+              <div className="space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  {availableOptionTemplateNames.length > 0 ? (
+                    availableOptionTemplateNames.map((template) => {
+                      const isSelected = selectedOptionNameSet.has(
+                        normalizeEntityName(template.name),
+                      )
+
+                      return (
+                        <Button
+                          key={template.id}
+                          type="button"
+                          variant={isSelected ? "secondary" : "outline"}
+                          size="sm"
+                          className="h-8 rounded-full px-3"
+                          disabled={isSelected}
+                          onClick={() => addOption(template.name)}
+                        >
+                          <Plus className="mr-1 h-3.5 w-3.5" />
+                          {template.name}
+                        </Button>
+                      )
+                    })
+                  ) : (
+                    <span className="text-sm text-muted-foreground">
+                      No category templates yet. Add product-specific options as
+                      needed.
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-xs text-muted-foreground">
+                  Start with a suggested option or create your own. Add values
+                  with Enter or by pasting a comma-separated list.
+                </p>
               </div>
 
               {options.length === 0 ? (
@@ -1401,10 +1528,7 @@ export function ProductEditorForm({
                   variant.
                 </div>
               ) : (
-                <Accordion
-                  type="multiple"
-                  defaultValue={options.map((option) => option.key)}
-                >
+                <div className="space-y-4">
                   {options.map((option, index) => {
                     const optionNameChoices = [
                       ...availableOptionTemplateNames.map((template) => ({
@@ -1420,27 +1544,44 @@ export function ProductEditorForm({
                         ? [{ id: option.name, name: option.name }]
                         : []),
                     ]
+                    const committedValueCount = option.values.filter((value) =>
+                      value.value.trim(),
+                    ).length
+                    const pendingValue = pendingOptionValues[option.key] ?? ""
 
                     return (
-                      <AccordionItem key={option.key} value={option.key}>
-                        <AccordionTrigger className="hover:no-underline">
-                          <div className="flex flex-col text-left">
-                            <span className="font-medium">
-                              {option.name || `Option ${index + 1}`}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {
-                                option.values.filter((value) =>
-                                  value.value.trim(),
-                                ).length
-                              }{" "}
-                              values
-                            </span>
+                      <div
+                        key={option.key}
+                        className="rounded-2xl border bg-muted/20 p-4"
+                      >
+                        <div className="space-y-4">
+                          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                            <div className="space-y-1">
+                              <div className="text-sm font-medium text-muted-foreground">
+                                Option {index + 1}
+                              </div>
+                              <div className="text-base font-semibold">
+                                {option.name || "Name this option"}
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                {committedValueCount} value
+                                {committedValueCount === 1 ? "" : "s"} added.
+                                Variants update automatically from this list.
+                              </p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeOption(option.key)}
+                              aria-label={`Remove option ${index + 1}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="space-y-4 pt-2">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1 space-y-2">
+
+                          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
+                            <div className="space-y-2">
                               <Label>Option Name</Label>
                               <CreatableEntityCombobox
                                 value={option.name}
@@ -1470,80 +1611,97 @@ export function ProductEditorForm({
                                 allowClear={false}
                               />
                             </div>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => removeOption(option.key)}
-                              aria-label={`Remove option ${index + 1}`}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
 
-                          <FieldSet>
-                            <FieldGroup>
-                              <Field
-                                orientation="horizontal"
-                                className="items-center"
-                              >
-                                <FieldContent>
+                            <FieldSet>
+                              <FieldGroup>
+                                <div className="space-y-1">
                                   <FieldTitle>Values</FieldTitle>
                                   <FieldDescription>
-                                    Add each allowed value as a separate row.
+                                    Press Enter to add one value, or paste
+                                    several separated by commas.
                                   </FieldDescription>
-                                </FieldContent>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  onClick={() => addOptionValue(option.key)}
-                                >
-                                  <Plus className="mr-2 h-4 w-4" />
-                                  Add value
-                                </Button>
-                              </Field>
-
-                              {option.values.length === 0 ? (
-                                <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                                  Add at least one value to generate variants.
                                 </div>
-                              ) : (
-                                option.values.map((value, valueIndex) => (
-                                  <div
-                                    key={value.key}
-                                    className="flex items-center gap-3 rounded-lg border p-3"
-                                  >
-                                    <Input
-                                      value={value.value}
-                                      onChange={(event) =>
-                                        updateOptionValue(
+
+                                <div className="rounded-xl border bg-background p-3">
+                                  {option.values.length > 0 ? (
+                                    <div className="flex flex-wrap gap-2">
+                                      {option.values.map((value) => (
+                                        <div
+                                          key={value.key}
+                                          className="inline-flex items-center gap-1 rounded-full border bg-muted px-3 py-1 text-sm"
+                                        >
+                                          <span>{value.value}</span>
+                                          <button
+                                            type="button"
+                                            className="rounded-full p-1 text-muted-foreground transition hover:bg-background hover:text-foreground"
+                                            aria-label={`Remove ${value.value}`}
+                                            onClick={() =>
+                                              removeOptionValue(
+                                                option.key,
+                                                value.key,
+                                              )
+                                            }
+                                          >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                                      Add at least one value to generate
+                                      variants.
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="flex flex-col gap-2 sm:flex-row">
+                                  <Input
+                                    value={pendingValue}
+                                    onChange={(event) =>
+                                      updatePendingOptionValue(
+                                        option.key,
+                                        event.target.value,
+                                      )
+                                    }
+                                    onBlur={() =>
+                                      addOptionValues(option.key, pendingValue)
+                                    }
+                                    onKeyDown={(event) => {
+                                      if (
+                                        event.key === "Enter" ||
+                                        event.key === ","
+                                      ) {
+                                        event.preventDefault()
+                                        addOptionValues(
                                           option.key,
-                                          value.key,
-                                          event.target.value,
+                                          pendingValue,
                                         )
                                       }
-                                      placeholder={`Value ${valueIndex + 1}`}
-                                    />
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() =>
-                                        removeOptionValue(option.key, value.key)
-                                      }
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                ))
-                              )}
-                            </FieldGroup>
-                          </FieldSet>
-                        </AccordionContent>
-                      </AccordionItem>
+                                    }}
+                                    placeholder="Type a value and press Enter"
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="sm:min-w-28"
+                                    disabled={!pendingValue.trim()}
+                                    onClick={() =>
+                                      addOptionValues(option.key, pendingValue)
+                                    }
+                                  >
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    Add values
+                                  </Button>
+                                </div>
+                              </FieldGroup>
+                            </FieldSet>
+                          </div>
+                        </div>
+                      </div>
                     )
                   })}
-                </Accordion>
+                </div>
               )}
             </CardContent>
           </Card>
