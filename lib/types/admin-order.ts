@@ -39,9 +39,6 @@ export interface AdminOrderItemAllocation {
   quantity: number
   allocatedAt: string | Date
   releasedAt: string | Date | null
-  locationId: string | null
-  locationName: string | null
-  locationCode: string | null
 }
 
 export interface AdminOrderUnitAssignment {

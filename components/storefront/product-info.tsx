@@ -101,11 +101,13 @@ interface Product {
 interface ProductInfoProps {
   product: Product
   initialIsFavorited?: boolean
+  onSelectedVariantChange?: (variantId: string | null) => void
 }
 
 export function ProductInfo({
   product,
   initialIsFavorited = false,
+  onSelectedVariantChange,
 }: ProductInfoProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -211,10 +213,12 @@ export function ProductInfo({
         ),
       )
       setSelectedVariantId(matchingVariant.id)
+      onSelectedVariantChange?.(matchingVariant.id)
       return
     }
 
     setSelectedOptions(nextSelections)
+    onSelectedVariantChange?.(null)
   }
 
   const isOptionValueAvailable = (optionId: string, optionValueId: string) => {

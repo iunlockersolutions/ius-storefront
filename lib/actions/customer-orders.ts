@@ -11,7 +11,10 @@ import {
   payments,
   productVariants,
 } from "@/lib/db/schema"
-import { getPrimaryProductImageMap } from "@/lib/media/service"
+import {
+  getPrimaryProductImageMap,
+  getVariantSpecificProductImageMap,
+} from "@/lib/media/service"
 import { releaseOrderInventoryReservationsTx } from "@/lib/orders/inventory-reservations"
 
 // ============================================
@@ -83,6 +86,7 @@ export async function getCustomerOrders(page: number = 1, limit: number = 10) {
   const imageMap = await getPrimaryProductImageMap(
     productVariantsForOrders.map((variant) => variant.productId),
   )
+  const variantImageMap = await getVariantSpecificProductImageMap(variantIds)
 
   // Create order-to-image mapping
   const orderImageMap = new Map<
@@ -97,7 +101,10 @@ export async function getCustomerOrders(page: number = 1, limit: number = 10) {
         : undefined
       orderImageMap.set(order.id, {
         productName: firstItem.productName,
-        imageUrl: productId ? imageMap.get(productId) || null : null,
+        imageUrl: firstItem.variantId
+          ? variantImageMap.get(firstItem.variantId) ||
+            (productId ? imageMap.get(productId) || null : null)
+          : null,
       })
     }
   }

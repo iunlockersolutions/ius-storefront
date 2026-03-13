@@ -43,7 +43,6 @@ export interface AdminProductVariant {
   isDefault: boolean
   isActive: boolean
   manageInventory: boolean
-  inventoryTrackingMode: "quantity" | "serial"
   selections?: AdminProductVariantSelection[]
 }
 
@@ -77,7 +76,10 @@ export interface AdminProductMedia {
   originalFilename: string
   placeholderDataUrl: string | null
   altText: string | null
-  variantId?: string | null
+  variantAssignment: {
+    mode: "all" | "specific"
+    variantIds: string[]
+  }
   isPrimaryImage: boolean
   sortOrder: number
   derivatives: AdminProductMediaDerivative[]
@@ -95,6 +97,8 @@ export interface AdminProductDetail {
   status: AdminProductStatus
   draftStep: AdminProductDraftStep
   isFeatured: boolean
+  inventoryTrackingMode: "quantity" | "serial"
+  receiptIdentifierTypes: Array<"serial" | "imei" | "imei2" | "barcode">
   metaTitle: string | null
   metaDescription: string | null
   createdAt: string | Date
@@ -118,6 +122,8 @@ export interface AdminProductMutationPayload {
   status: AdminProductStatus
   draftStep: AdminProductDraftStep
   isFeatured: boolean
+  inventoryTrackingMode?: "quantity" | "serial"
+  receiptIdentifierTypes?: Array<"serial" | "imei" | "imei2" | "barcode">
   metaTitle?: string
   metaDescription?: string
   options: Array<{
@@ -135,7 +141,6 @@ export interface AdminProductMutationPayload {
     isDefault?: boolean
     isActive?: boolean
     manageInventory?: boolean
-    inventoryTrackingMode?: "quantity" | "serial"
     optionValues: Record<string, string>
   }>
 }

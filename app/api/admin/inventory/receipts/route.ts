@@ -13,9 +13,9 @@ export async function POST(request: NextRequest) {
 
     const body = (await request.json()) as {
       variantId?: string
-      locationId?: string
       quantity?: number
       notes?: string
+      identifierTemplate?: Array<"serial" | "imei" | "imei2" | "barcode">
       units?: Array<{
         notes?: string
         identifiers?: Array<{
@@ -31,9 +31,9 @@ export async function POST(request: NextRequest) {
 
     const result = await receiveInventory({
       variantId: body.variantId,
-      locationId: body.locationId,
       quantity: body.quantity,
       notes: body.notes,
+      identifierTemplate: body.identifierTemplate,
       units: body.units?.map((unit) => ({
         notes: unit.notes,
         identifiers:

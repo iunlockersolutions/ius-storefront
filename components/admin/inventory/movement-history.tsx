@@ -103,7 +103,6 @@ export function MovementHistory({
             <TableRow>
               <TableHead>Date</TableHead>
               <TableHead>Type</TableHead>
-              <TableHead>Location</TableHead>
               <TableHead className="text-center">Change</TableHead>
               <TableHead className="text-center">Before → After</TableHead>
               <TableHead>Reference</TableHead>
@@ -124,14 +123,6 @@ export function MovementHistory({
                   >
                     {TYPE_LABELS[movement.type] || movement.type}
                   </Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="text-sm">
-                    <p className="font-medium">{movement.locationName}</p>
-                    <p className="text-muted-foreground">
-                      {movement.locationCode}
-                    </p>
-                  </div>
                 </TableCell>
                 <TableCell className="text-center">
                   <span

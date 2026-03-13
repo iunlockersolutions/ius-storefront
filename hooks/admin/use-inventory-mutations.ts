@@ -10,9 +10,10 @@ export function useReceiveInventoryMutation() {
   return useMutation({
     mutationFn: async (payload: {
       variantId: string
-      locationId?: string
+      productId?: string
       quantity?: number
       notes?: string
+      identifierTemplate?: Array<"serial" | "imei" | "imei2" | "barcode">
       units?: Array<{
         notes?: string
         identifiers: Array<{
@@ -50,6 +51,7 @@ export function useReceiveInventoryMutation() {
     onSuccess: (_data, variables) => {
       void invalidateMutationCaches(queryClient, "inventory.receive", {
         variantId: variables.variantId,
+        productId: variables.productId,
       })
     },
   })

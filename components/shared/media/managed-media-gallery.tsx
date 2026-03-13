@@ -36,15 +36,7 @@ function getPosterUrl(item: GalleryMediaItem) {
 export function ManagedMediaGallery({ media, name }: ManagedMediaGalleryProps) {
   const [selectedIndex, setSelectedIndex] = useState(0)
 
-  const sortedMedia = useMemo(
-    () =>
-      [...media].sort((left, right) => {
-        if (left.isPrimaryImage) return -1
-        if (right.isPrimaryImage) return 1
-        return left.sortOrder - right.sortOrder
-      }),
-    [media],
-  )
+  const sortedMedia = useMemo(() => [...media], [media])
 
   const selectedItem = sortedMedia[selectedIndex]
 

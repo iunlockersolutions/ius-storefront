@@ -6,7 +6,6 @@ import {
   brands,
   categories,
   inventoryLevels,
-  inventoryLocations,
   inventoryTransactions,
   inventoryUnitIdentifiers,
   inventoryUnits,
@@ -62,10 +61,6 @@ async function cleanSeed() {
     console.log("🗑️  Deleting inventory levels...")
     const deletedLevels = await db.delete(inventoryLevels).returning()
     console.log(`  ✅ Deleted ${deletedLevels.length} inventory levels`)
-
-    console.log("🗑️  Deleting inventory locations...")
-    const deletedLocations = await db.delete(inventoryLocations).returning()
-    console.log(`  ✅ Deleted ${deletedLocations.length} inventory locations`)
 
     console.log("🗑️  Deleting product variant option values...")
     const deletedVariantSelections = await db

@@ -1,13 +1,14 @@
 import { drizzle } from "drizzle-orm/postgres-js"
 import postgres from "postgres"
 
+import { getDefaultSerialReceiptIdentifierTypes } from "@/lib/inventory/identifier-template"
+
 import { normalizeEntityName } from "../utils/catalog"
 import {
   brandCategoryAssignments,
   brands,
   categories,
   inventoryLevels,
-  inventoryLocations,
   inventoryTransactions,
   inventoryUnitIdentifiers,
   inventoryUnits,
@@ -54,7 +55,6 @@ type SeedVariant = {
   costPrice?: string | null
   weight?: string | null
   quantity: number
-  inventoryTrackingMode?: "quantity" | "serial"
   isDefault?: boolean
   optionValues?: Record<string, string>
 }
@@ -65,6 +65,7 @@ type SeedProduct = {
   shortDescription: string
   description: string
   isFeatured?: boolean
+  inventoryTrackingMode?: "quantity" | "serial"
   options?: Array<{
     name: string
     values: string[]
@@ -802,7 +803,6 @@ async function clearCatalogData(db: ReturnType<typeof drizzle>) {
   await db.delete(inventoryUnits)
   await db.delete(inventoryTransactions)
   await db.delete(inventoryLevels)
-  await db.delete(inventoryLocations)
   await db.delete(productVariantOptionValues)
   await db.delete(productMedia)
   await db.delete(mediaDerivatives)
@@ -826,18 +826,6 @@ export async function seedCatalogData(logLabel: string) {
 
   try {
     await clearCatalogData(db)
-
-    console.log("📍 Seeding default inventory location...")
-    const [defaultLocation] = await db
-      .insert(inventoryLocations)
-      .values({
-        name: "Main Warehouse",
-        code: "MAIN",
-        description: "Default stock location for seeded catalog inventory.",
-        isDefault: true,
-        isActive: true,
-      })
-      .returning({ id: inventoryLocations.id })
 
     console.log("🏷️  Seeding top-level categories...")
     const categoryMap = new Map<string, string>()
@@ -926,6 +914,13 @@ export async function seedCatalogData(logLabel: string) {
         const defaultVariant =
           product.variants.find((variant) => variant.isDefault) ||
           product.variants[0]
+        const inventoryTrackingMode =
+          product.inventoryTrackingMode ??
+          defaultTrackingModeForCategory(model.categorySlug)
+        const receiptIdentifierTypes =
+          inventoryTrackingMode === "serial"
+            ? getDefaultSerialReceiptIdentifierTypes()
+            : []
 
         const [createdProduct] = await db
           .insert(products)
@@ -942,6 +937,8 @@ export async function seedCatalogData(logLabel: string) {
             costPrice: defaultVariant.costPrice || null,
             status: "active",
             isFeatured: product.isFeatured ?? false,
+            inventoryTrackingMode,
+            receiptIdentifierTypes,
             metaTitle: product.name,
             metaDescription: product.shortDescription,
           })
@@ -985,10 +982,6 @@ export async function seedCatalogData(logLabel: string) {
         }
 
         for (const [variantIndex, variant] of product.variants.entries()) {
-          const inventoryTrackingMode =
-            variant.inventoryTrackingMode ||
-            defaultTrackingModeForCategory(model.categorySlug)
-
           const [createdVariant] = await db
             .insert(productVariants)
             .values({
@@ -1002,7 +995,6 @@ export async function seedCatalogData(logLabel: string) {
               isDefault: variant.isDefault ?? variantIndex === 0,
               isActive: true,
               manageInventory: true,
-              inventoryTrackingMode,
               sortOrder: variantIndex,
             })
             .returning({ id: productVariants.id })
@@ -1011,7 +1003,6 @@ export async function seedCatalogData(logLabel: string) {
             .insert(inventoryLevels)
             .values({
               variantId: createdVariant.id,
-              locationId: defaultLocation.id,
               onHandQuantity: variant.quantity,
               reservedQuantity: 0,
               allocatedQuantity: 0,
@@ -1022,7 +1013,6 @@ export async function seedCatalogData(logLabel: string) {
 
           await db.insert(inventoryTransactions).values({
             variantId: createdVariant.id,
-            locationId: defaultLocation.id,
             inventoryLevelId: inventoryLevel.id,
             type: "receipt",
             quantityDelta: variant.quantity,
@@ -1042,7 +1032,6 @@ export async function seedCatalogData(logLabel: string) {
                 .insert(inventoryUnits)
                 .values({
                   variantId: createdVariant.id,
-                  locationId: defaultLocation.id,
                   status: "available",
                   notes: `${logLabel} serialized seed`,
                 })

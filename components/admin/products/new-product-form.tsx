@@ -60,6 +60,8 @@ export function NewProductForm({
         status: "draft",
         draftStep: "basics",
         isFeatured: false,
+        inventoryTrackingMode: "quantity",
+        receiptIdentifierTypes: [],
         metaTitle: null,
         metaDescription: null,
         createdAt: new Date().toISOString(),

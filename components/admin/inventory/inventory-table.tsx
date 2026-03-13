@@ -324,15 +324,9 @@ export function InventoryTable({
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="space-y-1">
-                      <Badge variant="outline" className="capitalize">
-                        {item.trackingMode}
-                      </Badge>
-                      <p className="text-xs text-muted-foreground">
-                        {item.locationCount} location
-                        {item.locationCount === 1 ? "" : "s"}
-                      </p>
-                    </div>
+                    <Badge variant="outline" className="capitalize">
+                      {item.trackingMode}
+                    </Badge>
                   </TableCell>
                   <TableCell className="text-center font-medium">
                     {item.availableQuantity}

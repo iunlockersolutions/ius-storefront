@@ -63,7 +63,6 @@ export interface AdminInventoryListItem {
   lowStockThreshold: number
   isLowStock: boolean
   isOutOfStock: boolean
-  locationCount: number
   updatedAt: string | Date
 }
 
@@ -77,19 +76,6 @@ export interface AdminInventoryLowStockAlert {
   availableQuantity: number
   lowStockThreshold: number
   isOutOfStock: boolean
-}
-
-export interface AdminInventoryLocationLevel {
-  id: string
-  locationId: string
-  locationName: string
-  locationCode: string
-  onHandQuantity: number
-  availableQuantity: number
-  reservedQuantity: number
-  allocatedQuantity: number
-  lowStockThreshold: number
-  updatedAt: string | Date
 }
 
 export interface AdminInventoryIdentifier {
@@ -121,8 +107,6 @@ export interface AdminInventoryTransaction {
   referenceId: string | null
   notes: string | null
   createdAt: string | Date
-  locationName: string
-  locationCode: string
   performedByName: string | null
 }
 
@@ -135,6 +119,7 @@ export interface AdminInventoryDetail {
   variantSku: string
   trackingMode: AdminInventoryTrackingMode
   manageInventory: boolean
+  receiptIdentifierTypes: AdminInventoryIdentifierType[]
   stats: {
     onHandQuantity: number
     availableQuantity: number
@@ -144,9 +129,26 @@ export interface AdminInventoryDetail {
     serializedUnitCount: number
     availableUnitCount: number
   }
-  levels: AdminInventoryLocationLevel[]
   units: AdminInventoryUnit[]
   transactions: AdminInventoryTransaction[]
+}
+
+export interface AdminProductReceiveStockVariant {
+  id: string
+  name: string
+  sku: string
+  trackingMode: AdminInventoryTrackingMode
+  manageInventory: boolean
+  receiptIdentifierTypes: AdminInventoryIdentifierType[]
+  onHandQuantity: number | null
+  availableQuantity: number | null
+}
+
+export interface AdminProductReceiveStockContext {
+  productId: string
+  productName: string
+  productSlug: string
+  variants: AdminProductReceiveStockVariant[]
 }
 
 export interface AdminInventoryListResponse {

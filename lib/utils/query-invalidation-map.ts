@@ -103,8 +103,16 @@ function getInvalidationTargets(
             queryKeys.admin.inventoryRoot(),
             queryKeys.admin.inventoryDetail(context.variantId),
             queryKeys.admin.inventoryMovements(context.variantId),
+            ...(context.productId
+              ? [queryKeys.admin.productReceiveStock(context.productId)]
+              : []),
           ]
-        : [queryKeys.admin.inventoryRoot()]
+        : context.productId
+          ? [
+              queryKeys.admin.inventoryRoot(),
+              queryKeys.admin.productReceiveStock(context.productId),
+            ]
+          : [queryKeys.admin.inventoryRoot()]
 
     case "order.updateStatus":
       return context.orderId

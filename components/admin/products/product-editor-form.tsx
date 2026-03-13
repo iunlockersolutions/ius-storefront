@@ -63,6 +63,12 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  getDefaultSerialReceiptIdentifierTypes,
+  INVENTORY_IDENTIFIER_TYPE_ORDER,
+  type ReceiptIdentifierType,
+  sanitizeReceiptIdentifierTypes,
+} from "@/lib/inventory/identifier-template"
 import type {
   AdminProductDetail,
   AdminProductMedia,
@@ -114,7 +120,6 @@ type VariantEditorValue = {
   isDefault: boolean
   isActive: boolean
   manageInventory: boolean
-  inventoryTrackingMode: "quantity" | "serial"
   optionValues: Record<string, string>
 }
 
@@ -150,6 +155,10 @@ type ModelOption = {
 function mapInitialMedia(initialData: AdminProductDetail): UploadedMedia[] {
   return (initialData.media ?? []).map((item) => ({
     ...item,
+    variantAssignment: item.variantAssignment ?? {
+      mode: "all",
+      variantIds: [],
+    },
     persisted: true,
   }))
 }
@@ -181,14 +190,14 @@ const STEP_DEFINITIONS = [
     description: "Brand, categories, and model assignment.",
   },
   {
-    id: "media",
-    title: "Media",
-    description: "Upload and organize product images and videos.",
-  },
-  {
     id: "options",
     title: "Options & Variants",
     description: "Define option values and the sellable variant matrix.",
+  },
+  {
+    id: "media",
+    title: "Media",
+    description: "Upload and organize product images and videos.",
   },
   {
     id: "review",
@@ -227,7 +236,6 @@ function createEmptyVariant(): VariantEditorValue {
     isDefault: true,
     isActive: true,
     manageInventory: true,
-    inventoryTrackingMode: "quantity",
     optionValues: {},
   }
 }
@@ -281,6 +289,14 @@ function buildCombinations(options: Array<{ name: string; values: string[] }>) {
 function buildVariantName(optionValues: Record<string, string>) {
   const values = Object.values(optionValues)
   return values.length > 0 ? values.join(" / ") : "Default"
+}
+
+function getReceiptIdentifierLabel(type: ReceiptIdentifierType) {
+  if (type === "imei2") {
+    return "IMEI 2"
+  }
+
+  return type.toUpperCase()
 }
 
 export function ProductEditorForm({
@@ -340,7 +356,6 @@ export function ProductEditorForm({
           isDefault: variant.isDefault,
           isActive: variant.isActive,
           manageInventory: variant.manageInventory,
-          inventoryTrackingMode: variant.inventoryTrackingMode,
           optionValues: Object.fromEntries(
             (variant.selections ?? []).map((selection) => [
               selection.optionName,
@@ -349,6 +364,20 @@ export function ProductEditorForm({
           ),
         }))
       : [createEmptyVariant()],
+  )
+  const [inventoryTrackingMode, setInventoryTrackingMode] = useState<
+    "quantity" | "serial"
+  >(initialData.inventoryTrackingMode)
+  const [receiptIdentifierTypes, setReceiptIdentifierTypes] = useState<
+    ReceiptIdentifierType[]
+  >(() =>
+    sanitizeReceiptIdentifierTypes({
+      manageInventory: initialData.variants.some(
+        (variant) => variant.manageInventory,
+      ),
+      trackingMode: initialData.inventoryTrackingMode,
+      values: initialData.receiptIdentifierTypes,
+    }),
   )
   const [createdBrands, setCreatedBrands] = useState<BrandOption[]>([])
   const [createdModels, setCreatedModels] = useState<ModelOption[]>([])
@@ -531,6 +560,16 @@ export function ProductEditorForm({
     [options],
   )
 
+  const persistedVariantIdSet = useMemo(
+    () =>
+      new Set(
+        variants
+          .map((variant) => variant.id)
+          .filter((variantId): variantId is string => Boolean(variantId)),
+      ),
+    [variants],
+  )
+
   const normalizedOptions = useMemo(
     () =>
       options
@@ -659,7 +698,6 @@ export function ProductEditorForm({
             (index === 0 && !current.some((variant) => variant.isDefault)),
           isActive: existing?.isActive ?? true,
           manageInventory: existing?.manageInventory ?? true,
-          inventoryTrackingMode: existing?.inventoryTrackingMode ?? "quantity",
           optionValues: combination,
         }
       })
@@ -683,6 +721,42 @@ export function ProductEditorForm({
     })
   }, [normalizedOptions])
 
+  useEffect(() => {
+    setMedia((current) => {
+      let changed = false
+
+      const next = current.map((item) => {
+        const variantAssignment = item.variantAssignment ?? {
+          mode: "all" as const,
+          variantIds: [],
+        }
+
+        if (variantAssignment.mode !== "specific") {
+          return item
+        }
+
+        const nextVariantIds = variantAssignment.variantIds.filter(
+          (variantId) => persistedVariantIdSet.has(variantId),
+        )
+
+        if (nextVariantIds.length === variantAssignment.variantIds.length) {
+          return item
+        }
+
+        changed = true
+        return {
+          ...item,
+          variantAssignment: {
+            mode: "specific" as const,
+            variantIds: nextVariantIds,
+          },
+        }
+      })
+
+      return changed ? next : current
+    })
+  }, [persistedVariantIdSet])
+
   const warnings = useMemo(() => {
     const items = [...optionWarnings]
 
@@ -704,8 +778,51 @@ export function ProductEditorForm({
       items.push("Variant SKUs must be unique.")
     }
 
+    const hasManagedInventoryVariants = variants.some(
+      (variant) => variant.manageInventory,
+    )
+
+    if (
+      hasManagedInventoryVariants &&
+      inventoryTrackingMode === "serial" &&
+      receiptIdentifierTypes.length === 0
+    ) {
+      items.push(
+        "Serialized products must define at least one receipt identifier type.",
+      )
+    }
+
+    const hasInvalidSpecificMedia = media.some(
+      (item) =>
+        item.variantAssignment?.mode === "specific" &&
+        item.variantAssignment.variantIds.length === 0,
+    )
+
+    if (hasInvalidSpecificMedia) {
+      items.push(
+        "Variant-specific media must be assigned to at least one variant.",
+      )
+    }
+
+    const hasGlobalImage = media.some(
+      (item) =>
+        item.kind === "image" && item.variantAssignment?.mode !== "specific",
+    )
+
+    if (media.some((item) => item.kind === "image") && !hasGlobalImage) {
+      items.push(
+        "Add at least one image assigned to all variants for product cards and SEO.",
+      )
+    }
+
     return items
-  }, [optionWarnings, variants])
+  }, [
+    inventoryTrackingMode,
+    media,
+    optionWarnings,
+    receiptIdentifierTypes,
+    variants,
+  ])
 
   const blockingIssues = useMemo(() => {
     const items = [...optionWarnings]
@@ -724,8 +841,40 @@ export function ProductEditorForm({
       items.push("Variant SKUs must be unique.")
     }
 
+    const hasManagedInventoryVariants = variants.some(
+      (variant) => variant.manageInventory,
+    )
+
+    if (
+      hasManagedInventoryVariants &&
+      inventoryTrackingMode === "serial" &&
+      receiptIdentifierTypes.length === 0
+    ) {
+      items.push(
+        "Serialized products must define at least one receipt identifier type.",
+      )
+    }
+
+    if (
+      media.some(
+        (item) =>
+          item.variantAssignment?.mode === "specific" &&
+          item.variantAssignment.variantIds.length === 0,
+      )
+    ) {
+      items.push(
+        "Variant-specific media must be assigned to at least one variant.",
+      )
+    }
+
     return Array.from(new Set(items))
-  }, [optionWarnings, variants])
+  }, [
+    inventoryTrackingMode,
+    media,
+    optionWarnings,
+    receiptIdentifierTypes,
+    variants,
+  ])
 
   const readinessIssues = useMemo(
     () => Array.from(new Set([...workflow.errors, ...warnings])),
@@ -802,7 +951,6 @@ export function ProductEditorForm({
         isDefault: variant.isDefault,
         isActive: variant.isActive,
         manageInventory: variant.manageInventory,
-        inventoryTrackingMode: variant.inventoryTrackingMode,
         optionValues: Object.fromEntries(
           (variant.selections ?? []).map((selection) => [
             selection.optionName,
@@ -810,6 +958,16 @@ export function ProductEditorForm({
           ]),
         ),
       })),
+    )
+    setInventoryTrackingMode(savedProduct.inventoryTrackingMode)
+    setReceiptIdentifierTypes(
+      sanitizeReceiptIdentifierTypes({
+        manageInventory: savedProduct.variants.some(
+          (variant) => variant.manageInventory,
+        ),
+        trackingMode: savedProduct.inventoryTrackingMode,
+        values: savedProduct.receiptIdentifierTypes,
+      }),
     )
     setMedia(mapInitialMedia(savedProduct))
     setPendingOptionValues({})
@@ -1065,40 +1223,49 @@ export function ProductEditorForm({
   const buildPayload = (
     data: ProductFormData,
     draftStep: ProductWizardStep,
-  ): AdminProductMutationPayload & { media: UploadedMedia[] } => ({
-    name: data.name,
-    slug: data.slug,
-    description: data.description || undefined,
-    shortDescription: data.shortDescription || undefined,
-    brandId: data.brandId || null,
-    primaryCategoryId: data.primaryCategoryId || null,
-    modelId: data.modelId || null,
-    categoryIds: selectedCategoryIds,
-    status: data.status,
-    draftStep,
-    isFeatured: data.isFeatured,
-    metaTitle: data.metaTitle || undefined,
-    metaDescription: data.metaDescription || undefined,
-    options: normalizedOptions.map((option) => ({
-      name: option.name,
-      values: option.values,
-    })),
-    variants: variants.map((variant) => ({
-      id: variant.id,
-      sku: variant.sku || undefined,
-      name: variant.name || undefined,
-      price: variant.price,
-      compareAtPrice: variant.compareAtPrice || undefined,
-      costPrice: variant.costPrice || undefined,
-      weight: variant.weight || undefined,
-      isDefault: variant.isDefault,
-      isActive: variant.isActive,
-      manageInventory: variant.manageInventory,
-      inventoryTrackingMode: variant.inventoryTrackingMode,
-      optionValues: variant.optionValues,
-    })),
-    media,
-  })
+  ): AdminProductMutationPayload & { media: UploadedMedia[] } => {
+    const sanitizedReceiptIdentifierTypes = sanitizeReceiptIdentifierTypes({
+      manageInventory: hasManagedInventoryVariants,
+      trackingMode: inventoryTrackingMode,
+      values: receiptIdentifierTypes,
+    })
+
+    return {
+      name: data.name,
+      slug: data.slug,
+      description: data.description || undefined,
+      shortDescription: data.shortDescription || undefined,
+      brandId: data.brandId || null,
+      primaryCategoryId: data.primaryCategoryId || null,
+      modelId: data.modelId || null,
+      categoryIds: selectedCategoryIds,
+      status: data.status,
+      draftStep,
+      isFeatured: data.isFeatured,
+      inventoryTrackingMode,
+      receiptIdentifierTypes: sanitizedReceiptIdentifierTypes,
+      metaTitle: data.metaTitle || undefined,
+      metaDescription: data.metaDescription || undefined,
+      options: normalizedOptions.map((option) => ({
+        name: option.name,
+        values: option.values,
+      })),
+      variants: variants.map((variant) => ({
+        id: variant.id,
+        sku: variant.sku || undefined,
+        name: variant.name || undefined,
+        price: variant.price,
+        compareAtPrice: variant.compareAtPrice || undefined,
+        costPrice: variant.costPrice || undefined,
+        weight: variant.weight || undefined,
+        isDefault: variant.isDefault,
+        isActive: variant.isActive,
+        manageInventory: variant.manageInventory,
+        optionValues: variant.optionValues,
+      })),
+      media,
+    }
+  }
 
   const persistProduct = async (
     data: ProductFormData,
@@ -1137,6 +1304,50 @@ export function ProductEditorForm({
     }
   }
 
+  const hasManagedInventoryVariants = variants.some(
+    (variant) => variant.manageInventory,
+  )
+
+  useEffect(() => {
+    setReceiptIdentifierTypes((current) => {
+      const next = sanitizeReceiptIdentifierTypes({
+        manageInventory: hasManagedInventoryVariants,
+        trackingMode: inventoryTrackingMode,
+        values: current,
+      })
+
+      if (inventoryTrackingMode === "serial" && next.length === 0) {
+        return hasManagedInventoryVariants
+          ? getDefaultSerialReceiptIdentifierTypes()
+          : []
+      }
+
+      return next
+    })
+  }, [hasManagedInventoryVariants, inventoryTrackingMode])
+
+  const handleSaveAndExit = async (data: ProductFormData) => {
+    await persistProduct(data, STEP_DEFINITIONS.length - 1)
+    router.push("/ops/products")
+    router.refresh()
+  }
+
+  const handleSaveAndAddStock = async (data: ProductFormData) => {
+    if (!hasManagedInventoryVariants) {
+      throw new Error("Enable managed inventory on at least one variant first")
+    }
+
+    const savedProduct = await persistProduct(data, STEP_DEFINITIONS.length - 1)
+    const productId = savedProduct?.id || currentProductId
+
+    if (!productId) {
+      throw new Error("Save the product before receiving stock")
+    }
+
+    router.push(`/ops/products/${productId}/receive-stock`)
+    router.refresh()
+  }
+
   const handleContinue = async (data: ProductFormData) => {
     startTransition(async () => {
       try {
@@ -1168,8 +1379,10 @@ export function ProductEditorForm({
     })
   }
 
+  const currentStepId = getStepId(currentStep)
+
   const renderStepContent = () => {
-    if (currentStep === 0) {
+    if (currentStepId === "basics") {
       return (
         <Card>
           <CardHeader>
@@ -1255,7 +1468,7 @@ export function ProductEditorForm({
       )
     }
 
-    if (currentStep === 1) {
+    if (currentStepId === "organization") {
       return (
         <Card>
           <CardHeader>
@@ -1437,48 +1650,7 @@ export function ProductEditorForm({
       )
     }
 
-    if (currentStep === 2) {
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle>Media</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="rounded-lg border border-dashed bg-muted/20 p-6">
-              <div className="space-y-2">
-                <p className="font-medium">Image upload is deferred</p>
-                <p className="text-sm text-muted-foreground">
-                  This step is intentionally a placeholder for the future bucket
-                  Upload images and videos for the product gallery. Images can
-                  be marked as the primary storefront image, and each media item
-                  can be assigned to a specific variant if needed.
-                </p>
-              </div>
-            </div>
-            {currentProductId ? (
-              <ProductMediaField
-                productId={currentProductId}
-                value={media}
-                onChange={setMedia}
-                variants={variants
-                  .filter((variant) => Boolean(variant.id))
-                  .map((variant) => ({
-                    id: variant.id!,
-                    name: variant.name,
-                  }))}
-                disabled={isPending}
-              />
-            ) : (
-              <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
-                Save the draft first to enable media uploads.
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )
-    }
-
-    if (currentStep === 3) {
+    if (currentStepId === "options") {
       return (
         <div className="space-y-6">
           <Card>
@@ -1723,7 +1895,7 @@ export function ProductEditorForm({
 
           <Card>
             <CardHeader>
-              <CardTitle>Variants and Inventory Mode</CardTitle>
+              <CardTitle>Variants and Inventory</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
@@ -1731,6 +1903,78 @@ export function ProductEditorForm({
                 {variants.length === 1 ? "" : "s"} are derived from the current
                 option values. Stock intake happens later in the dedicated
                 inventory flow.
+              </div>
+
+              <div className="grid gap-4 rounded-xl border bg-muted/10 p-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Inventory tracking mode</Label>
+                  <Select
+                    value={inventoryTrackingMode}
+                    onValueChange={(value) =>
+                      setInventoryTrackingMode(value as "quantity" | "serial")
+                    }
+                    disabled={!hasManagedInventoryVariants}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="quantity">Quantity</SelectItem>
+                      <SelectItem value="serial">Serial</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    This applies to every managed variant of the product.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Receipt identifier types</Label>
+                  {hasManagedInventoryVariants &&
+                  inventoryTrackingMode === "serial" ? (
+                    <div className="flex flex-wrap gap-2">
+                      {INVENTORY_IDENTIFIER_TYPE_ORDER.map((type) => {
+                        const selected = receiptIdentifierTypes.includes(type)
+
+                        return (
+                          <Button
+                            key={type}
+                            type="button"
+                            variant={selected ? "default" : "outline"}
+                            size="sm"
+                            className="h-8 px-3"
+                            onClick={() => {
+                              const nextValues = selected
+                                ? receiptIdentifierTypes.filter(
+                                    (value) => value !== type,
+                                  )
+                                : [...receiptIdentifierTypes, type]
+
+                              setReceiptIdentifierTypes(
+                                sanitizeReceiptIdentifierTypes({
+                                  manageInventory: hasManagedInventoryVariants,
+                                  trackingMode: inventoryTrackingMode,
+                                  values: nextValues,
+                                }),
+                              )
+                            }}
+                          >
+                            {getReceiptIdentifierLabel(type)}
+                          </Button>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
+                      {hasManagedInventoryVariants
+                        ? "Receipt IDs are only needed for serial tracking."
+                        : "Enable managed inventory on at least one variant to configure receipt IDs."}
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    These identifiers are used later in the stock intake flow.
+                  </p>
+                </div>
               </div>
 
               <div className="overflow-x-auto rounded-lg border">
@@ -1745,7 +1989,6 @@ export function ProductEditorForm({
                       <TableHead>Cost</TableHead>
                       <TableHead>Weight</TableHead>
                       <TableHead>Managed</TableHead>
-                      <TableHead>Mode</TableHead>
                       <TableHead>Default</TableHead>
                       <TableHead>Active</TableHead>
                     </TableRow>
@@ -1842,27 +2085,6 @@ export function ProductEditorForm({
                           />
                         </TableCell>
                         <TableCell>
-                          <Select
-                            value={variant.inventoryTrackingMode}
-                            onValueChange={(value) =>
-                              updateVariant(variant.key, {
-                                inventoryTrackingMode: value as
-                                  | "quantity"
-                                  | "serial",
-                              })
-                            }
-                            disabled={!variant.manageInventory}
-                          >
-                            <SelectTrigger className="min-w-32">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="quantity">Quantity</SelectItem>
-                              <SelectItem value="serial">Serial</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
                           <Switch
                             checked={variant.isDefault}
                             onCheckedChange={(checked) => {
@@ -1888,6 +2110,46 @@ export function ProductEditorForm({
             </CardContent>
           </Card>
         </div>
+      )
+    }
+
+    if (currentStepId === "media") {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle>Media</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="rounded-lg border border-dashed bg-muted/20 p-6">
+              <div className="space-y-2">
+                <p className="font-medium">Product media</p>
+                <p className="text-sm text-muted-foreground">
+                  Upload images and videos for the product gallery. Product-wide
+                  media appears everywhere, while specific media can be assigned
+                  to one or more variants.
+                </p>
+              </div>
+            </div>
+            {currentProductId ? (
+              <ProductMediaField
+                productId={currentProductId}
+                value={media}
+                onChange={setMedia}
+                variants={variants
+                  .filter((variant) => Boolean(variant.id))
+                  .map((variant) => ({
+                    id: variant.id!,
+                    name: variant.name,
+                  }))}
+                disabled={isPending}
+              />
+            ) : (
+              <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+                Save the draft first to enable media uploads.
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )
     }
 
@@ -2119,19 +2381,65 @@ export function ProductEditorForm({
               Publish Product
             </Button>
           ) : null}
-          <Button type="submit" disabled={isPending}>
-            {isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : null}
-            {currentStep === STEP_DEFINITIONS.length - 1 ? (
-              "Save Draft"
-            ) : (
-              <>
-                Continue
-                <ChevronRight className="ml-2 h-4 w-4" />
-              </>
-            )}
-          </Button>
+          {currentStep === STEP_DEFINITIONS.length - 1 ? (
+            <>
+              <Button
+                type="button"
+                disabled={isPending}
+                onClick={handleSubmit((data) => {
+                  startTransition(async () => {
+                    try {
+                      await handleSaveAndExit(data)
+                      toast.success("Product saved")
+                    } catch (error) {
+                      toast.error(
+                        error instanceof Error
+                          ? error.message
+                          : "Failed to save product",
+                      )
+                    }
+                  })
+                })}
+              >
+                {isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                Save Product
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={isPending || !hasManagedInventoryVariants}
+                onClick={handleSubmit((data) => {
+                  startTransition(async () => {
+                    try {
+                      await handleSaveAndAddStock(data)
+                      toast.success("Product saved. Opening stock intake.")
+                    } catch (error) {
+                      toast.error(
+                        error instanceof Error
+                          ? error.message
+                          : "Failed to open stock intake",
+                      )
+                    }
+                  })
+                })}
+              >
+                {isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                Save & Add Stock Now
+              </Button>
+            </>
+          ) : (
+            <Button type="submit" disabled={isPending}>
+              {isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Continue
+              <ChevronRight className="ml-2 h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
     </form>

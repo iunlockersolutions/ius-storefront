@@ -25,8 +25,6 @@ import {
 import { getServerSession, requireStaff } from "@/lib/auth/rbac"
 import { db } from "@/lib/db"
 import {
-  inventoryLevels,
-  inventoryLocations,
   inventoryUnitIdentifiers,
   inventoryUnits,
   orderItemAllocations,
@@ -34,6 +32,7 @@ import {
   orderItemUnitAssignments,
   orders,
   orderStatusHistory,
+  products,
   productVariants,
   shipments,
   user,
@@ -273,12 +272,13 @@ async function getOrderAggregate(
           id: productVariants.id,
           name: productVariants.name,
           sku: productVariants.sku,
-          trackingMode: productVariants.inventoryTrackingMode,
+          trackingMode: products.inventoryTrackingMode,
           manageInventory: productVariants.manageInventory,
         },
       })
       .from(orderItems)
       .leftJoin(productVariants, eq(orderItems.variantId, productVariants.id))
+      .leftJoin(products, eq(productVariants.productId, products.id))
       .where(eq(orderItems.orderId, orderId)),
     tx
       .select({
@@ -287,19 +287,8 @@ async function getOrderAggregate(
         quantity: orderItemAllocations.quantity,
         allocatedAt: orderItemAllocations.allocatedAt,
         releasedAt: orderItemAllocations.releasedAt,
-        locationId: inventoryLocations.id,
-        locationName: inventoryLocations.name,
-        locationCode: inventoryLocations.code,
       })
       .from(orderItemAllocations)
-      .leftJoin(
-        inventoryLevels,
-        eq(orderItemAllocations.inventoryLevelId, inventoryLevels.id),
-      )
-      .leftJoin(
-        inventoryLocations,
-        eq(inventoryLevels.locationId, inventoryLocations.id),
-      )
       .where(eq(orderItemAllocations.orderId, orderId)),
     tx
       .select({
@@ -388,9 +377,6 @@ async function getOrderAggregate(
       quantity: allocation.quantity,
       allocatedAt: allocation.allocatedAt,
       releasedAt: allocation.releasedAt,
-      locationId: allocation.locationId,
-      locationName: allocation.locationName,
-      locationCode: allocation.locationCode,
     })
     allocationsByItem.set(allocation.orderItemId, existing)
   }
@@ -444,7 +430,7 @@ async function getOrderAggregate(
             name: item.variant.name,
             sku: item.variant.sku,
             trackingMode: item.variant.trackingMode,
-            manageInventory: item.variant.manageInventory,
+            manageInventory: item.variant.manageInventory ?? false,
           }
         : null,
       packing: {
@@ -904,7 +890,7 @@ export async function startOrderPacking(
           continue
         }
 
-        const allocationResult = await allocateInventory(
+        await allocateInventory(
           {
             variantId: item.variantId,
             quantity: missingQuantity,
@@ -919,7 +905,6 @@ export async function startOrderPacking(
           orderId: order.id,
           orderItemId: item.id,
           variantId: item.variantId,
-          inventoryLevelId: allocationResult.after.id,
           quantity: missingQuantity,
         })
       }
@@ -1000,7 +985,6 @@ export async function scanOrderPackingUnit(
           unitId: inventoryUnits.id,
           unitVariantId: inventoryUnits.variantId,
           unitStatus: inventoryUnits.status,
-          locationId: inventoryUnits.locationId,
         })
         .from(inventoryUnitIdentifiers)
         .innerJoin(
@@ -1081,7 +1065,6 @@ export async function scanOrderPackingUnit(
         {
           variantId: item.variantId,
           quantity: 1,
-          locationId: matchedUnit.locationId,
           unitIds: [matchedUnit.unitId],
           referenceType: "order_item",
           referenceId: item.id,
@@ -1180,9 +1163,7 @@ export async function unassignOrderPackingUnit(
       }
 
       const [unit] = await tx
-        .select({
-          locationId: inventoryUnits.locationId,
-        })
+        .select({ id: inventoryUnits.id })
         .from(inventoryUnits)
         .where(eq(inventoryUnits.id, inventoryUnitId))
         .limit(1)
@@ -1198,7 +1179,6 @@ export async function unassignOrderPackingUnit(
         {
           variantId: item.variantId,
           quantity: 1,
-          locationId: unit.locationId,
           unitIds: [inventoryUnitId],
           referenceType: "order_item",
           referenceId: item.id,
@@ -1290,7 +1270,6 @@ export async function completeOrderPacking(
               {
                 variantId: item.variantId,
                 quantity: allocatedQuantity,
-                locationId: activeAllocations[0]?.locationId ?? undefined,
                 referenceType: "order",
                 referenceId: order.id,
                 notes: `Shipped for order ${order.orderNumber}`,
@@ -1320,19 +1299,10 @@ export async function completeOrderPacking(
         )
 
         if (unitIds.length > 0) {
-          const [unit] = await tx
-            .select({
-              locationId: inventoryUnits.locationId,
-            })
-            .from(inventoryUnits)
-            .where(eq(inventoryUnits.id, unitIds[0]))
-            .limit(1)
-
           await shipInventory(
             {
               variantId: item.variantId,
               quantity: unitIds.length,
-              locationId: unit?.locationId,
               unitIds,
               referenceType: "order_item",
               referenceId: item.id,

@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm"
+import { relations, sql } from "drizzle-orm"
 import {
   type AnyPgColumn,
   bigint,
@@ -15,6 +15,7 @@ import {
 
 import { user } from "./auth"
 import {
+  inventoryIdentifierTypeEnum,
   inventoryTrackingModeEnum,
   mediaAccessEnum,
   mediaDerivativeKindEnum,
@@ -233,6 +234,16 @@ export const products = pgTable(
     status: productStatusEnum("status").notNull().default("draft"),
     draftStep: productDraftStepEnum("draft_step").notNull().default("basics"),
     isFeatured: boolean("is_featured").notNull().default(false),
+    inventoryTrackingMode: inventoryTrackingModeEnum("inventory_tracking_mode")
+      .notNull()
+      .default("quantity"),
+    receiptIdentifierTypes: inventoryIdentifierTypeEnum(
+      "receipt_identifier_types",
+    )
+      .array()
+      .$type<Array<"serial" | "imei" | "imei2" | "barcode">>()
+      .notNull()
+      .default(sql`ARRAY[]::inventory_identifier_type[]`),
     metaTitle: text("meta_title"),
     metaDescription: text("meta_description"),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -357,9 +368,6 @@ export const productVariants = pgTable(
     isDefault: boolean("is_default").notNull().default(false),
     isActive: boolean("is_active").notNull().default(true),
     manageInventory: boolean("manage_inventory").notNull().default(true),
-    inventoryTrackingMode: inventoryTrackingModeEnum("inventory_tracking_mode")
-      .notNull()
-      .default("quantity"),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -497,9 +505,9 @@ export const productMedia = pgTable(
     mediaAssetId: uuid("media_asset_id")
       .notNull()
       .references(() => mediaAssets.id, { onDelete: "cascade" }),
-    variantId: uuid("variant_id").references(() => productVariants.id, {
-      onDelete: "set null",
-    }),
+    appliesToAllVariants: boolean("applies_to_all_variants")
+      .notNull()
+      .default(true),
     altText: text("alt_text"),
     sortOrder: integer("sort_order").notNull().default(0),
     isPrimaryImage: boolean("is_primary_image").notNull().default(false),
@@ -513,10 +521,37 @@ export const productMedia = pgTable(
   (table) => [
     index("product_media_product_id_idx").on(table.productId),
     index("product_media_media_asset_id_idx").on(table.mediaAssetId),
-    index("product_media_variant_id_idx").on(table.variantId),
     unique("product_media_product_media_asset_unique").on(
       table.productId,
       table.mediaAssetId,
+    ),
+  ],
+)
+
+export const productMediaVariantAssignments = pgTable(
+  "product_media_variant_assignments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    productMediaId: uuid("product_media_id")
+      .notNull()
+      .references(() => productMedia.id, { onDelete: "cascade" }),
+    variantId: uuid("variant_id")
+      .notNull()
+      .references(() => productVariants.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("product_media_variant_assignments_media_id_idx").on(
+      table.productMediaId,
+    ),
+    index("product_media_variant_assignments_variant_id_idx").on(
+      table.variantId,
+    ),
+    unique("product_media_variant_assignments_unique").on(
+      table.productMediaId,
+      table.variantId,
     ),
   ],
 )
@@ -688,7 +723,7 @@ export const productVariantsRelations = relations(
       references: [products.id],
     }),
     optionSelections: many(productVariantOptionValues),
-    media: many(productMedia),
+    mediaAssignments: many(productMediaVariantAssignments),
     levels: many(inventoryLevels),
   }),
 )
@@ -730,20 +765,34 @@ export const mediaDerivativesRelations = relations(
   }),
 )
 
-export const productMediaRelations = relations(productMedia, ({ one }) => ({
-  product: one(products, {
-    fields: [productMedia.productId],
-    references: [products.id],
+export const productMediaRelations = relations(
+  productMedia,
+  ({ one, many }) => ({
+    product: one(products, {
+      fields: [productMedia.productId],
+      references: [products.id],
+    }),
+    mediaAsset: one(mediaAssets, {
+      fields: [productMedia.mediaAssetId],
+      references: [mediaAssets.id],
+    }),
+    variantAssignments: many(productMediaVariantAssignments),
   }),
-  mediaAsset: one(mediaAssets, {
-    fields: [productMedia.mediaAssetId],
-    references: [mediaAssets.id],
+)
+
+export const productMediaVariantAssignmentsRelations = relations(
+  productMediaVariantAssignments,
+  ({ one }) => ({
+    productMedia: one(productMedia, {
+      fields: [productMediaVariantAssignments.productMediaId],
+      references: [productMedia.id],
+    }),
+    variant: one(productVariants, {
+      fields: [productMediaVariantAssignments.variantId],
+      references: [productVariants.id],
+    }),
   }),
-  variant: one(productVariants, {
-    fields: [productMedia.variantId],
-    references: [productVariants.id],
-  }),
-}))
+)
 
 export const productAttributesRelations = relations(
   productAttributes,

@@ -21,6 +21,10 @@ import {
   productVariants,
 } from "@/lib/db/schema"
 import {
+  type ReceiptIdentifierType,
+  sanitizeReceiptIdentifierTypes,
+} from "@/lib/inventory/identifier-template"
+import {
   getPrimaryProductImageMap,
   getProductMedia as getProductMediaRecords,
 } from "@/lib/media/service"
@@ -36,6 +40,13 @@ const productOptionInputSchema = z.object({
   name: z.string().min(1).max(100),
   values: z.array(z.string().min(1).max(100)).default([]),
 })
+
+const inventoryIdentifierTypeSchema = z.enum([
+  "serial",
+  "imei",
+  "imei2",
+  "barcode",
+])
 
 const productVariantInputSchema = z.object({
   id: z.string().uuid().optional(),
@@ -54,7 +65,6 @@ const productVariantInputSchema = z.object({
   isDefault: z.boolean().default(false),
   isActive: z.boolean().default(true),
   manageInventory: z.boolean().default(true),
-  inventoryTrackingMode: z.enum(["quantity", "serial"]).default("quantity"),
   optionValues: z.record(z.string(), z.string()).default({}),
 })
 
@@ -72,6 +82,8 @@ const productMutationInputSchema = z.object({
     .enum(["basics", "organization", "media", "options", "review"])
     .default("basics"),
   isFeatured: z.boolean().default(false),
+  inventoryTrackingMode: z.enum(["quantity", "serial"]).default("quantity"),
+  receiptIdentifierTypes: z.array(inventoryIdentifierTypeSchema).default([]),
   metaTitle: z.string().max(100).optional(),
   metaDescription: z.string().max(300).optional(),
   options: z.array(productOptionInputSchema).default([]),
@@ -150,18 +162,42 @@ function normalizeOptions(options: z.infer<typeof productOptionInputSchema>[]) {
     })
 }
 
-function validateVariantInventoryConfiguration(
-  variants: z.infer<typeof productVariantInputSchema>[],
+function validateProductInventoryConfiguration(
+  input: z.infer<typeof productMutationInputSchema>,
 ) {
-  for (const variant of variants) {
-    if (
-      !variant.manageInventory &&
-      variant.inventoryTrackingMode === "serial"
-    ) {
-      throw new Error(
-        "Serialized tracking requires inventory management to be enabled",
-      )
-    }
+  const hasManagedInventoryVariants = input.variants.some(
+    (variant) => variant.manageInventory,
+  )
+  const receiptIdentifierTypes = sanitizeReceiptIdentifierTypes({
+    manageInventory: hasManagedInventoryVariants,
+    trackingMode: input.inventoryTrackingMode,
+    values: input.receiptIdentifierTypes,
+  })
+
+  if (!hasManagedInventoryVariants && receiptIdentifierTypes.length > 0) {
+    throw new Error(
+      "Receipt identifier types can only be configured when inventory is enabled for at least one variant",
+    )
+  }
+
+  if (
+    hasManagedInventoryVariants &&
+    input.inventoryTrackingMode === "quantity" &&
+    receiptIdentifierTypes.length > 0
+  ) {
+    throw new Error(
+      "Quantity-tracked products cannot define serialized receipt identifier types",
+    )
+  }
+
+  if (
+    hasManagedInventoryVariants &&
+    input.inventoryTrackingMode === "serial" &&
+    receiptIdentifierTypes.length === 0
+  ) {
+    throw new Error(
+      "Serialized tracking requires at least one receipt identifier type",
+    )
   }
 }
 
@@ -178,7 +214,6 @@ function normalizeVariants(
     optionValues: hasOptions ? variant.optionValues : {},
     isDefault: index === 0 ? variant.isDefault || true : variant.isDefault,
     manageInventory: variant.manageInventory,
-    inventoryTrackingMode: variant.inventoryTrackingMode,
   }))
 
   if (!prepared.some((variant) => variant.isDefault)) {
@@ -375,7 +410,15 @@ async function validateAndPrepareProductMutation(
   },
 ) {
   const validated = productMutationInputSchema.parse(data)
-  validateVariantInventoryConfiguration(validated.variants)
+  validateProductInventoryConfiguration(validated)
+  const hasManagedInventoryVariants = validated.variants.some(
+    (variant) => variant.manageInventory,
+  )
+  const receiptIdentifierTypes = sanitizeReceiptIdentifierTypes({
+    manageInventory: hasManagedInventoryVariants,
+    trackingMode: validated.inventoryTrackingMode,
+    values: validated.receiptIdentifierTypes,
+  }) as ReceiptIdentifierType[]
 
   const slug = await resolveUniqueProductSlug(
     validated.name,
@@ -388,6 +431,10 @@ async function validateAndPrepareProductMutation(
     validated,
     organization,
     slug,
+    inventoryTrackingMode: hasManagedInventoryVariants
+      ? validated.inventoryTrackingMode
+      : "quantity",
+    receiptIdentifierTypes,
   }
 }
 
@@ -399,6 +446,8 @@ async function getProductPublishReadiness(id: string) {
       primaryCategoryId: products.primaryCategoryId,
       modelId: products.modelId,
       status: products.status,
+      inventoryTrackingMode: products.inventoryTrackingMode,
+      receiptIdentifierTypes: products.receiptIdentifierTypes,
     })
     .from(products)
     .where(eq(products.id, id))
@@ -421,7 +470,6 @@ async function getProductPublishReadiness(id: string) {
         id: productVariants.id,
         sku: productVariants.sku,
         manageInventory: productVariants.manageInventory,
-        inventoryTrackingMode: productVariants.inventoryTrackingMode,
       })
       .from(productVariants)
       .where(eq(productVariants.productId, id)),
@@ -508,6 +556,10 @@ async function getProductPublishReadiness(id: string) {
   }
 
   const skuSet = new Set<string>()
+  const hasManagedInventoryVariants = variants.some(
+    (variant) => variant.manageInventory,
+  )
+
   for (const variant of variants) {
     const sku = variant.sku.trim()
     if (!sku) {
@@ -524,13 +576,23 @@ async function getProductPublishReadiness(id: string) {
 
     if (
       !variant.manageInventory &&
-      variant.inventoryTrackingMode === "serial"
+      product.inventoryTrackingMode === "serial"
     ) {
       errors.push(
         "Serialized tracking cannot be used when inventory management is disabled",
       )
       break
     }
+  }
+
+  if (
+    hasManagedInventoryVariants &&
+    product.inventoryTrackingMode === "serial" &&
+    (product.receiptIdentifierTypes?.length ?? 0) === 0
+  ) {
+    errors.push(
+      "Serialized products must define at least one receipt identifier type",
+    )
   }
 
   return {
@@ -909,7 +971,6 @@ async function syncProductOptionsAndVariants(
               isDefault: variant.isDefault,
               isActive: variant.isActive,
               manageInventory: variant.manageInventory,
-              inventoryTrackingMode: variant.inventoryTrackingMode,
               sortOrder: variantIndex,
               updatedAt: new Date(),
             })
@@ -930,7 +991,6 @@ async function syncProductOptionsAndVariants(
               isDefault: variant.isDefault,
               isActive: variant.isActive,
               manageInventory: variant.manageInventory,
-              inventoryTrackingMode: variant.inventoryTrackingMode,
               sortOrder: variantIndex,
             })
             .returning()
@@ -1429,11 +1489,16 @@ export async function updateProduct(
     throw new Error("Product not found")
   }
 
-  const { validated, organization, slug } =
-    await validateAndPrepareProductMutation(data, {
-      existingProductId: id,
-      existingProductSlug: existingProduct.slug,
-    })
+  const {
+    validated,
+    organization,
+    slug,
+    inventoryTrackingMode,
+    receiptIdentifierTypes,
+  } = await validateAndPrepareProductMutation(data, {
+    existingProductId: id,
+    existingProductSlug: existingProduct.slug,
+  })
   assertDraftActivationUsesPublishEndpoint(
     validated.status,
     existingProduct.status,
@@ -1453,6 +1518,8 @@ export async function updateProduct(
         status: validated.status,
         draftStep: validated.draftStep,
         isFeatured: validated.isFeatured,
+        inventoryTrackingMode,
+        receiptIdentifierTypes,
         metaTitle: validated.metaTitle || null,
         metaDescription: validated.metaDescription || null,
         updatedAt: new Date(),
@@ -1487,8 +1554,13 @@ export async function createProduct(
   data: z.infer<typeof productMutationInputSchema>,
 ) {
   await requireResourcePermission("product", "create")
-  const { validated, organization, slug } =
-    await validateAndPrepareProductMutation(data)
+  const {
+    validated,
+    organization,
+    slug,
+    inventoryTrackingMode,
+    receiptIdentifierTypes,
+  } = await validateAndPrepareProductMutation(data)
   assertDraftActivationUsesPublishEndpoint(validated.status)
 
   const created = await db.transaction(async (tx) => {
@@ -1505,6 +1577,8 @@ export async function createProduct(
         status: validated.status,
         draftStep: validated.draftStep,
         isFeatured: validated.isFeatured,
+        inventoryTrackingMode,
+        receiptIdentifierTypes,
         metaTitle: validated.metaTitle || null,
         metaDescription: validated.metaDescription || null,
       })

@@ -3,9 +3,8 @@ import { notFound } from "next/navigation"
 
 import { ChevronRight } from "lucide-react"
 
-import { ManagedMediaGallery } from "@/components/shared/media/managed-media-gallery"
 import { ProductCard } from "@/components/storefront/product-card"
-import { ProductInfo } from "@/components/storefront/product-info"
+import { ProductDetailContent } from "@/components/storefront/product-detail-content"
 import { ProductReviews } from "@/components/storefront/product-reviews"
 import { Badge } from "@/components/ui/badge"
 import { isProductFavorited } from "@/lib/actions/favorites"
@@ -42,7 +41,15 @@ export async function generateMetadata({ params }: ProductPageProps) {
         product.shortDescription || product.description?.slice(0, 160),
       images:
         product.media
-          ?.filter((item) => item.kind === "image")
+          ?.filter(
+            (item) =>
+              item.kind === "image" && item.variantAssignment.mode === "all",
+          )
+          .sort((left, right) => {
+            if (left.isPrimaryImage) return -1
+            if (right.isPrimaryImage) return 1
+            return left.sortOrder - right.sortOrder
+          })
           .slice(0, 1)
           .map((item) => item.url) || undefined,
     },
@@ -126,11 +133,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
       {/* Product Main Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-        {/* Gallery */}
-        <ManagedMediaGallery media={product.media ?? []} name={product.name} />
-
-        {/* Product Info */}
-        <ProductInfo product={product} initialIsFavorited={isFavorited} />
+        <ProductDetailContent
+          product={product}
+          initialIsFavorited={isFavorited}
+        />
       </div>
 
       {/* Product Description */}

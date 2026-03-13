@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, sql } from "drizzle-orm"
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm"
 import { z } from "zod"
 
 import { db } from "@/lib/db"
@@ -6,7 +6,9 @@ import {
   mediaAssets,
   mediaDerivatives,
   productMedia,
+  productMediaVariantAssignments,
   products,
+  productVariants,
 } from "@/lib/db/schema"
 import {
   getMediaStorageAdapter,
@@ -16,6 +18,7 @@ import type {
   MediaDelivery,
   MediaStorageProvider,
   ProductMediaInput,
+  ProductMediaVariantAssignment,
   UploadedMediaSource,
 } from "@/lib/media/types"
 import { getMediaProviderFromUrl } from "@/lib/media/utils"
@@ -55,7 +58,12 @@ const uploadedMediaSourceSchema = z.object({
 const productMediaInputSchema = uploadedMediaSourceSchema.extend({
   assetId: z.string().uuid().optional(),
   altText: z.string().optional().nullable(),
-  variantId: z.string().uuid().optional().nullable(),
+  variantAssignment: z
+    .object({
+      mode: z.enum(["all", "specific"]),
+      variantIds: z.array(z.string().uuid()).default([]),
+    })
+    .optional(),
   isPrimaryImage: z.boolean().optional(),
   status: z.enum(["pending", "ready", "failed", "deleted"]).optional(),
 })
@@ -80,7 +88,7 @@ export interface ProductMediaRecord {
   originalFilename: string
   placeholderDataUrl: string | null
   altText: string | null
-  variantId: string | null
+  variantAssignment: ProductMediaVariantAssignment
   isPrimaryImage: boolean
   sortOrder: number
   derivatives: Array<{
@@ -119,12 +127,32 @@ function normalizeProductMediaInputs(
     deduped.push(item)
   }
 
-  const imageIndexes = deduped
+  const normalizedAssignments = deduped.map((item) => {
+    const mode =
+      item.variantAssignment?.mode === "specific" ? "specific" : "all"
+    const variantIds =
+      mode === "specific"
+        ? Array.from(new Set(item.variantAssignment?.variantIds ?? []))
+        : []
+
+    return {
+      ...item,
+      variantAssignment: {
+        mode,
+        variantIds,
+      } satisfies ProductMediaVariantAssignment,
+    }
+  })
+
+  const imageIndexes = normalizedAssignments
     .map((item, index) => ({ item, index }))
-    .filter(({ item }) => item.kind === "image")
+    .filter(
+      ({ item }) =>
+        item.kind === "image" && item.variantAssignment.mode === "all",
+    )
 
   if (imageIndexes.length === 0) {
-    return deduped.map((item) => ({
+    return normalizedAssignments.map((item) => ({
       ...item,
       isPrimaryImage: false,
     }))
@@ -134,9 +162,12 @@ function normalizeProductMediaInputs(
     imageIndexes.find(({ item }) => item.isPrimaryImage)?.index ??
     imageIndexes[0]?.index
 
-  return deduped.map((item, index) => ({
+  return normalizedAssignments.map((item, index) => ({
     ...item,
-    isPrimaryImage: item.kind === "image" && index === primaryIndex,
+    isPrimaryImage:
+      item.kind === "image" &&
+      item.variantAssignment.mode === "all" &&
+      index === primaryIndex,
   }))
 }
 
@@ -251,7 +282,7 @@ export async function getProductMedia(productId: string) {
       originalFilename: mediaAssets.originalFilename,
       placeholderDataUrl: mediaAssets.placeholderDataUrl,
       altText: productMedia.altText,
-      variantId: productMedia.variantId,
+      appliesToAllVariants: productMedia.appliesToAllVariants,
       isPrimaryImage: productMedia.isPrimaryImage,
       sortOrder: productMedia.sortOrder,
     })
@@ -265,6 +296,7 @@ export async function getProductMedia(productId: string) {
   }
 
   const assetIds = rows.map((row) => row.assetId)
+  const productMediaIds = rows.map((row) => row.id)
   const derivativeRows = await db
     .select({
       id: mediaDerivatives.id,
@@ -281,9 +313,33 @@ export async function getProductMedia(productId: string) {
     .from(mediaDerivatives)
     .where(inArray(mediaDerivatives.mediaAssetId, assetIds))
 
+  const assignmentRows =
+    productMediaIds.length === 0
+      ? []
+      : await db
+          .select({
+            productMediaId: productMediaVariantAssignments.productMediaId,
+            variantId: productMediaVariantAssignments.variantId,
+          })
+          .from(productMediaVariantAssignments)
+          .where(
+            inArray(
+              productMediaVariantAssignments.productMediaId,
+              productMediaIds,
+            ),
+          )
+
   return rows.map((row) => ({
     ...row,
     byteSize: Number(row.byteSize),
+    variantAssignment: {
+      mode: row.appliesToAllVariants ? "all" : "specific",
+      variantIds: row.appliesToAllVariants
+        ? []
+        : assignmentRows
+            .filter((assignment) => assignment.productMediaId === row.id)
+            .map((assignment) => assignment.variantId),
+    } satisfies ProductMediaVariantAssignment,
     derivatives: derivativeRows
       .filter((derivative) => derivative.mediaAssetId === row.assetId)
       .map((derivative) => ({
@@ -327,18 +383,53 @@ export async function syncProductMedia(
   productId: string,
   mediaItems: ProductMediaInput[],
 ) {
-  const validated = normalizeProductMediaInputs(
+  const validatedInputs = normalizeProductMediaInputs(
     z.array(productMediaInputSchema).parse(mediaItems),
   )
 
-  const [product] = await db
-    .select({ id: products.id })
-    .from(products)
-    .where(eq(products.id, productId))
-    .limit(1)
+  const [product, variantRows] = await Promise.all([
+    db
+      .select({ id: products.id })
+      .from(products)
+      .where(eq(products.id, productId))
+      .limit(1)
+      .then((rows) => rows[0]),
+    db
+      .select({ id: productVariants.id })
+      .from(productVariants)
+      .where(eq(productVariants.productId, productId)),
+  ])
+
+  const validVariantIds = new Set(variantRows.map((variant) => variant.id))
+  const validated = validatedInputs.map((item) => ({
+    ...item,
+    variantAssignment: {
+      mode: item.variantAssignment.mode,
+      variantIds: item.variantAssignment.variantIds.filter((variantId) =>
+        validVariantIds.has(variantId),
+      ),
+    } satisfies ProductMediaVariantAssignment,
+  }))
 
   if (!product) {
     throw new Error("Product not found")
+  }
+
+  for (const item of validated) {
+    if (
+      item.variantAssignment.mode === "specific" &&
+      item.variantAssignment.variantIds.length === 0
+    ) {
+      throw new Error(
+        "Variant-specific media must be assigned to at least one product variant",
+      )
+    }
+
+    if (item.isPrimaryImage && item.variantAssignment.mode !== "all") {
+      throw new Error(
+        "Only media assigned to all variants can be used as the primary image",
+      )
+    }
   }
 
   const previousMedia = await db
@@ -353,7 +444,10 @@ export async function syncProductMedia(
     .where(eq(productMedia.productId, productId))
 
   await db.transaction(async (tx) => {
-    const attachedAssets: Array<{ id: string }> = []
+    const attachedMedia: Array<{
+      assetId: string
+      variantAssignment: ProductMediaVariantAssignment
+    }> = []
 
     for (const item of validated) {
       const asset =
@@ -382,23 +476,48 @@ export async function syncProductMedia(
           )
         ).id
 
-      attachedAssets.push({ id: asset })
+      attachedMedia.push({
+        assetId: asset,
+        variantAssignment: item.variantAssignment,
+      })
     }
 
     await tx.delete(productMedia).where(eq(productMedia.productId, productId))
 
-    if (validated.length > 0) {
-      await tx.insert(productMedia).values(
-        validated.map((item, index) => ({
-          productId,
-          mediaAssetId: attachedAssets[index]!.id,
-          variantId: item.variantId || null,
-          altText: item.altText || null,
-          sortOrder: index,
-          isPrimaryImage: item.isPrimaryImage || false,
-          updatedAt: new Date(),
-        })),
-      )
+    if (attachedMedia.length > 0) {
+      const [insertedRows] = await Promise.all([
+        tx
+          .insert(productMedia)
+          .values(
+            validated.map((item, index) => ({
+              productId,
+              mediaAssetId: attachedMedia[index]!.assetId,
+              appliesToAllVariants: item.variantAssignment.mode === "all",
+              altText: item.altText || null,
+              sortOrder: index,
+              isPrimaryImage: item.isPrimaryImage || false,
+              updatedAt: new Date(),
+            })),
+          )
+          .returning({ id: productMedia.id }),
+      ])
+
+      const assignmentValues = insertedRows.flatMap((row, index) => {
+        const assignment = attachedMedia[index]!.variantAssignment
+
+        if (assignment.mode === "all") {
+          return []
+        }
+
+        return assignment.variantIds.map((variantId) => ({
+          productMediaId: row.id,
+          variantId,
+        }))
+      })
+
+      if (assignmentValues.length > 0) {
+        await tx.insert(productMediaVariantAssignments).values(assignmentValues)
+      }
     }
   })
 
@@ -477,10 +596,54 @@ export async function getPrimaryProductImageMap(productIds: string[]) {
     .where(
       and(
         inArray(productMedia.productId, productIds),
+        eq(productMedia.appliesToAllVariants, true),
         eq(productMedia.isPrimaryImage, true),
         eq(mediaAssets.kind, "image"),
       ),
     )
 
   return new Map(rows.map((row) => [row.productId, row.url]))
+}
+
+export async function getVariantSpecificProductImageMap(variantIds: string[]) {
+  const uniqueVariantIds = Array.from(new Set(variantIds.filter(Boolean)))
+
+  if (uniqueVariantIds.length === 0) {
+    return new Map<string, string>()
+  }
+
+  const rows = await db
+    .select({
+      variantId: productMediaVariantAssignments.variantId,
+      url: mediaAssets.url,
+      sortOrder: productMedia.sortOrder,
+      isPrimaryImage: productMedia.isPrimaryImage,
+    })
+    .from(productMediaVariantAssignments)
+    .innerJoin(
+      productMedia,
+      eq(productMediaVariantAssignments.productMediaId, productMedia.id),
+    )
+    .innerJoin(mediaAssets, eq(productMedia.mediaAssetId, mediaAssets.id))
+    .where(
+      and(
+        inArray(productMediaVariantAssignments.variantId, uniqueVariantIds),
+        eq(mediaAssets.kind, "image"),
+      ),
+    )
+    .orderBy(
+      desc(productMedia.isPrimaryImage),
+      asc(productMedia.sortOrder),
+      asc(productMedia.createdAt),
+    )
+
+  const imageMap = new Map<string, string>()
+
+  for (const row of rows) {
+    if (!imageMap.has(row.variantId)) {
+      imageMap.set(row.variantId, row.url)
+    }
+  }
+
+  return imageMap
 }

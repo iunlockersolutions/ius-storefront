@@ -23,7 +23,10 @@ type ProductMediaPayload = {
   originalFilename: string
   placeholderDataUrl?: string | null
   altText?: string | null
-  variantId?: string | null
+  variantAssignment?: {
+    mode: "all" | "specific"
+    variantIds: string[]
+  }
   isPrimaryImage?: boolean
   derivatives?: Array<{
     kind: "blur" | "poster"

@@ -54,6 +54,8 @@ export const queryKeys = {
     }) => ["admin", "inventory", "list", params ?? {}] as const,
     inventoryDetail: (id: string) =>
       ["admin", "inventory", "detail", id] as const,
+    productReceiveStock: (productId: string) =>
+      ["admin", "inventory", "product-receive-stock", productId] as const,
     inventoryMovements: (
       id: string,
       params?: { page?: number; limit?: number },

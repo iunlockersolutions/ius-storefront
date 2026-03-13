@@ -16,15 +16,9 @@ import { toast } from "sonner"
 
 import { ManagedMediaImage } from "@/components/shared/media/managed-media-image"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { useMediaUploadQueue } from "@/hooks/admin/use-media-upload-queue"
 import {
   generateImagePreviewData,
@@ -80,16 +74,32 @@ async function uploadDerivative(file: File, pathname: string) {
 }
 
 function normalizePrimaryImage(items: ProductMediaFieldValue[]) {
-  const firstImageIndex = items.findIndex((item) => item.kind === "image")
+  const firstImageIndex = items.findIndex(
+    (item) =>
+      item.kind === "image" && item.variantAssignment?.mode !== "specific",
+  )
   const primaryIndex =
-    items.findIndex((item) => item.kind === "image" && item.isPrimaryImage) >= 0
-      ? items.findIndex((item) => item.kind === "image" && item.isPrimaryImage)
+    items.findIndex(
+      (item) =>
+        item.kind === "image" &&
+        item.variantAssignment?.mode !== "specific" &&
+        item.isPrimaryImage,
+    ) >= 0
+      ? items.findIndex(
+          (item) =>
+            item.kind === "image" &&
+            item.variantAssignment?.mode !== "specific" &&
+            item.isPrimaryImage,
+        )
       : firstImageIndex
 
   return items.map((item, index) => ({
     ...item,
     isPrimaryImage:
-      item.kind === "image" && primaryIndex >= 0 && index === primaryIndex,
+      item.kind === "image" &&
+      item.variantAssignment?.mode !== "specific" &&
+      primaryIndex >= 0 &&
+      index === primaryIndex,
   }))
 }
 
@@ -236,7 +246,10 @@ export function ProductMediaField({
               ...item,
               sortOrder: orderedValue.length + index,
               altText: item.originalFilename.replace(/\.[^.]+$/, ""),
-              variantId: null,
+              variantAssignment: {
+                mode: "all" as const,
+                variantIds: [],
+              },
               isPrimaryImage: false,
               persisted: false,
             })),
@@ -303,10 +316,12 @@ export function ProductMediaField({
       const [moved] = next.splice(fromIndex, 1)
       next.splice(toIndex, 0, moved)
       onChange(
-        next.map((item, index) => ({
-          ...item,
-          sortOrder: index,
-        })),
+        normalizePrimaryImage(
+          next.map((item, index) => ({
+            ...item,
+            sortOrder: index,
+          })),
+        ),
       )
     },
     [onChange, orderedValue],
@@ -315,13 +330,15 @@ export function ProductMediaField({
   const updateItem = useCallback(
     (index: number, updates: Partial<ProductMediaFieldValue>) => {
       onChange(
-        orderedValue.map((item, currentIndex) =>
-          currentIndex === index
-            ? {
-                ...item,
-                ...updates,
-              }
-            : item,
+        normalizePrimaryImage(
+          orderedValue.map((item, currentIndex) =>
+            currentIndex === index
+              ? {
+                  ...item,
+                  ...updates,
+                }
+              : item,
+          ),
         ),
       )
     },
@@ -409,6 +426,15 @@ export function ProductMediaField({
             const posterUrl = item.derivatives?.find(
               (derivative) => derivative.kind === "poster",
             )?.url
+            const variantAssignment = item.variantAssignment ?? {
+              mode: "all" as const,
+              variantIds: [],
+            }
+            const assignedVariantNames = variants
+              .filter((variant) =>
+                variantAssignment.variantIds.includes(variant.id),
+              )
+              .map((variant) => variant.name)
 
             return (
               <div
@@ -476,27 +502,111 @@ export function ProductMediaField({
 
                     <div className="space-y-2">
                       <Label>Variant assignment</Label>
-                      <Select
-                        value={item.variantId || "__none__"}
-                        onValueChange={(nextValue) =>
-                          updateItem(index, {
-                            variantId:
-                              nextValue === "__none__" ? null : nextValue,
-                          })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="All variants" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none__">All variants</SelectItem>
-                          {variants.map((variant) => (
-                            <SelectItem key={variant.id} value={variant.id}>
-                              {variant.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={
+                            variantAssignment.mode === "all"
+                              ? "secondary"
+                              : "outline"
+                          }
+                          onClick={() =>
+                            updateItem(index, {
+                              variantAssignment: {
+                                mode: "all" as const,
+                                variantIds: [],
+                              },
+                            })
+                          }
+                        >
+                          All variants
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={
+                            variantAssignment.mode === "specific"
+                              ? "secondary"
+                              : "outline"
+                          }
+                          onClick={() =>
+                            updateItem(index, {
+                              variantAssignment: {
+                                mode: "specific" as const,
+                                variantIds: variantAssignment.variantIds,
+                              },
+                              isPrimaryImage: false,
+                            })
+                          }
+                          disabled={variants.length === 0}
+                        >
+                          Specific variants
+                        </Button>
+                      </div>
+                      {variantAssignment.mode === "specific" ? (
+                        <div className="space-y-2 rounded-lg border p-3">
+                          {variants.length > 0 ? (
+                            <div className="grid gap-2">
+                              {variants.map((variant) => {
+                                const checked =
+                                  variantAssignment.variantIds.includes(
+                                    variant.id,
+                                  )
+
+                                return (
+                                  <label
+                                    key={variant.id}
+                                    className="flex items-center gap-2 text-sm"
+                                  >
+                                    <Checkbox
+                                      checked={checked}
+                                      onCheckedChange={(nextChecked) => {
+                                        const nextVariantIds = nextChecked
+                                          ? [
+                                              ...variantAssignment.variantIds,
+                                              variant.id,
+                                            ]
+                                          : variantAssignment.variantIds.filter(
+                                              (variantId) =>
+                                                variantId !== variant.id,
+                                            )
+
+                                        updateItem(index, {
+                                          variantAssignment: {
+                                            mode: "specific" as const,
+                                            variantIds: nextVariantIds,
+                                          },
+                                          isPrimaryImage: false,
+                                        })
+                                      }}
+                                    />
+                                    <span>{variant.name}</span>
+                                  </label>
+                                )
+                              })}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">
+                              Save variants first to assign media specifically.
+                            </p>
+                          )}
+                          {assignedVariantNames.length > 0 ? (
+                            <p className="text-xs text-muted-foreground">
+                              Assigned to {assignedVariantNames.join(", ")}
+                            </p>
+                          ) : (
+                            <p className="text-xs text-destructive">
+                              Select at least one variant for specific media.
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">
+                          This media appears in the default product gallery and
+                          on every variant.
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -527,6 +637,7 @@ export function ProductMediaField({
                         size="sm"
                         variant={item.isPrimaryImage ? "secondary" : "outline"}
                         onClick={() => setPrimaryImage(index)}
+                        disabled={variantAssignment.mode === "specific"}
                       >
                         <Star
                           className={cn(

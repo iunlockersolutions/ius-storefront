@@ -3,6 +3,7 @@ export type MediaAccess = "public" | "private"
 export type MediaKind = "image" | "video"
 export type MediaStatus = "pending" | "ready" | "failed" | "deleted"
 export type MediaDerivativeKind = "blur" | "poster"
+export type ProductMediaAssignmentMode = "all" | "specific"
 
 export interface MediaDerivativeInput {
   kind: MediaDerivativeKind
@@ -13,6 +14,11 @@ export interface MediaDerivativeInput {
   byteSize?: number | null
   width?: number | null
   height?: number | null
+}
+
+export interface ProductMediaVariantAssignment {
+  mode: ProductMediaAssignmentMode
+  variantIds: string[]
 }
 
 export interface UploadedMediaSource {
@@ -37,7 +43,7 @@ export interface UploadedMediaSource {
 export interface ProductMediaInput extends UploadedMediaSource {
   assetId?: string
   altText?: string | null
-  variantId?: string | null
+  variantAssignment?: ProductMediaVariantAssignment
   isPrimaryImage?: boolean
   status?: MediaStatus
 }

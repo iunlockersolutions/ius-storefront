@@ -11,7 +11,10 @@ import { getVariantInventoryAvailabilityMap } from "@/lib/actions/inventory"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { cartItems, carts, products, productVariants } from "@/lib/db/schema"
-import { getPrimaryProductImageMap } from "@/lib/media/service"
+import {
+  getPrimaryProductImageMap,
+  getVariantSpecificProductImageMap,
+} from "@/lib/media/service"
 
 const CART_SESSION_COOKIE = "cart_session_id"
 const CART_SESSION_EXPIRY = 30 * 24 * 60 * 60 * 1000 // 30 days
@@ -116,6 +119,9 @@ export async function getCart() {
   const imageMap = await getPrimaryProductImageMap(
     items.map((item) => item.product.id),
   )
+  const variantImageMap = await getVariantSpecificProductImageMap(
+    items.map((item) => item.variant.id),
+  )
 
   const itemsWithImages = items.map((item) => ({
     ...item,
@@ -132,7 +138,10 @@ export async function getCart() {
             false,
         }
       : null,
-    image: imageMap.get(item.product.id) || null,
+    image:
+      variantImageMap.get(item.variant.id) ||
+      imageMap.get(item.product.id) ||
+      null,
   }))
 
   // Calculate totals

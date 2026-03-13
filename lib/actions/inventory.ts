@@ -1,13 +1,12 @@
 "use server"
 
-import { and, desc, eq, ilike, inArray, or } from "drizzle-orm"
+import { and, asc, desc, eq, ilike, inArray, or } from "drizzle-orm"
 import { z } from "zod"
 
 import { getServerSession } from "@/lib/auth/rbac"
 import { db } from "@/lib/db"
 import {
   inventoryLevels,
-  inventoryLocations,
   inventoryTransactions,
   inventoryUnitIdentifiers,
   inventoryUnits,
@@ -15,6 +14,11 @@ import {
   productVariants,
   user,
 } from "@/lib/db/schema"
+import {
+  normalizeReceiptIdentifierTypes,
+  type ReceiptIdentifierType,
+  sanitizeReceiptIdentifierTypes,
+} from "@/lib/inventory/identifier-template"
 import type {
   AdminInventoryDetail,
   AdminInventoryIdentifierType,
@@ -24,16 +28,15 @@ import type {
   AdminInventoryMovementResponse,
   AdminInventoryStats,
   AdminInventoryTrackingMode,
-  AdminInventoryTransaction,
   AdminInventoryTransactionType,
   AdminInventoryUnitStatus,
+  AdminProductReceiveStockContext,
 } from "@/lib/types/admin-inventory"
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 type DbClient = typeof db | DbTransaction
 
 const inventoryStatusSchema = z.enum(["all", "low", "out", "normal"])
-const inventoryTrackingModeSchema = z.enum(["quantity", "serial"])
 const inventoryIdentifierTypeSchema = z.enum([
   "serial",
   "imei",
@@ -55,14 +58,13 @@ const stockAdjustmentSchema = z.object({
     .int()
     .refine((value) => value !== 0),
   reason: z.string().trim().min(1),
-  locationId: z.string().uuid().optional(),
 })
 
 const inventoryReceiptSchema = z.object({
   variantId: z.string().uuid(),
-  locationId: z.string().uuid().optional(),
   quantity: z.number().int().positive().optional(),
   notes: z.string().trim().optional(),
+  identifierTemplate: z.array(inventoryIdentifierTypeSchema).optional(),
   units: z
     .array(
       z.object({
@@ -83,13 +85,11 @@ const inventoryReceiptSchema = z.object({
 const lowStockThresholdSchema = z.object({
   variantId: z.string().uuid(),
   threshold: z.number().int().min(0),
-  locationId: z.string().uuid().optional(),
 })
 
 const transactionQuantitySchema = z.object({
   variantId: z.string().uuid(),
   quantity: z.number().int().positive(),
-  locationId: z.string().uuid().optional(),
   referenceType: z.string().trim().optional(),
   referenceId: z.string().uuid().optional(),
   notes: z.string().trim().optional(),
@@ -105,12 +105,12 @@ interface InventoryVariantContext {
   productSlug: string
   trackingMode: AdminInventoryTrackingMode
   manageInventory: boolean
+  receiptIdentifierTypes: AdminInventoryIdentifierType[]
 }
 
 interface InventoryLevelSnapshot {
   id: string
   variantId: string
-  locationId: string
   onHandQuantity: number
   availableQuantity: number
   reservedQuantity: number
@@ -126,6 +126,57 @@ function normalizeIdentifierValue(value: string) {
   return value.trim().toLowerCase()
 }
 
+function resolveReceiptIdentifierTemplate(
+  variant: InventoryVariantContext,
+  overrideTemplate?: AdminInventoryIdentifierType[],
+) {
+  if (variant.trackingMode !== "serial") {
+    return [] as ReceiptIdentifierType[]
+  }
+
+  const template = sanitizeReceiptIdentifierTypes({
+    manageInventory: variant.manageInventory,
+    trackingMode: variant.trackingMode,
+    values: overrideTemplate ?? variant.receiptIdentifierTypes,
+  })
+
+  if (template.length === 0) {
+    throw new Error(
+      "Serialized variants require at least one configured receipt identifier type",
+    )
+  }
+
+  return template
+}
+
+function validateReceivedUnitIdentifiers(
+  units: NonNullable<z.infer<typeof inventoryReceiptSchema>["units"]>,
+  requiredTypes: ReceiptIdentifierType[],
+) {
+  for (const unit of units) {
+    const actualTypes = normalizeReceiptIdentifierTypes(
+      unit.identifiers.map((identifier) => identifier.type),
+    )
+
+    if (actualTypes.length !== unit.identifiers.length) {
+      throw new Error(
+        "Each received unit can include each identifier type only once",
+      )
+    }
+
+    if (
+      actualTypes.length !== requiredTypes.length ||
+      actualTypes.some((type, index) => type !== requiredTypes[index])
+    ) {
+      throw new Error(
+        `Serialized receipt units must include exactly: ${requiredTypes
+          .map((type) => type.toUpperCase())
+          .join(", ")}`,
+      )
+    }
+  }
+}
+
 async function getActorUserId() {
   try {
     const session = await getServerSession()
@@ -133,54 +184,6 @@ async function getActorUserId() {
   } catch {
     return null
   }
-}
-
-async function getDefaultLocation(tx: DbClient) {
-  const [location] = await tx
-    .select({
-      id: inventoryLocations.id,
-      name: inventoryLocations.name,
-      code: inventoryLocations.code,
-      isDefault: inventoryLocations.isDefault,
-    })
-    .from(inventoryLocations)
-    .where(eq(inventoryLocations.isActive, true))
-    .orderBy(desc(inventoryLocations.isDefault), inventoryLocations.name)
-    .limit(1)
-
-  if (!location) {
-    throw new Error("Default inventory location not found")
-  }
-
-  return location
-}
-
-async function getResolvedLocation(tx: DbClient, locationId?: string) {
-  if (!locationId) {
-    return getDefaultLocation(tx)
-  }
-
-  const [location] = await tx
-    .select({
-      id: inventoryLocations.id,
-      name: inventoryLocations.name,
-      code: inventoryLocations.code,
-      isDefault: inventoryLocations.isDefault,
-    })
-    .from(inventoryLocations)
-    .where(
-      and(
-        eq(inventoryLocations.id, locationId),
-        eq(inventoryLocations.isActive, true),
-      ),
-    )
-    .limit(1)
-
-  if (!location) {
-    throw new Error("Inventory location not found")
-  }
-
-  return location
 }
 
 async function getVariantContext(
@@ -195,8 +198,9 @@ async function getVariantContext(
       productId: products.id,
       productName: products.name,
       productSlug: products.slug,
-      trackingMode: productVariants.inventoryTrackingMode,
+      trackingMode: products.inventoryTrackingMode,
       manageInventory: productVariants.manageInventory,
+      receiptIdentifierTypes: products.receiptIdentifierTypes,
     })
     .from(productVariants)
     .innerJoin(products, eq(productVariants.productId, products.id))
@@ -207,28 +211,14 @@ async function getVariantContext(
     throw new Error("Inventory variant not found")
   }
 
-  return {
-    variantId: variant.variantId,
-    variantName: variant.variantName,
-    variantSku: variant.variantSku,
-    productId: variant.productId,
-    productName: variant.productName,
-    productSlug: variant.productSlug,
-    trackingMode: variant.trackingMode,
-    manageInventory: variant.manageInventory,
-  }
+  return variant
 }
 
-async function getOrCreateLevel(
-  tx: DbClient,
-  variantId: string,
-  locationId: string,
-) {
+async function getOrCreateLevel(tx: DbClient, variantId: string) {
   const [existingLevel] = await tx
     .select({
       id: inventoryLevels.id,
       variantId: inventoryLevels.variantId,
-      locationId: inventoryLevels.locationId,
       onHandQuantity: inventoryLevels.onHandQuantity,
       availableQuantity: inventoryLevels.availableQuantity,
       reservedQuantity: inventoryLevels.reservedQuantity,
@@ -236,12 +226,7 @@ async function getOrCreateLevel(
       lowStockThreshold: inventoryLevels.lowStockThreshold,
     })
     .from(inventoryLevels)
-    .where(
-      and(
-        eq(inventoryLevels.variantId, variantId),
-        eq(inventoryLevels.locationId, locationId),
-      ),
-    )
+    .where(eq(inventoryLevels.variantId, variantId))
     .limit(1)
     .for("update")
 
@@ -253,7 +238,6 @@ async function getOrCreateLevel(
     .insert(inventoryLevels)
     .values({
       variantId,
-      locationId,
       onHandQuantity: 0,
       availableQuantity: 0,
       reservedQuantity: 0,
@@ -263,7 +247,6 @@ async function getOrCreateLevel(
     .returning({
       id: inventoryLevels.id,
       variantId: inventoryLevels.variantId,
-      locationId: inventoryLevels.locationId,
       onHandQuantity: inventoryLevels.onHandQuantity,
       availableQuantity: inventoryLevels.availableQuantity,
       reservedQuantity: inventoryLevels.reservedQuantity,
@@ -283,7 +266,6 @@ function ensureManagedInventory(variant: InventoryVariantContext) {
 function toSnapshot(level: {
   id: string
   variantId: string
-  locationId: string
   onHandQuantity: number
   availableQuantity: number
   reservedQuantity: number
@@ -293,7 +275,6 @@ function toSnapshot(level: {
   return {
     id: level.id,
     variantId: level.variantId,
-    locationId: level.locationId,
     onHandQuantity: level.onHandQuantity,
     availableQuantity: level.availableQuantity,
     reservedQuantity: level.reservedQuantity,
@@ -324,7 +305,6 @@ async function updateLevelSnapshot(
     .returning({
       id: inventoryLevels.id,
       variantId: inventoryLevels.variantId,
-      locationId: inventoryLevels.locationId,
       onHandQuantity: inventoryLevels.onHandQuantity,
       availableQuantity: inventoryLevels.availableQuantity,
       reservedQuantity: inventoryLevels.reservedQuantity,
@@ -351,7 +331,6 @@ async function createTransaction(
 ) {
   await tx.insert(inventoryTransactions).values({
     variantId: input.level.variantId,
-    locationId: input.level.locationId,
     inventoryLevelId: input.level.id,
     type: input.type,
     quantityDelta: input.quantityDelta,
@@ -377,12 +356,7 @@ async function recomputeSerializedLevel(
       status: inventoryUnits.status,
     })
     .from(inventoryUnits)
-    .where(
-      and(
-        eq(inventoryUnits.variantId, level.variantId),
-        eq(inventoryUnits.locationId, level.locationId),
-      ),
-    )
+    .where(eq(inventoryUnits.variantId, level.variantId))
 
   let onHandQuantity = 0
   let availableQuantity = 0
@@ -424,7 +398,6 @@ async function recomputeSerializedLevel(
 async function getUnitsForIds(
   tx: DbClient,
   variantId: string,
-  locationId: string,
   unitIds: string[],
 ) {
   if (unitIds.length === 0) {
@@ -435,14 +408,12 @@ async function getUnitsForIds(
     .select({
       id: inventoryUnits.id,
       status: inventoryUnits.status,
-      locationId: inventoryUnits.locationId,
       variantId: inventoryUnits.variantId,
     })
     .from(inventoryUnits)
     .where(
       and(
         eq(inventoryUnits.variantId, variantId),
-        eq(inventoryUnits.locationId, locationId),
         inArray(inventoryUnits.id, unitIds),
       ),
     )
@@ -452,7 +423,6 @@ async function removeUnitsFromStock(
   tx: DbClient,
   input: {
     variantId: string
-    locationId: string
     quantity: number
     nextStatus: Extract<
       AdminInventoryUnitStatus,
@@ -463,12 +433,7 @@ async function removeUnitsFromStock(
 ) {
   const units =
     input.unitIds && input.unitIds.length > 0
-      ? await getUnitsForIds(
-          tx,
-          input.variantId,
-          input.locationId,
-          input.unitIds,
-        )
+      ? await getUnitsForIds(tx, input.variantId, input.unitIds)
       : await tx
           .select({
             id: inventoryUnits.id,
@@ -478,7 +443,6 @@ async function removeUnitsFromStock(
           .where(
             and(
               eq(inventoryUnits.variantId, input.variantId),
-              eq(inventoryUnits.locationId, input.locationId),
               inArray(inventoryUnits.status, [
                 "available",
                 "received",
@@ -513,7 +477,6 @@ async function applyAggregateQuantityTransaction(
   tx: DbClient,
   input: {
     variantId: string
-    locationId: string
     type: AdminInventoryTransactionType
     deltaOnHand?: number
     deltaAvailable?: number
@@ -525,7 +488,7 @@ async function applyAggregateQuantityTransaction(
     performedBy?: string | null
   },
 ) {
-  const level = await getOrCreateLevel(tx, input.variantId, input.locationId)
+  const level = await getOrCreateLevel(tx, input.variantId)
   const before = toSnapshot(level)
   const next = {
     onHandQuantity: before.onHandQuantity + (input.deltaOnHand ?? 0),
@@ -583,64 +546,24 @@ async function runInventoryMutation<T>(
   return db.transaction(handler)
 }
 
-function summarizeLevels(
-  levels: Array<{
-    id: string
-    variantId: string
-    locationId: string
-    locationName: string
-    locationCode: string
-    onHandQuantity: number
-    availableQuantity: number
-    reservedQuantity: number
-    allocatedQuantity: number
-    lowStockThreshold: number
-    updatedAt: Date
-  }>,
-) {
-  const totals = {
-    onHandQuantity: 0,
-    availableQuantity: 0,
-    reservedQuantity: 0,
-    allocatedQuantity: 0,
-    lowStockThreshold: levels[0]?.lowStockThreshold ?? 5,
-    locationCount: levels.length,
-    updatedAt: levels[0]?.updatedAt ?? new Date(0),
-  }
-
-  for (const level of levels) {
-    totals.onHandQuantity += level.onHandQuantity
-    totals.availableQuantity += level.availableQuantity
-    totals.reservedQuantity += level.reservedQuantity
-    totals.allocatedQuantity += level.allocatedQuantity
-    if (level.updatedAt > totals.updatedAt) {
-      totals.updatedAt = level.updatedAt
-    }
-  }
-
-  return totals
-}
-
 function buildInventoryListItem(
   variant: InventoryVariantContext,
-  levels: Array<{
-    id: string
-    variantId: string
-    locationId: string
-    locationName: string
-    locationCode: string
+  level?: {
     onHandQuantity: number
     availableQuantity: number
     reservedQuantity: number
     allocatedQuantity: number
     lowStockThreshold: number
     updatedAt: Date
-  }>,
+  },
 ): AdminInventoryListItem {
-  const summary = summarizeLevels(levels)
-  const isOutOfStock = summary.availableQuantity <= 0
-  const isLowStock =
-    !isOutOfStock && summary.availableQuantity <= summary.lowStockThreshold
+  const onHandQuantity = level?.onHandQuantity ?? 0
+  const availableQuantity = level?.availableQuantity ?? 0
+  const reservedQuantity = level?.reservedQuantity ?? 0
+  const allocatedQuantity = level?.allocatedQuantity ?? 0
+  const lowStockThreshold = level?.lowStockThreshold ?? 5
+  const isOutOfStock = availableQuantity <= 0
+  const isLowStock = !isOutOfStock && availableQuantity <= lowStockThreshold
 
   return {
     id: variant.variantId,
@@ -652,15 +575,14 @@ function buildInventoryListItem(
     variantSku: variant.variantSku,
     trackingMode: variant.trackingMode,
     manageInventory: variant.manageInventory,
-    onHandQuantity: summary.onHandQuantity,
-    availableQuantity: summary.availableQuantity,
-    reservedQuantity: summary.reservedQuantity,
-    allocatedQuantity: summary.allocatedQuantity,
-    lowStockThreshold: summary.lowStockThreshold,
+    onHandQuantity,
+    availableQuantity,
+    reservedQuantity,
+    allocatedQuantity,
+    lowStockThreshold,
     isLowStock,
     isOutOfStock,
-    locationCount: Math.max(summary.locationCount, 1),
-    updatedAt: summary.updatedAt,
+    updatedAt: level?.updatedAt ?? new Date(0),
   }
 }
 
@@ -689,8 +611,9 @@ async function getInventoryListBase() {
       variantId: productVariants.id,
       variantName: productVariants.name,
       variantSku: productVariants.sku,
-      trackingMode: productVariants.inventoryTrackingMode,
+      trackingMode: products.inventoryTrackingMode,
       manageInventory: productVariants.manageInventory,
+      receiptIdentifierTypes: products.receiptIdentifierTypes,
       productId: products.id,
       productName: products.name,
       productSlug: products.slug,
@@ -705,11 +628,7 @@ async function getInventoryListBase() {
     variantIds.length > 0
       ? await db
           .select({
-            id: inventoryLevels.id,
             variantId: inventoryLevels.variantId,
-            locationId: inventoryLevels.locationId,
-            locationName: inventoryLocations.name,
-            locationCode: inventoryLocations.code,
             onHandQuantity: inventoryLevels.onHandQuantity,
             availableQuantity: inventoryLevels.availableQuantity,
             reservedQuantity: inventoryLevels.reservedQuantity,
@@ -718,41 +637,13 @@ async function getInventoryListBase() {
             updatedAt: inventoryLevels.updatedAt,
           })
           .from(inventoryLevels)
-          .innerJoin(
-            inventoryLocations,
-            eq(inventoryLevels.locationId, inventoryLocations.id),
-          )
           .where(inArray(inventoryLevels.variantId, variantIds))
       : []
 
-  const levelsByVariant = new Map<
-    string,
-    Array<{
-      id: string
-      variantId: string
-      locationId: string
-      locationName: string
-      locationCode: string
-      onHandQuantity: number
-      availableQuantity: number
-      reservedQuantity: number
-      allocatedQuantity: number
-      lowStockThreshold: number
-      updatedAt: Date
-    }>
-  >()
-
-  for (const level of levelRows) {
-    const existing = levelsByVariant.get(level.variantId) ?? []
-    existing.push(level)
-    levelsByVariant.set(level.variantId, existing)
-  }
+  const levelMap = new Map(levelRows.map((level) => [level.variantId, level]))
 
   return variants.map((variant) =>
-    buildInventoryListItem(
-      variant,
-      levelsByVariant.get(variant.variantId) ?? [],
-    ),
+    buildInventoryListItem(variant, levelMap.get(variant.variantId)),
   )
 }
 
@@ -843,14 +734,11 @@ export async function getInventoryDetail(
   const variant = await getVariantContext(db, variantId)
   ensureManagedInventory(variant)
 
-  const [levels, transactions, units] = await Promise.all([
+  const [levelRows, transactions, units] = await Promise.all([
     db
       .select({
         id: inventoryLevels.id,
         variantId: inventoryLevels.variantId,
-        locationId: inventoryLevels.locationId,
-        locationName: inventoryLocations.name,
-        locationCode: inventoryLocations.code,
         onHandQuantity: inventoryLevels.onHandQuantity,
         availableQuantity: inventoryLevels.availableQuantity,
         reservedQuantity: inventoryLevels.reservedQuantity,
@@ -859,12 +747,8 @@ export async function getInventoryDetail(
         updatedAt: inventoryLevels.updatedAt,
       })
       .from(inventoryLevels)
-      .innerJoin(
-        inventoryLocations,
-        eq(inventoryLevels.locationId, inventoryLocations.id),
-      )
       .where(eq(inventoryLevels.variantId, variantId))
-      .orderBy(inventoryLocations.name),
+      .limit(1),
     db
       .select({
         id: inventoryTransactions.id,
@@ -880,15 +764,9 @@ export async function getInventoryDetail(
         referenceId: inventoryTransactions.referenceId,
         notes: inventoryTransactions.notes,
         createdAt: inventoryTransactions.createdAt,
-        locationName: inventoryLocations.name,
-        locationCode: inventoryLocations.code,
         performedByName: user.name,
       })
       .from(inventoryTransactions)
-      .innerJoin(
-        inventoryLocations,
-        eq(inventoryTransactions.locationId, inventoryLocations.id),
-      )
       .leftJoin(user, eq(inventoryTransactions.performedBy, user.id))
       .where(eq(inventoryTransactions.variantId, variantId))
       .orderBy(desc(inventoryTransactions.createdAt))
@@ -902,7 +780,7 @@ export async function getInventoryDetail(
     }),
   ])
 
-  const listItem = buildInventoryListItem(variant, levels)
+  const listItem = buildInventoryListItem(variant, levelRows[0])
   const serializedUnitCount = units.length
   const availableUnitCount = units.filter(
     (unit) =>
@@ -920,6 +798,7 @@ export async function getInventoryDetail(
     variantSku: variant.variantSku,
     trackingMode: variant.trackingMode,
     manageInventory: variant.manageInventory,
+    receiptIdentifierTypes: variant.receiptIdentifierTypes,
     stats: {
       onHandQuantity: listItem.onHandQuantity,
       availableQuantity: listItem.availableQuantity,
@@ -929,7 +808,6 @@ export async function getInventoryDetail(
       serializedUnitCount,
       availableUnitCount,
     },
-    levels,
     units: units.map((unit) => ({
       id: unit.id,
       status: unit.status,
@@ -946,6 +824,65 @@ export async function getInventoryDetail(
       ...transaction,
       performedByName: transaction.performedByName,
     })),
+  }
+}
+
+export async function getProductReceiveStockContext(
+  productId: string,
+): Promise<AdminProductReceiveStockContext> {
+  const [product] = await db
+    .select({
+      id: products.id,
+      name: products.name,
+      slug: products.slug,
+    })
+    .from(products)
+    .where(eq(products.id, productId))
+    .limit(1)
+
+  if (!product) {
+    throw new Error("Product not found")
+  }
+
+  const variants = await db
+    .select({
+      id: productVariants.id,
+      name: productVariants.name,
+      sku: productVariants.sku,
+      trackingMode: products.inventoryTrackingMode,
+      manageInventory: productVariants.manageInventory,
+      receiptIdentifierTypes: products.receiptIdentifierTypes,
+    })
+    .from(productVariants)
+    .innerJoin(products, eq(productVariants.productId, products.id))
+    .where(eq(productVariants.productId, productId))
+    .orderBy(asc(productVariants.sortOrder))
+
+  const manageableVariants = variants.filter(
+    (variant) => variant.manageInventory,
+  )
+  const availabilityMap = await getVariantInventoryAvailabilityMap(
+    manageableVariants.map((variant) => variant.id),
+  )
+
+  return {
+    productId: product.id,
+    productName: product.name,
+    productSlug: product.slug,
+    variants: manageableVariants.map((variant) => {
+      const availability = availabilityMap.get(variant.id)
+
+      return {
+        id: variant.id,
+        name: variant.name,
+        sku: variant.sku,
+        trackingMode: variant.trackingMode,
+        manageInventory: variant.manageInventory,
+        receiptIdentifierTypes: variant.receiptIdentifierTypes,
+        onHandQuantity: availability?.onHandQuantity ?? 0,
+        availableQuantity: availability?.availableQuantity ?? 0,
+      }
+    }),
   }
 }
 
@@ -973,15 +910,9 @@ export async function getInventoryMovements(input: {
       referenceId: inventoryTransactions.referenceId,
       notes: inventoryTransactions.notes,
       createdAt: inventoryTransactions.createdAt,
-      locationName: inventoryLocations.name,
-      locationCode: inventoryLocations.code,
       performedByName: user.name,
     })
     .from(inventoryTransactions)
-    .innerJoin(
-      inventoryLocations,
-      eq(inventoryTransactions.locationId, inventoryLocations.id),
-    )
     .leftJoin(user, eq(inventoryTransactions.performedBy, user.id))
     .where(eq(inventoryTransactions.variantId, input.variantId))
     .orderBy(desc(inventoryTransactions.createdAt))
@@ -1019,10 +950,11 @@ export async function getVariantInventoryAvailabilityMap(variantIds: string[]) {
     db
       .select({
         variantId: productVariants.id,
-        trackingMode: productVariants.inventoryTrackingMode,
+        trackingMode: products.inventoryTrackingMode,
         manageInventory: productVariants.manageInventory,
       })
       .from(productVariants)
+      .innerJoin(products, eq(productVariants.productId, products.id))
       .where(inArray(productVariants.id, uniqueVariantIds)),
     db
       .select({
@@ -1037,38 +969,11 @@ export async function getVariantInventoryAvailabilityMap(variantIds: string[]) {
       .where(inArray(inventoryLevels.variantId, uniqueVariantIds)),
   ])
 
-  const levelSummaryByVariant = new Map<
-    string,
-    {
-      onHandQuantity: number
-      availableQuantity: number
-      reservedQuantity: number
-      allocatedQuantity: number
-      lowStockThreshold: number | null
-    }
-  >()
-
-  for (const level of levels) {
-    const current = levelSummaryByVariant.get(level.variantId) ?? {
-      onHandQuantity: 0,
-      availableQuantity: 0,
-      reservedQuantity: 0,
-      allocatedQuantity: 0,
-      lowStockThreshold: null,
-    }
-
-    current.onHandQuantity += level.onHandQuantity
-    current.availableQuantity += level.availableQuantity
-    current.reservedQuantity += level.reservedQuantity
-    current.allocatedQuantity += level.allocatedQuantity
-    current.lowStockThreshold ??= level.lowStockThreshold
-
-    levelSummaryByVariant.set(level.variantId, current)
-  }
+  const levelMap = new Map(levels.map((level) => [level.variantId, level]))
 
   return new Map(
     variants.map((variant) => {
-      const summary = levelSummaryByVariant.get(variant.variantId)
+      const summary = levelMap.get(variant.variantId)
 
       return [
         variant.variantId,
@@ -1106,7 +1011,6 @@ export async function receiveInventory(
   return db.transaction(async (tx) => {
     const variant = await getVariantContext(tx, input.variantId)
     ensureManagedInventory(variant)
-    const location = await getResolvedLocation(tx, input.locationId)
 
     if (variant.trackingMode === "quantity") {
       if (!input.quantity || input.quantity <= 0) {
@@ -1115,7 +1019,6 @@ export async function receiveInventory(
 
       const result = await applyAggregateQuantityTransaction(tx, {
         variantId: variant.variantId,
-        locationId: location.id,
         type: "receipt",
         deltaOnHand: input.quantity,
         deltaAvailable: input.quantity,
@@ -1136,6 +1039,12 @@ export async function receiveInventory(
     if (!input.units || input.units.length === 0) {
       throw new Error("Serialized receipt requires at least one scanned unit")
     }
+
+    const requiredIdentifierTypes = resolveReceiptIdentifierTemplate(
+      variant,
+      input.identifierTemplate,
+    )
+    validateReceivedUnitIdentifiers(input.units, requiredIdentifierTypes)
 
     const identifierPairs = input.units.flatMap((unit) =>
       unit.identifiers.map((identifier) => ({
@@ -1186,7 +1095,7 @@ export async function receiveInventory(
       }
     }
 
-    const level = await getOrCreateLevel(tx, variant.variantId, location.id)
+    const level = await getOrCreateLevel(tx, variant.variantId)
     const before = toSnapshot(level)
 
     for (const unit of input.units) {
@@ -1194,7 +1103,6 @@ export async function receiveInventory(
         .insert(inventoryUnits)
         .values({
           variantId: variant.variantId,
-          locationId: location.id,
           status: "available",
           notes: unit.notes ?? null,
         })
@@ -1245,12 +1153,10 @@ export async function adjustStock(
   return db.transaction(async (tx) => {
     const variant = await getVariantContext(tx, input.variantId)
     ensureManagedInventory(variant)
-    const location = await getResolvedLocation(tx, input.locationId)
 
     if (variant.trackingMode === "quantity") {
       const result = await applyAggregateQuantityTransaction(tx, {
         variantId: variant.variantId,
-        locationId: location.id,
         type:
           input.adjustment > 0 ? "adjustment_increase" : "adjustment_decrease",
         deltaOnHand: input.adjustment,
@@ -1274,12 +1180,11 @@ export async function adjustStock(
     }
 
     const quantityToRemove = Math.abs(input.adjustment)
-    const level = await getOrCreateLevel(tx, variant.variantId, location.id)
+    const level = await getOrCreateLevel(tx, variant.variantId)
     const before = toSnapshot(level)
 
     await removeUnitsFromStock(tx, {
       variantId: variant.variantId,
-      locationId: location.id,
       quantity: quantityToRemove,
       nextStatus: "lost",
     })
@@ -1309,52 +1214,24 @@ export async function adjustStock(
 export async function updateLowStockThreshold(
   rawVariantId: string,
   rawThreshold: number,
-  rawLocationId?: string,
 ) {
   const input = lowStockThresholdSchema.parse({
     variantId: rawVariantId,
     threshold: rawThreshold,
-    locationId: rawLocationId,
   })
 
   return db.transaction(async (tx) => {
     const variant = await getVariantContext(tx, input.variantId)
     ensureManagedInventory(variant)
 
-    const location = input.locationId
-      ? await getResolvedLocation(tx, input.locationId)
-      : null
-
-    if (location) {
-      const level = await getOrCreateLevel(tx, input.variantId, location.id)
-      await tx
-        .update(inventoryLevels)
-        .set({
-          lowStockThreshold: input.threshold,
-          updatedAt: new Date(),
-        })
-        .where(eq(inventoryLevels.id, level.id))
-    } else {
-      const existingLevels = await tx
-        .select({
-          id: inventoryLevels.id,
-        })
-        .from(inventoryLevels)
-        .where(eq(inventoryLevels.variantId, input.variantId))
-
-      if (existingLevels.length === 0) {
-        const defaultLocation = await getDefaultLocation(tx)
-        await getOrCreateLevel(tx, input.variantId, defaultLocation.id)
-      }
-
-      await tx
-        .update(inventoryLevels)
-        .set({
-          lowStockThreshold: input.threshold,
-          updatedAt: new Date(),
-        })
-        .where(eq(inventoryLevels.variantId, input.variantId))
-    }
+    const level = await getOrCreateLevel(tx, input.variantId)
+    await tx
+      .update(inventoryLevels)
+      .set({
+        lowStockThreshold: input.threshold,
+        updatedAt: new Date(),
+      })
+      .where(eq(inventoryLevels.id, level.id))
 
     return {
       success: true as const,
@@ -1371,11 +1248,9 @@ export async function reserveInventory(
   return runInventoryMutation(options, async (tx) => {
     const variant = await getVariantContext(tx, input.variantId)
     ensureManagedInventory(variant)
-    const location = await getResolvedLocation(tx, input.locationId)
 
     return applyAggregateQuantityTransaction(tx, {
       variantId: variant.variantId,
-      locationId: location.id,
       type: "reservation",
       deltaAvailable: -input.quantity,
       deltaReserved: input.quantity,
@@ -1394,11 +1269,9 @@ export async function releaseReservedInventory(
   return runInventoryMutation(options, async (tx) => {
     const variant = await getVariantContext(tx, input.variantId)
     ensureManagedInventory(variant)
-    const location = await getResolvedLocation(tx, input.locationId)
 
     return applyAggregateQuantityTransaction(tx, {
       variantId: variant.variantId,
-      locationId: location.id,
       type: "reservation_release",
       deltaAvailable: input.quantity,
       deltaReserved: -input.quantity,
@@ -1417,19 +1290,13 @@ export async function allocateInventory(
   return runInventoryMutation(options, async (tx) => {
     const variant = await getVariantContext(tx, input.variantId)
     ensureManagedInventory(variant)
-    const location = await getResolvedLocation(tx, input.locationId)
 
     if (
       variant.trackingMode === "serial" &&
       input.unitIds &&
       input.unitIds.length > 0
     ) {
-      const units = await getUnitsForIds(
-        tx,
-        variant.variantId,
-        location.id,
-        input.unitIds,
-      )
+      const units = await getUnitsForIds(tx, variant.variantId, input.unitIds)
 
       if (units.length !== input.unitIds.length) {
         throw new Error("One or more serialized units were not found")
@@ -1451,7 +1318,6 @@ export async function allocateInventory(
 
     return applyAggregateQuantityTransaction(tx, {
       variantId: variant.variantId,
-      locationId: location.id,
       type: "allocation",
       deltaReserved: -input.quantity,
       deltaAllocated: input.quantity,
@@ -1470,19 +1336,13 @@ export async function releaseAllocatedInventory(
   return runInventoryMutation(options, async (tx) => {
     const variant = await getVariantContext(tx, input.variantId)
     ensureManagedInventory(variant)
-    const location = await getResolvedLocation(tx, input.locationId)
 
     if (
       variant.trackingMode === "serial" &&
       input.unitIds &&
       input.unitIds.length > 0
     ) {
-      const units = await getUnitsForIds(
-        tx,
-        variant.variantId,
-        location.id,
-        input.unitIds,
-      )
+      const units = await getUnitsForIds(tx, variant.variantId, input.unitIds)
 
       await tx
         .update(inventoryUnits)
@@ -1501,7 +1361,6 @@ export async function releaseAllocatedInventory(
 
     return applyAggregateQuantityTransaction(tx, {
       variantId: variant.variantId,
-      locationId: location.id,
       type: "allocation_release",
       deltaAvailable: input.quantity,
       deltaAllocated: -input.quantity,
@@ -1520,19 +1379,13 @@ export async function unallocateInventoryToReservation(
   return runInventoryMutation(options, async (tx) => {
     const variant = await getVariantContext(tx, input.variantId)
     ensureManagedInventory(variant)
-    const location = await getResolvedLocation(tx, input.locationId)
 
     if (
       variant.trackingMode === "serial" &&
       input.unitIds &&
       input.unitIds.length > 0
     ) {
-      const units = await getUnitsForIds(
-        tx,
-        variant.variantId,
-        location.id,
-        input.unitIds,
-      )
+      const units = await getUnitsForIds(tx, variant.variantId, input.unitIds)
 
       await tx
         .update(inventoryUnits)
@@ -1551,7 +1404,6 @@ export async function unallocateInventoryToReservation(
 
     return applyAggregateQuantityTransaction(tx, {
       variantId: variant.variantId,
-      locationId: location.id,
       type: "allocation_release",
       deltaReserved: input.quantity,
       deltaAllocated: -input.quantity,
@@ -1570,7 +1422,6 @@ export async function shipInventory(
   return runInventoryMutation(options, async (tx) => {
     const variant = await getVariantContext(tx, input.variantId)
     ensureManagedInventory(variant)
-    const location = await getResolvedLocation(tx, input.locationId)
 
     if (variant.trackingMode === "serial") {
       if (!input.unitIds || input.unitIds.length !== input.quantity) {
@@ -1581,7 +1432,6 @@ export async function shipInventory(
 
       await removeUnitsFromStock(tx, {
         variantId: variant.variantId,
-        locationId: location.id,
         quantity: input.quantity,
         nextStatus: "shipped",
         unitIds: input.unitIds,
@@ -1590,7 +1440,6 @@ export async function shipInventory(
 
     return applyAggregateQuantityTransaction(tx, {
       variantId: variant.variantId,
-      locationId: location.id,
       type: "shipment",
       deltaOnHand: -input.quantity,
       deltaAllocated: -input.quantity,
@@ -1610,12 +1459,10 @@ export async function returnInventory(
   return db.transaction(async (tx) => {
     const variant = await getVariantContext(tx, input.variantId)
     ensureManagedInventory(variant)
-    const location = await getResolvedLocation(tx, input.locationId)
 
     if (variant.trackingMode === "quantity") {
       return applyAggregateQuantityTransaction(tx, {
         variantId: variant.variantId,
-        locationId: location.id,
         type: "return",
         deltaOnHand: input.quantity,
         deltaAvailable: input.quantity,
@@ -1632,14 +1479,9 @@ export async function returnInventory(
       )
     }
 
-    const level = await getOrCreateLevel(tx, variant.variantId, location.id)
+    const level = await getOrCreateLevel(tx, variant.variantId)
     const before = toSnapshot(level)
-    const units = await getUnitsForIds(
-      tx,
-      variant.variantId,
-      location.id,
-      input.unitIds,
-    )
+    const units = await getUnitsForIds(tx, variant.variantId, input.unitIds)
 
     if (units.length !== input.unitIds.length) {
       throw new Error("One or more serialized return units were not found")
@@ -1693,12 +1535,10 @@ async function changeSerializedUnitAvailability(
   return db.transaction(async (tx) => {
     const variant = await getVariantContext(tx, input.variantId)
     ensureManagedInventory(variant)
-    const location = await getResolvedLocation(tx, input.locationId)
 
     if (variant.trackingMode === "quantity") {
       return applyAggregateQuantityTransaction(tx, {
         variantId: variant.variantId,
-        locationId: location.id,
         type,
         deltaOnHand: -input.quantity,
         deltaAvailable: -input.quantity,
@@ -1709,12 +1549,11 @@ async function changeSerializedUnitAvailability(
       })
     }
 
-    const level = await getOrCreateLevel(tx, variant.variantId, location.id)
+    const level = await getOrCreateLevel(tx, variant.variantId)
     const before = toSnapshot(level)
 
     await removeUnitsFromStock(tx, {
       variantId: variant.variantId,
-      locationId: location.id,
       quantity: input.quantity,
       nextStatus,
       unitIds: input.unitIds,

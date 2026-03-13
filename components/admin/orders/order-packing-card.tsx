@@ -222,9 +222,6 @@ export function OrderPackingCard({ order, onRefetch }: OrderPackingCardProps) {
                       item.packing.allocations.map((allocation) => (
                         <p key={allocation.id}>
                           {allocation.quantity} unit(s)
-                          {allocation.locationName
-                            ? ` from ${allocation.locationName} (${allocation.locationCode})`
-                            : ""}
                           {allocation.releasedAt ? " released" : " active"}
                         </p>
                       ))

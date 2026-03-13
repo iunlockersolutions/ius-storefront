@@ -66,7 +66,10 @@ export default async function EditProductPage({
         }))}
         media={(product.media ?? []).map((item) => ({
           ...item,
-          variantId: item.variantId || null,
+          variantAssignment: item.variantAssignment ?? {
+            mode: "all",
+            variantIds: [],
+          },
         }))}
       />
     </div>

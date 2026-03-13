@@ -28,7 +28,12 @@ const productMediaBodySchema = z.object({
       originalFilename: z.string().min(1),
       placeholderDataUrl: z.string().optional().nullable(),
       altText: z.string().optional().nullable(),
-      variantId: z.string().uuid().optional().nullable(),
+      variantAssignment: z
+        .object({
+          mode: z.enum(["all", "specific"]),
+          variantIds: z.array(z.string().uuid()).default([]),
+        })
+        .optional(),
       isPrimaryImage: z.boolean().optional(),
       derivatives: z
         .array(

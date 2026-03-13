@@ -1,6 +1,5 @@
 import { relations } from "drizzle-orm"
 import {
-  boolean,
   index,
   integer,
   pgTable,
@@ -19,33 +18,7 @@ import {
 } from "./enums"
 
 /**
- * Inventory locations - physical or logical stock locations.
- * V1 will seed a single default location, but the schema is location-ready.
- */
-export const inventoryLocations = pgTable(
-  "inventory_locations",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    name: text("name").notNull(),
-    code: text("code").notNull().unique(),
-    description: text("description"),
-    isDefault: boolean("is_default").notNull().default(false),
-    isActive: boolean("is_active").notNull().default(true),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (table) => [
-    index("inventory_locations_code_idx").on(table.code),
-    index("inventory_locations_default_idx").on(table.isDefault),
-  ],
-)
-
-/**
- * Inventory levels - aggregate stock counts per variant and location.
+ * Inventory levels - aggregate stock counts per variant.
  */
 export const inventoryLevels = pgTable(
   "inventory_levels",
@@ -54,9 +27,6 @@ export const inventoryLevels = pgTable(
     variantId: uuid("variant_id")
       .notNull()
       .references(() => productVariants.id, { onDelete: "cascade" }),
-    locationId: uuid("location_id")
-      .notNull()
-      .references(() => inventoryLocations.id, { onDelete: "cascade" }),
     onHandQuantity: integer("on_hand_quantity").notNull().default(0),
     reservedQuantity: integer("reserved_quantity").notNull().default(0),
     allocatedQuantity: integer("allocated_quantity").notNull().default(0),
@@ -71,11 +41,7 @@ export const inventoryLevels = pgTable(
   },
   (table) => [
     index("inventory_levels_variant_idx").on(table.variantId),
-    index("inventory_levels_location_idx").on(table.locationId),
-    unique("inventory_levels_variant_location_unique").on(
-      table.variantId,
-      table.locationId,
-    ),
+    unique("inventory_levels_variant_unique").on(table.variantId),
   ],
 )
 
@@ -89,9 +55,6 @@ export const inventoryTransactions = pgTable(
     variantId: uuid("variant_id")
       .notNull()
       .references(() => productVariants.id, { onDelete: "cascade" }),
-    locationId: uuid("location_id")
-      .notNull()
-      .references(() => inventoryLocations.id, { onDelete: "cascade" }),
     inventoryLevelId: uuid("inventory_level_id").references(
       () => inventoryLevels.id,
       {
@@ -126,7 +89,6 @@ export const inventoryTransactions = pgTable(
   },
   (table) => [
     index("inventory_transactions_variant_idx").on(table.variantId),
-    index("inventory_transactions_location_idx").on(table.locationId),
     index("inventory_transactions_type_idx").on(table.type),
     index("inventory_transactions_reference_idx").on(
       table.referenceType,
@@ -146,9 +108,6 @@ export const inventoryUnits = pgTable(
     variantId: uuid("variant_id")
       .notNull()
       .references(() => productVariants.id, { onDelete: "cascade" }),
-    locationId: uuid("location_id")
-      .notNull()
-      .references(() => inventoryLocations.id, { onDelete: "cascade" }),
     status: inventoryUnitStatusEnum("status").notNull().default("received"),
     notes: text("notes"),
     allocatedOrderId: uuid("allocated_order_id"),
@@ -168,7 +127,6 @@ export const inventoryUnits = pgTable(
   },
   (table) => [
     index("inventory_units_variant_idx").on(table.variantId),
-    index("inventory_units_location_idx").on(table.locationId),
     index("inventory_units_status_idx").on(table.status),
     index("inventory_units_order_idx").on(
       table.allocatedOrderId,
@@ -208,26 +166,12 @@ export const inventoryUnitIdentifiers = pgTable(
   ],
 )
 
-// Relations
-export const inventoryLocationsRelations = relations(
-  inventoryLocations,
-  ({ many }) => ({
-    levels: many(inventoryLevels),
-    units: many(inventoryUnits),
-    transactions: many(inventoryTransactions),
-  }),
-)
-
 export const inventoryLevelsRelations = relations(
   inventoryLevels,
   ({ one, many }) => ({
     variant: one(productVariants, {
       fields: [inventoryLevels.variantId],
       references: [productVariants.id],
-    }),
-    location: one(inventoryLocations, {
-      fields: [inventoryLevels.locationId],
-      references: [inventoryLocations.id],
     }),
     transactions: many(inventoryTransactions),
   }),
@@ -239,10 +183,6 @@ export const inventoryTransactionsRelations = relations(
     variant: one(productVariants, {
       fields: [inventoryTransactions.variantId],
       references: [productVariants.id],
-    }),
-    location: one(inventoryLocations, {
-      fields: [inventoryTransactions.locationId],
-      references: [inventoryLocations.id],
     }),
     level: one(inventoryLevels, {
       fields: [inventoryTransactions.inventoryLevelId],
@@ -261,10 +201,6 @@ export const inventoryUnitsRelations = relations(
     variant: one(productVariants, {
       fields: [inventoryUnits.variantId],
       references: [productVariants.id],
-    }),
-    location: one(inventoryLocations, {
-      fields: [inventoryUnits.locationId],
-      references: [inventoryLocations.id],
     }),
     identifiers: many(inventoryUnitIdentifiers),
   }),

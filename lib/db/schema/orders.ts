@@ -14,7 +14,7 @@ import { user } from "./auth"
 import { productVariants } from "./catalog"
 import { customerAddresses } from "./customer"
 import { orderStatusEnum } from "./enums"
-import { inventoryLevels, inventoryUnits } from "./inventory"
+import { inventoryUnits } from "./inventory"
 
 /**
  * Orders - Customer orders.
@@ -206,12 +206,6 @@ export const orderItemAllocations = pgTable(
     variantId: uuid("variant_id")
       .notNull()
       .references(() => productVariants.id, { onDelete: "cascade" }),
-    inventoryLevelId: uuid("inventory_level_id").references(
-      () => inventoryLevels.id,
-      {
-        onDelete: "set null",
-      },
-    ),
     quantity: integer("quantity").notNull(),
     allocatedAt: timestamp("allocated_at", { withTimezone: true })
       .notNull()
@@ -228,7 +222,6 @@ export const orderItemAllocations = pgTable(
     index("order_item_allocations_order_id_idx").on(table.orderId),
     index("order_item_allocations_order_item_id_idx").on(table.orderItemId),
     index("order_item_allocations_variant_id_idx").on(table.variantId),
-    index("order_item_allocations_level_id_idx").on(table.inventoryLevelId),
   ],
 )
 
@@ -341,10 +334,6 @@ export const orderItemAllocationsRelations = relations(
     variant: one(productVariants, {
       fields: [orderItemAllocations.variantId],
       references: [productVariants.id],
-    }),
-    inventoryLevel: one(inventoryLevels, {
-      fields: [orderItemAllocations.inventoryLevelId],
-      references: [inventoryLevels.id],
     }),
   }),
 )
