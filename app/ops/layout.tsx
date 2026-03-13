@@ -42,7 +42,7 @@ export default async function AdminLayout({
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset>
+      <SidebarInset className="max-h-svh min-h-svh overflow-hidden bg-white">
         <OpsRouteGuard
           mustChangePassword={Boolean(currentUser.mustChangePassword)}
         >
@@ -54,9 +54,11 @@ export default async function AdminLayout({
               image: session.user.image,
             }}
           />
-          <main className="flex-1 overflow-y-auto bg-neutral-50 p-6 dark:bg-neutral-900">
-            {children}
-          </main>
+          <div className="flex-1 overflow-y-auto overscroll-none bg-white">
+            <div className="mx-auto min-h-full w-full px-4 py-6 lg:px-6">
+              {children}
+            </div>
+          </div>
         </OpsRouteGuard>
       </SidebarInset>
     </SidebarProvider>
