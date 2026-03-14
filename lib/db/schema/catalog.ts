@@ -1,6 +1,7 @@
-import { relations } from "drizzle-orm"
+import { relations, sql } from "drizzle-orm"
 import {
   type AnyPgColumn,
+  bigint,
   boolean,
   decimal,
   index,
@@ -12,8 +13,19 @@ import {
   uuid,
 } from "drizzle-orm/pg-core"
 
-import { productStatusEnum } from "./enums"
-import { inventoryItems } from "./inventory"
+import { user } from "./auth"
+import {
+  inventoryIdentifierTypeEnum,
+  inventoryTrackingModeEnum,
+  mediaAccessEnum,
+  mediaDerivativeKindEnum,
+  mediaKindEnum,
+  mediaStatusEnum,
+  mediaStorageProviderEnum,
+  productDraftStepEnum,
+  productStatusEnum,
+} from "./enums"
+import { inventoryLevels } from "./inventory"
 
 /**
  * Brands - First-class catalog brands.
@@ -220,7 +232,18 @@ export const products = pgTable(
     compareAtPrice: decimal("compare_at_price", { precision: 10, scale: 2 }),
     costPrice: decimal("cost_price", { precision: 10, scale: 2 }),
     status: productStatusEnum("status").notNull().default("draft"),
+    draftStep: productDraftStepEnum("draft_step").notNull().default("basics"),
     isFeatured: boolean("is_featured").notNull().default(false),
+    inventoryTrackingMode: inventoryTrackingModeEnum("inventory_tracking_mode")
+      .notNull()
+      .default("quantity"),
+    receiptIdentifierTypes: inventoryIdentifierTypeEnum(
+      "receipt_identifier_types",
+    )
+      .array()
+      .$type<Array<"serial" | "imei" | "imei2" | "barcode">>()
+      .notNull()
+      .default(sql`ARRAY[]::inventory_identifier_type[]`),
     metaTitle: text("meta_title"),
     metaDescription: text("meta_description"),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -236,6 +259,7 @@ export const products = pgTable(
     index("products_primary_category_id_idx").on(table.primaryCategoryId),
     index("products_model_id_idx").on(table.modelId),
     index("products_status_idx").on(table.status),
+    index("products_draft_step_idx").on(table.draftStep),
     index("products_is_featured_idx").on(table.isFeatured),
   ],
 )
@@ -253,6 +277,8 @@ export const productCategoryAssignments = pgTable(
     categoryId: uuid("category_id")
       .notNull()
       .references(() => categories.id, { onDelete: "cascade" }),
+    isPrimary: boolean("is_primary").notNull().default(false),
+    sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -341,6 +367,7 @@ export const productVariants = pgTable(
     weight: decimal("weight", { precision: 10, scale: 3 }),
     isDefault: boolean("is_default").notNull().default(false),
     isActive: boolean("is_active").notNull().default(true),
+    manageInventory: boolean("manage_inventory").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -389,29 +416,143 @@ export const productVariantOptionValues = pgTable(
 )
 
 /**
- * Product images - Multiple images per product or variant.
+ * Media assets - Provider-neutral source records for uploaded images/videos.
  */
-export const productImages = pgTable(
-  "product_images",
+export const mediaAssets = pgTable(
+  "media_assets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    provider: mediaStorageProviderEnum("provider")
+      .notNull()
+      .default("vercel_blob"),
+    access: mediaAccessEnum("access").notNull().default("public"),
+    kind: mediaKindEnum("kind").notNull(),
+    status: mediaStatusEnum("status").notNull().default("ready"),
+    pathname: text("pathname").notNull().unique(),
+    url: text("url").notNull(),
+    downloadUrl: text("download_url"),
+    mimeType: text("mime_type").notNull(),
+    byteSize: bigint("byte_size", { mode: "number" }).notNull(),
+    width: integer("width"),
+    height: integer("height"),
+    durationSeconds: integer("duration_seconds"),
+    etag: text("etag"),
+    originalFilename: text("original_filename").notNull(),
+    placeholderDataUrl: text("placeholder_data_url"),
+    createdBy: uuid("created_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("media_assets_provider_idx").on(table.provider),
+    index("media_assets_access_idx").on(table.access),
+    index("media_assets_kind_idx").on(table.kind),
+    index("media_assets_status_idx").on(table.status),
+    index("media_assets_created_by_idx").on(table.createdBy),
+  ],
+)
+
+/**
+ * Media derivatives - Generated artifacts such as blur images and posters.
+ */
+export const mediaDerivatives = pgTable(
+  "media_derivatives",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    mediaAssetId: uuid("media_asset_id")
+      .notNull()
+      .references(() => mediaAssets.id, { onDelete: "cascade" }),
+    kind: mediaDerivativeKindEnum("kind").notNull(),
+    pathname: text("pathname").notNull().unique(),
+    url: text("url").notNull(),
+    downloadUrl: text("download_url"),
+    mimeType: text("mime_type").notNull(),
+    byteSize: bigint("byte_size", { mode: "number" }),
+    width: integer("width"),
+    height: integer("height"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("media_derivatives_media_asset_id_idx").on(table.mediaAssetId),
+    unique("media_derivatives_media_asset_kind_unique").on(
+      table.mediaAssetId,
+      table.kind,
+    ),
+  ],
+)
+
+/**
+ * Product media - Product-specific presentation metadata for uploaded assets.
+ */
+export const productMedia = pgTable(
+  "product_media",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     productId: uuid("product_id")
       .notNull()
       .references(() => products.id, { onDelete: "cascade" }),
-    variantId: uuid("variant_id").references(() => productVariants.id, {
-      onDelete: "set null",
-    }),
-    url: text("url").notNull(),
+    mediaAssetId: uuid("media_asset_id")
+      .notNull()
+      .references(() => mediaAssets.id, { onDelete: "cascade" }),
+    appliesToAllVariants: boolean("applies_to_all_variants")
+      .notNull()
+      .default(true),
     altText: text("alt_text"),
     sortOrder: integer("sort_order").notNull().default(0),
-    isPrimary: boolean("is_primary").notNull().default(false),
+    isPrimaryImage: boolean("is_primary_image").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("product_media_product_id_idx").on(table.productId),
+    index("product_media_media_asset_id_idx").on(table.mediaAssetId),
+    unique("product_media_product_media_asset_unique").on(
+      table.productId,
+      table.mediaAssetId,
+    ),
+  ],
+)
+
+export const productMediaVariantAssignments = pgTable(
+  "product_media_variant_assignments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    productMediaId: uuid("product_media_id")
+      .notNull()
+      .references(() => productMedia.id, { onDelete: "cascade" }),
+    variantId: uuid("variant_id")
+      .notNull()
+      .references(() => productVariants.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
   (table) => [
-    index("product_images_product_id_idx").on(table.productId),
-    index("product_images_variant_id_idx").on(table.variantId),
+    index("product_media_variant_assignments_media_id_idx").on(
+      table.productMediaId,
+    ),
+    index("product_media_variant_assignments_variant_id_idx").on(
+      table.variantId,
+    ),
+    unique("product_media_variant_assignments_unique").on(
+      table.productMediaId,
+      table.variantId,
+    ),
   ],
 )
 
@@ -533,7 +674,7 @@ export const productsRelations = relations(products, ({ one, many }) => ({
   categoryAssignments: many(productCategoryAssignments),
   options: many(productOptions),
   variants: many(productVariants),
-  images: many(productImages),
+  media: many(productMedia),
   attributeValues: many(productAttributeValues),
 }))
 
@@ -582,11 +723,8 @@ export const productVariantsRelations = relations(
       references: [products.id],
     }),
     optionSelections: many(productVariantOptionValues),
-    images: many(productImages),
-    inventory: one(inventoryItems, {
-      fields: [productVariants.id],
-      references: [inventoryItems.variantId],
-    }),
+    mediaAssignments: many(productMediaVariantAssignments),
+    levels: many(inventoryLevels),
   }),
 )
 
@@ -608,16 +746,53 @@ export const productVariantOptionValuesRelations = relations(
   }),
 )
 
-export const productImagesRelations = relations(productImages, ({ one }) => ({
-  product: one(products, {
-    fields: [productImages.productId],
-    references: [products.id],
+export const mediaAssetsRelations = relations(mediaAssets, ({ one, many }) => ({
+  createdByUser: one(user, {
+    fields: [mediaAssets.createdBy],
+    references: [user.id],
   }),
-  variant: one(productVariants, {
-    fields: [productImages.variantId],
-    references: [productVariants.id],
-  }),
+  derivatives: many(mediaDerivatives),
+  productMedia: many(productMedia),
 }))
+
+export const mediaDerivativesRelations = relations(
+  mediaDerivatives,
+  ({ one }) => ({
+    mediaAsset: one(mediaAssets, {
+      fields: [mediaDerivatives.mediaAssetId],
+      references: [mediaAssets.id],
+    }),
+  }),
+)
+
+export const productMediaRelations = relations(
+  productMedia,
+  ({ one, many }) => ({
+    product: one(products, {
+      fields: [productMedia.productId],
+      references: [products.id],
+    }),
+    mediaAsset: one(mediaAssets, {
+      fields: [productMedia.mediaAssetId],
+      references: [mediaAssets.id],
+    }),
+    variantAssignments: many(productMediaVariantAssignments),
+  }),
+)
+
+export const productMediaVariantAssignmentsRelations = relations(
+  productMediaVariantAssignments,
+  ({ one }) => ({
+    productMedia: one(productMedia, {
+      fields: [productMediaVariantAssignments.productMediaId],
+      references: [productMedia.id],
+    }),
+    variant: one(productVariants, {
+      fields: [productMediaVariantAssignments.variantId],
+      references: [productVariants.id],
+    }),
+  }),
+)
 
 export const productAttributesRelations = relations(
   productAttributes,

@@ -1,10 +1,10 @@
 "use client"
 
-import Image from "next/image"
 import Link from "next/link"
 
 import { Package, ShoppingCart } from "lucide-react"
 
+import { ManagedMediaImage } from "@/components/shared/media/managed-media-image"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -46,7 +46,7 @@ export function ProductCard({ product }: ProductCardProps) {
         {/* Image */}
         <div className="relative aspect-square w-full overflow-hidden bg-muted">
           {product.image ? (
-            <Image
+            <ManagedMediaImage
               src={product.image}
               alt={product.name}
               fill

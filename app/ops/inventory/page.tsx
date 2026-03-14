@@ -2,12 +2,18 @@ import { redirect } from "next/navigation"
 
 import { InventoryPageClient } from "@/components/admin/inventory/inventory-page-client"
 import { requireStaff } from "@/lib/auth/rbac"
+import type {
+  AdminInventorySortField,
+  AdminInventorySortOrder,
+} from "@/lib/types/admin-inventory"
 
 interface PageProps {
   searchParams: Promise<{
     page?: string
     search?: string
     status?: string
+    sortBy?: string
+    sortOrder?: string
   }>
 }
 
@@ -23,21 +29,18 @@ export default async function InventoryPage({ searchParams }: PageProps) {
   const search = params.search || ""
   const stockStatus =
     (params.status as "all" | "low" | "out" | "normal") || "all"
+  const sortBy =
+    (params.sortBy as AdminInventorySortField | undefined) || "updated"
+  const sortOrder =
+    (params.sortOrder as AdminInventorySortOrder | undefined) || "desc"
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Inventory Management</h1>
-        <p className="text-muted-foreground">
-          Monitor stock levels and manage inventory
-        </p>
-      </div>
-
-      <InventoryPageClient
-        page={page}
-        search={search}
-        stockStatus={stockStatus}
-      />
-    </div>
+    <InventoryPageClient
+      page={page}
+      search={search}
+      stockStatus={stockStatus}
+      sortBy={sortBy}
+      sortOrder={sortOrder}
+    />
   )
 }

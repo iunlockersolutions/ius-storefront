@@ -1,17 +1,23 @@
 import { drizzle } from "drizzle-orm/postgres-js"
 import postgres from "postgres"
 
+import { getDefaultSerialReceiptIdentifierTypes } from "@/lib/inventory/identifier-template"
+
 import { normalizeEntityName } from "../utils/catalog"
 import {
   brandCategoryAssignments,
   brands,
   categories,
-  inventoryItems,
-  inventoryMovements,
+  inventoryLevels,
+  inventoryTransactions,
+  inventoryUnitIdentifiers,
+  inventoryUnits,
+  mediaAssets,
+  mediaDerivatives,
   models,
   productAttributeValues,
   productCategoryAssignments,
-  productImages,
+  productMedia,
   productOptions,
   productOptionValues,
   products,
@@ -59,6 +65,7 @@ type SeedProduct = {
   shortDescription: string
   description: string
   isFeatured?: boolean
+  inventoryTrackingMode?: "quantity" | "serial"
   options?: Array<{
     name: string
     values: string[]
@@ -766,11 +773,40 @@ function createClient() {
   return { client, db: database }
 }
 
+function defaultTrackingModeForCategory(categorySlug: string) {
+  return ["phones", "tablets", "laptops"].includes(categorySlug)
+    ? "serial"
+    : "quantity"
+}
+
+function normalizeIdentifierValue(value: string) {
+  return value.trim().toUpperCase()
+}
+
+function buildSerializedUnitIdentifiers(variantSku: string, unitIndex: number) {
+  const serial = `${variantSku}-SN-${String(unitIndex + 1).padStart(4, "0")}`
+  const barcode = `${variantSku}-BC-${String(unitIndex + 1).padStart(4, "0")}`
+  const imeiBase = `${String(unitIndex + 1).padStart(6, "0")}${variantSku
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 8)
+    .padEnd(8, "0")}`.slice(0, 14)
+
+  return {
+    serial,
+    barcode,
+    imei: `${imeiBase}1`,
+  }
+}
+
 async function clearCatalogData(db: ReturnType<typeof drizzle>) {
-  await db.delete(inventoryMovements)
-  await db.delete(inventoryItems)
+  await db.delete(inventoryUnitIdentifiers)
+  await db.delete(inventoryUnits)
+  await db.delete(inventoryTransactions)
+  await db.delete(inventoryLevels)
   await db.delete(productVariantOptionValues)
-  await db.delete(productImages)
+  await db.delete(productMedia)
+  await db.delete(mediaDerivatives)
+  await db.delete(mediaAssets)
   await db.delete(productOptionValues)
   await db.delete(productOptions)
   await db.delete(productCategoryAssignments)
@@ -878,6 +914,13 @@ export async function seedCatalogData(logLabel: string) {
         const defaultVariant =
           product.variants.find((variant) => variant.isDefault) ||
           product.variants[0]
+        const inventoryTrackingMode =
+          product.inventoryTrackingMode ??
+          defaultTrackingModeForCategory(model.categorySlug)
+        const receiptIdentifierTypes =
+          inventoryTrackingMode === "serial"
+            ? getDefaultSerialReceiptIdentifierTypes()
+            : []
 
         const [createdProduct] = await db
           .insert(products)
@@ -894,6 +937,8 @@ export async function seedCatalogData(logLabel: string) {
             costPrice: defaultVariant.costPrice || null,
             status: "active",
             isFeatured: product.isFeatured ?? false,
+            inventoryTrackingMode,
+            receiptIdentifierTypes,
             metaTitle: product.name,
             metaDescription: product.shortDescription,
           })
@@ -949,29 +994,78 @@ export async function seedCatalogData(logLabel: string) {
               weight: variant.weight || null,
               isDefault: variant.isDefault ?? variantIndex === 0,
               isActive: true,
+              manageInventory: true,
               sortOrder: variantIndex,
             })
             .returning({ id: productVariants.id })
 
-          const [inventoryItem] = await db
-            .insert(inventoryItems)
+          const [inventoryLevel] = await db
+            .insert(inventoryLevels)
             .values({
               variantId: createdVariant.id,
-              quantity: variant.quantity,
+              onHandQuantity: variant.quantity,
               reservedQuantity: 0,
+              allocatedQuantity: 0,
+              availableQuantity: variant.quantity,
               lowStockThreshold: 3,
             })
-            .returning({ id: inventoryItems.id })
+            .returning({ id: inventoryLevels.id })
 
-          await db.insert(inventoryMovements).values({
-            inventoryItemId: inventoryItem.id,
-            type: "purchase",
-            quantity: variant.quantity,
-            previousQuantity: 0,
-            newQuantity: variant.quantity,
+          await db.insert(inventoryTransactions).values({
+            variantId: createdVariant.id,
+            inventoryLevelId: inventoryLevel.id,
+            type: "receipt",
+            quantityDelta: variant.quantity,
+            beforeOnHandQuantity: 0,
+            afterOnHandQuantity: variant.quantity,
+            beforeReservedQuantity: 0,
+            afterReservedQuantity: 0,
+            beforeAllocatedQuantity: 0,
+            afterAllocatedQuantity: 0,
             referenceType: "seed",
             notes: logLabel,
           })
+
+          if (inventoryTrackingMode === "serial") {
+            for (let unitIndex = 0; unitIndex < variant.quantity; unitIndex++) {
+              const [unit] = await db
+                .insert(inventoryUnits)
+                .values({
+                  variantId: createdVariant.id,
+                  status: "available",
+                  notes: `${logLabel} serialized seed`,
+                })
+                .returning({ id: inventoryUnits.id })
+
+              const identifiers = buildSerializedUnitIdentifiers(
+                variant.sku,
+                unitIndex,
+              )
+
+              await db.insert(inventoryUnitIdentifiers).values([
+                {
+                  inventoryUnitId: unit.id,
+                  type: "serial",
+                  value: identifiers.serial,
+                  normalizedValue: normalizeIdentifierValue(identifiers.serial),
+                },
+                {
+                  inventoryUnitId: unit.id,
+                  type: "barcode",
+                  value: identifiers.barcode,
+                  normalizedValue: normalizeIdentifierValue(
+                    identifiers.barcode,
+                  ),
+                },
+                {
+                  inventoryUnitId: unit.id,
+                  type: "imei",
+                  value: identifiers.imei,
+                  normalizedValue: normalizeIdentifierValue(identifiers.imei),
+                },
+              ])
+            }
+          }
 
           for (const [optionName, optionValue] of Object.entries(
             variant.optionValues || {},
@@ -993,12 +1087,36 @@ export async function seedCatalogData(logLabel: string) {
           }
         }
 
-        await db.insert(productImages).values({
+        const placeholderUrl = `/placeholder/${product.slug}.svg`
+
+        const [mediaAsset] = await db
+          .insert(mediaAssets)
+          .values({
+            provider: "external_url",
+            access: "public",
+            kind: "image",
+            status: "ready",
+            pathname: `seed/product-media/${createdProduct.id}`,
+            url: placeholderUrl,
+            downloadUrl: null,
+            mimeType: "image/svg+xml",
+            byteSize: 0,
+            width: null,
+            height: null,
+            durationSeconds: null,
+            etag: null,
+            originalFilename: `${product.slug}.svg`,
+            placeholderDataUrl: null,
+            createdBy: null,
+          })
+          .returning({ id: mediaAssets.id })
+
+        await db.insert(productMedia).values({
           productId: createdProduct.id,
-          url: `/placeholder/${product.slug}.svg`,
+          mediaAssetId: mediaAsset.id,
           altText: product.name,
           sortOrder: 0,
-          isPrimary: true,
+          isPrimaryImage: true,
         })
       }
     }

@@ -64,9 +64,12 @@ export default async function EditProductPage({
           brandId: model.brandId,
           isActive: model.isActive,
         }))}
-        images={product.images.map((image) => ({
-          ...image,
-          variantId: image.variantId || null,
+        media={(product.media ?? []).map((item) => ({
+          ...item,
+          variantAssignment: item.variantAssignment ?? {
+            mode: "all",
+            variantIds: [],
+          },
         }))}
       />
     </div>

@@ -7,9 +7,9 @@ import {
   brands,
   categories,
   productCategoryAssignments,
-  productImages,
   products,
 } from "@/lib/db/schema"
+import { getPrimaryProductImageMap } from "@/lib/media/service"
 
 import { withStorefrontCatalogFallback } from "./storefront-catalog-read"
 
@@ -189,26 +189,8 @@ export async function searchProducts(params: SearchParams) {
       const imageMap = await withStorefrontCatalogFallback(
         "search:searchProducts:images",
         new Map<string, string>(),
-        async () => {
-          const productIds = searchResults.map((product) => product.id)
-          const images =
-            productIds.length > 0
-              ? await db
-                  .select({
-                    productId: productImages.productId,
-                    url: productImages.url,
-                  })
-                  .from(productImages)
-                  .where(
-                    and(
-                      inArray(productImages.productId, productIds),
-                      eq(productImages.isPrimary, true),
-                    ),
-                  )
-              : []
-
-          return new Map(images.map((image) => [image.productId, image.url]))
-        },
+        () =>
+          getPrimaryProductImageMap(searchResults.map((product) => product.id)),
       )
 
       return {

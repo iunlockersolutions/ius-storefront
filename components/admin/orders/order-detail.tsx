@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useTransition } from "react"
-import { useRouter } from "next/navigation"
 
 import {
   AlertCircle,
@@ -16,6 +15,7 @@ import {
   XCircle,
 } from "lucide-react"
 
+import { OrderPackingCard } from "@/components/admin/orders/order-packing-card"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,89 +49,12 @@ import {
   useUpdateOrderNotesMutation,
   useUpdateOrderStatusMutation,
 } from "@/hooks/admin/use-order-mutations"
+import type { AdminOrder } from "@/lib/types/admin-order"
 import { getValidTransitions } from "@/lib/utils/order-status"
 
-// Types
-interface ShippingAddress {
-  recipientName: string
-  phone: string
-  addressLine1: string
-  addressLine2?: string
-  city: string
-  state?: string
-  postalCode: string
-  country: string
-  instructions?: string
-}
-
-interface BillingAddress {
-  recipientName: string
-  phone: string
-  addressLine1: string
-  addressLine2?: string
-  city: string
-  state?: string
-  postalCode: string
-  country: string
-}
-
-interface OrderItem {
-  id: string
-  quantity: number
-  unitPrice: string
-  subtotal: string
-  productName: string
-  variantName: string
-  sku: string
-  variant: {
-    id: string | null
-    name: string | null
-    sku: string | null
-  } | null
-}
-
-interface StatusHistoryEntry {
-  id: string
-  fromStatus: string | null
-  toStatus: string
-  notes: string | null
-  createdAt: string | Date
-  changedBy: {
-    id: string | null
-    name: string | null
-    email: string | null
-  } | null
-}
-
-interface Order {
-  id: string
-  orderNumber: string
-  status: string
-  subtotal: string
-  taxAmount: string
-  shippingCost: string
-  discountAmount: string
-  total: string
-  notes: string | null
-  adminNotes: string | null
-  customerEmail: string
-  customerPhone: string | null
-  customerName: string | null
-  shippingAddress: ShippingAddress | null
-  billingAddress: BillingAddress | null
-  createdAt: string | Date
-  updatedAt: string | Date
-  customer: {
-    id: string | null
-    name: string | null
-    email: string | null
-  } | null
-  items: OrderItem[]
-  statusHistory: StatusHistoryEntry[]
-}
-
 interface OrderDetailProps {
-  order: Order
+  order: AdminOrder
+  onRefetch: () => Promise<unknown>
 }
 
 const statusConfig: Record<
@@ -217,7 +140,7 @@ function AddressCard({
   icon: Icon,
 }: {
   title: string
-  address: ShippingAddress | BillingAddress | null
+  address: AdminOrder["shippingAddress"] | AdminOrder["billingAddress"] | null
   icon: React.ElementType
 }) {
   if (!address) {
@@ -264,8 +187,7 @@ function AddressCard({
   )
 }
 
-export function OrderDetail({ order }: OrderDetailProps) {
-  const router = useRouter()
+export function OrderDetail({ order, onRefetch }: OrderDetailProps) {
   const [isPending, startTransition] = useTransition()
   const [selectedStatus, setSelectedStatus] = useState<string>("")
   const [statusNote, setStatusNote] = useState("")
@@ -274,7 +196,9 @@ export function OrderDetail({ order }: OrderDetailProps) {
   const updateOrderStatusMutation = useUpdateOrderStatusMutation(order.id)
   const updateOrderNotesMutation = useUpdateOrderNotesMutation(order.id)
 
-  const validTransitions = getValidTransitions(order.status)
+  const validTransitions = getValidTransitions(order.status).filter(
+    (status) => status !== "packing" && status !== "shipped",
+  )
 
   const handleStatusUpdate = async () => {
     if (!selectedStatus) return
@@ -297,7 +221,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
         })
         setSelectedStatus("")
         setStatusNote("")
-        router.refresh()
+        await onRefetch()
       } catch (mutationError) {
         setError(
           mutationError instanceof Error
@@ -313,7 +237,7 @@ export function OrderDetail({ order }: OrderDetailProps) {
     startTransition(async () => {
       try {
         await updateOrderNotesMutation.mutateAsync(adminNotes)
-        router.refresh()
+        await onRefetch()
       } catch (mutationError) {
         setError(
           mutationError instanceof Error
@@ -427,6 +351,24 @@ export function OrderDetail({ order }: OrderDetailProps) {
                           <p className="text-xs text-muted-foreground">
                             SKU: {item.sku}
                           </p>
+                          {item.packing.manageInventory ? (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <Badge variant="outline" className="capitalize">
+                                {item.packing.trackingMode}
+                              </Badge>
+                              {item.packing.trackingMode === "serial" ? (
+                                <Badge variant="secondary">
+                                  {item.packing.assignedUnitCount}/
+                                  {item.quantity} assigned
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary">
+                                  {item.packing.allocatedQuantity}/
+                                  {item.quantity} allocated
+                                </Badge>
+                              )}
+                            </div>
+                          ) : null}
                         </td>
                         <td className="text-center p-3">{item.quantity}</td>
                         <td className="text-right p-3">
@@ -519,6 +461,8 @@ export function OrderDetail({ order }: OrderDetailProps) {
 
         {/* Right Column - Status & Actions */}
         <div className="space-y-6">
+          <OrderPackingCard order={order} onRefetch={onRefetch} />
+
           {/* Update Status */}
           <Card>
             <CardHeader>

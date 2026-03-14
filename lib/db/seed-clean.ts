@@ -5,13 +5,17 @@ import {
   brandCategoryAssignments,
   brands,
   categories,
-  inventoryItems,
-  inventoryMovements,
+  inventoryLevels,
+  inventoryTransactions,
+  inventoryUnitIdentifiers,
+  inventoryUnits,
+  mediaAssets,
+  mediaDerivatives,
   models,
   productAttributes,
   productAttributeValues,
   productCategoryAssignments,
-  productImages,
+  productMedia,
   productOptions,
   productOptionValues,
   products,
@@ -34,13 +38,29 @@ async function cleanSeed() {
   console.log("🧹 Starting database cleanup...\n")
 
   try {
-    console.log("🗑️  Deleting inventory movements...")
-    const deletedMovements = await db.delete(inventoryMovements).returning()
-    console.log(`  ✅ Deleted ${deletedMovements.length} inventory movements`)
+    console.log("🗑️  Deleting inventory unit identifiers...")
+    const deletedUnitIdentifiers = await db
+      .delete(inventoryUnitIdentifiers)
+      .returning()
+    console.log(
+      `  ✅ Deleted ${deletedUnitIdentifiers.length} inventory unit identifiers`,
+    )
 
-    console.log("🗑️  Deleting inventory items...")
-    const deletedInventory = await db.delete(inventoryItems).returning()
-    console.log(`  ✅ Deleted ${deletedInventory.length} inventory items`)
+    console.log("🗑️  Deleting inventory units...")
+    const deletedUnits = await db.delete(inventoryUnits).returning()
+    console.log(`  ✅ Deleted ${deletedUnits.length} inventory units`)
+
+    console.log("🗑️  Deleting inventory transactions...")
+    const deletedTransactions = await db
+      .delete(inventoryTransactions)
+      .returning()
+    console.log(
+      `  ✅ Deleted ${deletedTransactions.length} inventory transactions`,
+    )
+
+    console.log("🗑️  Deleting inventory levels...")
+    const deletedLevels = await db.delete(inventoryLevels).returning()
+    console.log(`  ✅ Deleted ${deletedLevels.length} inventory levels`)
 
     console.log("🗑️  Deleting product variant option values...")
     const deletedVariantSelections = await db
@@ -50,9 +70,21 @@ async function cleanSeed() {
       `  ✅ Deleted ${deletedVariantSelections.length} product variant option values`,
     )
 
-    console.log("🗑️  Deleting product images...")
-    const deletedImages = await db.delete(productImages).returning()
-    console.log(`  ✅ Deleted ${deletedImages.length} product images`)
+    console.log("🗑️  Deleting product media...")
+    const deletedProductMedia = await db.delete(productMedia).returning()
+    console.log(`  ✅ Deleted ${deletedProductMedia.length} product media rows`)
+
+    console.log("🗑️  Deleting media derivatives...")
+    const deletedMediaDerivatives = await db
+      .delete(mediaDerivatives)
+      .returning()
+    console.log(
+      `  ✅ Deleted ${deletedMediaDerivatives.length} media derivative rows`,
+    )
+
+    console.log("🗑️  Deleting media assets...")
+    const deletedMediaAssets = await db.delete(mediaAssets).returning()
+    console.log(`  ✅ Deleted ${deletedMediaAssets.length} media assets`)
 
     console.log("🗑️  Deleting product category assignments...")
     const deletedAssignments = await db

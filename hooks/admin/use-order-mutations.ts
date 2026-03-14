@@ -3,6 +3,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 
 import { invalidateMutationCaches } from "@/lib/utils/query-invalidation-map"
+import { queryKeys } from "@/lib/utils/query-keys"
 
 type OrderStatus =
   | "draft"
@@ -74,6 +75,169 @@ export function useUpdateOrderNotesMutation(orderId: string) {
     onSuccess: () => {
       invalidateMutationCaches(queryClient, "order.updateNotes", {
         orderId,
+      })
+    },
+  })
+}
+
+export function useStartOrderPackingMutation(orderId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (payload?: { notes?: string }) => {
+      const response = await fetch(
+        `/api/admin/orders/${orderId}/packing/start`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload ?? {}),
+        },
+      )
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null)
+        const message =
+          errorBody?.error?.message ||
+          errorBody?.error ||
+          "Failed to start packing"
+        throw new Error(message)
+      }
+
+      return response.json()
+    },
+    onSuccess: async () => {
+      await invalidateMutationCaches(queryClient, "order.updateStatus", {
+        orderId,
+      })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.admin.inventoryRoot(),
+      })
+    },
+  })
+}
+
+export function useScanOrderPackingUnitMutation(orderId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (payload: {
+      orderItemId: string
+      identifier: string
+    }) => {
+      const response = await fetch(
+        `/api/admin/orders/${orderId}/packing/scan`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        },
+      )
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null)
+        const message =
+          errorBody?.error?.message ||
+          errorBody?.error ||
+          "Failed to scan serialized unit"
+        throw new Error(message)
+      }
+
+      return response.json()
+    },
+    onSuccess: async () => {
+      await invalidateMutationCaches(queryClient, "order.updateStatus", {
+        orderId,
+      })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.admin.inventoryRoot(),
+      })
+    },
+  })
+}
+
+export function useUnassignOrderPackingUnitMutation(orderId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (payload: {
+      orderItemId: string
+      inventoryUnitId: string
+    }) => {
+      const response = await fetch(
+        `/api/admin/orders/${orderId}/packing/unassign`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        },
+      )
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null)
+        const message =
+          errorBody?.error?.message ||
+          errorBody?.error ||
+          "Failed to unassign serialized unit"
+        throw new Error(message)
+      }
+
+      return response.json()
+    },
+    onSuccess: async () => {
+      await invalidateMutationCaches(queryClient, "order.updateStatus", {
+        orderId,
+      })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.admin.inventoryRoot(),
+      })
+    },
+  })
+}
+
+export function useCompleteOrderPackingMutation(orderId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (payload?: {
+      notes?: string
+      carrier?: string
+      trackingNumber?: string
+      trackingUrl?: string
+    }) => {
+      const response = await fetch(
+        `/api/admin/orders/${orderId}/packing/complete`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload ?? {}),
+        },
+      )
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null)
+        const message =
+          errorBody?.error?.message ||
+          errorBody?.error ||
+          "Failed to complete packing"
+        throw new Error(message)
+      }
+
+      return response.json()
+    },
+    onSuccess: async () => {
+      await invalidateMutationCaches(queryClient, "order.updateStatus", {
+        orderId,
+      })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.admin.inventoryRoot(),
       })
     },
   })

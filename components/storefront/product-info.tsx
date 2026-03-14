@@ -43,9 +43,12 @@ interface ProductVariant {
   isDefault: boolean
   isActive: boolean
   inventory: {
-    id: string
-    quantity: number
+    manageInventory: boolean
+    trackingMode: "quantity" | "serial"
+    onHandQuantity: number | null
+    availableQuantity: number | null
     reservedQuantity: number
+    allocatedQuantity: number
     lowStockThreshold: number | null
   } | null
   selections?: ProductVariantSelection[]
@@ -98,11 +101,13 @@ interface Product {
 interface ProductInfoProps {
   product: Product
   initialIsFavorited?: boolean
+  onSelectedVariantChange?: (variantId: string | null) => void
 }
 
 export function ProductInfo({
   product,
   initialIsFavorited = false,
+  onSelectedVariantChange,
 }: ProductInfoProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -170,14 +175,15 @@ export function ProductInfo({
     : 0
 
   const inStock = selectedVariant?.inventory
-    ? selectedVariant.inventory.quantity -
-        selectedVariant.inventory.reservedQuantity >
-      0
+    ? !selectedVariant.inventory.manageInventory ||
+      (selectedVariant.inventory.availableQuantity ?? 0) > 0
     : true
   const stockQuantity = selectedVariant?.inventory
-    ? selectedVariant.inventory.quantity -
-      selectedVariant.inventory.reservedQuantity
-    : 999
+    ? selectedVariant.inventory.manageInventory
+      ? (selectedVariant.inventory.availableQuantity ?? 0)
+      : null
+    : null
+  const maxQuantity = stockQuantity === null ? 99 : Math.max(1, stockQuantity)
 
   const handleOptionChange = (optionId: string, optionValueId: string) => {
     const nextSelections = {
@@ -207,10 +213,12 @@ export function ProductInfo({
         ),
       )
       setSelectedVariantId(matchingVariant.id)
+      onSelectedVariantChange?.(matchingVariant.id)
       return
     }
 
     setSelectedOptions(nextSelections)
+    onSelectedVariantChange?.(null)
   }
 
   const isOptionValueAvailable = (optionId: string, optionValueId: string) => {
@@ -268,7 +276,7 @@ export function ProductInfo({
   }
 
   const handleQuantityChange = (delta: number) => {
-    setQuantity((prev) => Math.max(1, Math.min(stockQuantity, prev + delta)))
+    setQuantity((prev) => Math.max(1, Math.min(maxQuantity, prev + delta)))
   }
 
   return (
@@ -327,11 +335,13 @@ export function ProductInfo({
             <Check className="h-5 w-5 text-green-500" />
             <span className="text-green-600 font-medium">
               In Stock
-              {stockQuantity <= 5 && stockQuantity > 0 && (
-                <span className="text-amber-600 ml-1">
-                  (Only {stockQuantity} left)
-                </span>
-              )}
+              {stockQuantity !== null &&
+                stockQuantity <= 5 &&
+                stockQuantity > 0 && (
+                  <span className="text-amber-600 ml-1">
+                    (Only {stockQuantity} left)
+                  </span>
+                )}
             </span>
           </>
         ) : (
@@ -388,7 +398,7 @@ export function ProductInfo({
             variant="outline"
             size="icon"
             onClick={() => handleQuantityChange(-1)}
-            disabled={quantity <= 1}
+            disabled={!inStock || quantity <= 1}
           >
             <Minus className="h-4 w-4" />
           </Button>
@@ -396,23 +406,24 @@ export function ProductInfo({
             id="quantity"
             type="number"
             min={1}
-            max={stockQuantity}
+            max={maxQuantity}
             value={quantity}
             onChange={(e) =>
               setQuantity(
                 Math.max(
                   1,
-                  Math.min(stockQuantity, parseInt(e.target.value) || 1),
+                  Math.min(maxQuantity, parseInt(e.target.value) || 1),
                 ),
               )
             }
             className="w-20 text-center"
+            disabled={!inStock || !selectedVariant}
           />
           <Button
             variant="outline"
             size="icon"
             onClick={() => handleQuantityChange(1)}
-            disabled={quantity >= stockQuantity}
+            disabled={quantity >= maxQuantity}
           >
             <Plus className="h-4 w-4" />
           </Button>

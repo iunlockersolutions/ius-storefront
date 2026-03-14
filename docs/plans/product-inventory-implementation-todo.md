@@ -287,6 +287,11 @@ Reference architecture:
 - Legacy product and inventory system is fully retired.
 - Docs, tests, and admin flows reflect the new architecture consistently.
 
+Implementation update:
+
+- Compatibility tables `inventory_items` and `inventory_movements` have been retired from runtime code paths and schema definitions.
+- Inventory reads and writes now rely on `inventory_levels`, `inventory_transactions`, and `inventory_units`.
+
 ## Explicit Legacy Cleanup and Removal Checklist
 
 - Remove old aggregate-only inventory item assumptions from product creation and edit flows.

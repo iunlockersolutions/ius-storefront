@@ -64,7 +64,7 @@ export function OrderDetailPageClient({ orderId }: OrderDetailPageClientProps) {
         </div>
       </div>
 
-      <OrderDetail order={orderQuery.data} />
+      <OrderDetail order={orderQuery.data} onRefetch={orderQuery.refetch} />
     </div>
   )
 }

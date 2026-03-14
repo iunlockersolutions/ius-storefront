@@ -3,9 +3,13 @@
 import { ProductEditorForm } from "@/components/admin/products/product-editor-form"
 import { useDeleteProductMutation } from "@/hooks/admin/use-delete-product-mutation"
 import {
-  useUpdateProductImagesMutation,
+  useUpdateProductMediaMutation,
   useUpdateProductMutation,
 } from "@/hooks/admin/use-update-product-mutations"
+import type {
+  AdminProductDetail,
+  AdminProductMedia,
+} from "@/lib/types/admin-product"
 
 interface Category {
   id: string
@@ -36,66 +40,14 @@ interface Model {
   isActive: boolean
 }
 
-interface Product {
-  id: string
-  name: string
-  slug: string
-  description: string | null
-  shortDescription: string | null
-  brandId: string | null
-  primaryCategoryId: string | null
-  modelId: string | null
-  status: "draft" | "active" | "archived"
-  isFeatured: boolean
-  metaTitle: string | null
-  metaDescription: string | null
-  categories: Array<{ id: string }>
-  options: Array<{
-    id: string
-    name: string
-    values: Array<{
-      id: string
-      value: string
-    }>
-  }>
-  variants: Array<{
-    id: string
-    sku: string
-    name: string
-    price: string
-    compareAtPrice: string | null
-    costPrice: string | null
-    weight: string | null
-    isDefault: boolean
-    isActive: boolean
-    inventory?: {
-      quantity: number
-      reservedQuantity: number
-      lowStockThreshold: number | null
-    } | null
-    selections?: Array<{
-      optionName: string
-      optionValue: string
-    }>
-  }>
-}
-
-interface ProductImage {
-  id: string
-  url: string
-  altText: string | null
-  variantId?: string | null
-  isPrimary: boolean
-}
-
-const EMPTY_IMAGES: ProductImage[] = []
+const EMPTY_MEDIA: AdminProductMedia[] = []
 
 interface EditProductFormProps {
-  product: Product
+  product: AdminProductDetail
   categories: Category[]
   brands: Brand[]
   models: Model[]
-  images?: ProductImage[]
+  media?: AdminProductMedia[]
 }
 
 export function EditProductForm({
@@ -103,10 +55,10 @@ export function EditProductForm({
   categories,
   brands,
   models,
-  images = EMPTY_IMAGES,
+  media = EMPTY_MEDIA,
 }: EditProductFormProps) {
   const updateProductMutation = useUpdateProductMutation(product.id)
-  const updateProductImagesMutation = useUpdateProductImagesMutation(product.id)
+  const updateProductMediaMutation = useUpdateProductMediaMutation(product.id)
   const deleteProductMutation = useDeleteProductMutation()
 
   return (
@@ -116,21 +68,45 @@ export function EditProductForm({
       models={models}
       initialData={{
         ...product,
-        images,
+        media,
       }}
-      onSave={async (_productId, { images: nextImages, ...payload }) => {
+      onSave={async (_productId, { media: nextMedia, ...payload }) => {
         const updatedProductResponse =
           await updateProductMutation.mutateAsync(payload)
-        await updateProductImagesMutation.mutateAsync(nextImages)
+        const updatedMediaResponse =
+          await updateProductMediaMutation.mutateAsync(nextMedia)
         return updatedProductResponse.data
           ? {
               ...updatedProductResponse.data,
-              images: nextImages,
+              media: updatedMediaResponse.data ?? [],
             }
           : null
       }}
       onDelete={async () => {
         await deleteProductMutation.mutateAsync(product.id)
+      }}
+      onPublish={async (productId) => {
+        const response = await fetch(
+          `/api/admin/products/${productId}/publish`,
+          {
+            method: "POST",
+          },
+        )
+
+        if (!response.ok) {
+          const errorBody = await response.json().catch(() => null)
+          const errors = errorBody?.error?.details?.errors
+          throw new Error(
+            Array.isArray(errors) && errors.length > 0
+              ? errors.join("\n")
+              : errorBody?.error?.message ||
+                  errorBody?.error ||
+                  "Failed to publish product",
+          )
+        }
+
+        const body = await response.json()
+        return body.data ?? null
       }}
     />
   )

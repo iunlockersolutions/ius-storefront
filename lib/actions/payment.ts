@@ -9,13 +9,14 @@ import { getServerSession, requireStaff } from "@/lib/auth/rbac"
 import { db } from "@/lib/db"
 import {
   bankTransferProofs,
-  inventoryItems,
-  inventoryMovements,
-  orderItems,
   orders,
   orderStatusHistory,
   payments,
 } from "@/lib/db/schema"
+import {
+  ensureOrderInventoryReservationsTx,
+  releaseOrderInventoryReservationsTx,
+} from "@/lib/orders/inventory-reservations"
 
 // ============================================
 // DirectPay IPG Configuration
@@ -59,6 +60,14 @@ export async function initiateCardPayment(input: InitiatePaymentInput) {
   const idempotencyKey = `pay_${order.id}_${Date.now()}`
 
   try {
+    await db.transaction(async (tx) => {
+      await ensureOrderInventoryReservationsTx(
+        tx,
+        order.id,
+        `Ensured reservation before card payment for ${order.orderNumber}`,
+      )
+    })
+
     // Create payment record
     const [payment] = await db
       .insert(payments)
@@ -196,9 +205,12 @@ export async function verifyPaymentStatus(sessionId: string) {
 
     await db.update(payments).set(updateData).where(eq(payments.id, payment.id))
 
-    // If completed, update order status
     if (data.status === "completed") {
       await processSuccessfulPayment(payment.orderId)
+    } else if (data.status === "failed") {
+      await processFailedPayment(payment.orderId, "Payment declined")
+    } else if (data.status === "cancelled") {
+      await processFailedPayment(payment.orderId, "Payment cancelled by user")
     }
 
     revalidatePath(`/orders/${payment.orderId}`)
@@ -238,50 +250,39 @@ async function processSuccessfulPayment(orderId: string) {
       notes: "Payment completed",
       changedBy: session?.user?.id || null,
     })
+  })
+}
 
-    // Convert reserved inventory to sold
-    const items = await tx
-      .select()
-      .from(orderItems)
-      .where(eq(orderItems.orderId, orderId))
+async function processFailedPayment(orderId: string, notes: string) {
+  const session = await getServerSession()
 
-    for (const item of items) {
-      if (!item.variantId) continue
+  await db.transaction(async (tx) => {
+    const order = await tx.query.orders.findFirst({
+      where: eq(orders.id, orderId),
+    })
 
-      const [inventory] = await tx
-        .select()
-        .from(inventoryItems)
-        .where(eq(inventoryItems.variantId, item.variantId))
-        .for("update")
-
-      if (inventory) {
-        const newQuantity = inventory.quantity - item.quantity
-        const newReserved = Math.max(
-          0,
-          inventory.reservedQuantity - item.quantity,
-        )
-
-        await tx
-          .update(inventoryItems)
-          .set({
-            quantity: newQuantity,
-            reservedQuantity: newReserved,
-            updatedAt: new Date(),
-          })
-          .where(eq(inventoryItems.id, inventory.id))
-
-        await tx.insert(inventoryMovements).values({
-          inventoryItemId: inventory.id,
-          type: "sale",
-          quantity: -item.quantity,
-          previousQuantity: inventory.quantity,
-          newQuantity,
-          referenceType: "order",
-          referenceId: orderId,
-          notes: `Sold - Order payment completed`,
-        })
-      }
+    if (!order || order.status === "cancelled") {
+      return
     }
+
+    await releaseOrderInventoryReservationsTx(
+      tx,
+      orderId,
+      "Released after failed payment",
+    )
+
+    await tx
+      .update(orders)
+      .set({ status: "cancelled", updatedAt: new Date() })
+      .where(eq(orders.id, orderId))
+
+    await tx.insert(orderStatusHistory).values({
+      orderId,
+      fromStatus: order.status,
+      toStatus: "cancelled",
+      notes,
+      changedBy: session?.user?.id || null,
+    })
   })
 }
 
@@ -300,6 +301,14 @@ export async function recordBankTransferPayment(orderId: string) {
   if (!order) {
     return { success: false, error: "Order not found" }
   }
+
+  await db.transaction(async (tx) => {
+    await ensureOrderInventoryReservationsTx(
+      tx,
+      order.id,
+      `Ensured reservation before bank transfer for ${order.orderNumber}`,
+    )
+  })
 
   // Create pending bank transfer payment
   const [payment] = await db
@@ -348,6 +357,14 @@ export async function recordCODPayment(orderId: string) {
   if (!order) {
     return { success: false, error: "Order not found" }
   }
+
+  await db.transaction(async (tx) => {
+    await ensureOrderInventoryReservationsTx(
+      tx,
+      order.id,
+      `Ensured reservation before COD processing for ${order.orderNumber}`,
+    )
+  })
 
   // Create COD payment record (pending until delivery)
   const [payment] = await db
@@ -423,50 +440,6 @@ export async function markCODPaymentCollected(orderId: string) {
           updatedAt: new Date(),
         })
         .where(eq(payments.id, payment.id))
-
-      // Process inventory - convert reserved to sold
-      const items = await tx
-        .select()
-        .from(orderItems)
-        .where(eq(orderItems.orderId, orderId))
-
-      for (const item of items) {
-        if (!item.variantId) continue
-
-        const [inventory] = await tx
-          .select()
-          .from(inventoryItems)
-          .where(eq(inventoryItems.variantId, item.variantId))
-          .for("update")
-
-        if (inventory) {
-          const newQuantity = inventory.quantity - item.quantity
-          const newReserved = Math.max(
-            0,
-            inventory.reservedQuantity - item.quantity,
-          )
-
-          await tx
-            .update(inventoryItems)
-            .set({
-              quantity: newQuantity,
-              reservedQuantity: newReserved,
-              updatedAt: new Date(),
-            })
-            .where(eq(inventoryItems.id, inventory.id))
-
-          await tx.insert(inventoryMovements).values({
-            inventoryItemId: inventory.id,
-            type: "sale",
-            quantity: -item.quantity,
-            previousQuantity: inventory.quantity,
-            newQuantity,
-            referenceType: "order",
-            referenceId: orderId,
-            notes: "COD payment collected",
-          })
-        }
-      }
     })
 
     revalidatePath("/ops/orders")
@@ -694,7 +667,12 @@ export async function verifyBankTransfer(
           })
           .where(eq(bankTransferProofs.paymentId, paymentId))
 
-        // Update order status back to draft
+        await releaseOrderInventoryReservationsTx(
+          tx,
+          payment.orderId,
+          "Released after bank transfer rejection",
+        )
+
         await tx
           .update(orders)
           .set({ status: "cancelled", updatedAt: new Date() })
@@ -739,48 +717,6 @@ async function processSuccessfulPaymentInTx(
     notes: "Bank transfer verified",
     changedBy: userId,
   })
-
-  // Convert reserved to sold
-  const items = await tx
-    .select()
-    .from(orderItems)
-    .where(eq(orderItems.orderId, orderId))
-
-  for (const item of items) {
-    const [inventory] = await tx
-      .select()
-      .from(inventoryItems)
-      .where(eq(inventoryItems.variantId, item.variantId))
-      .for("update")
-
-    if (inventory) {
-      const newQuantity = inventory.quantity - item.quantity
-      const newReserved = Math.max(
-        0,
-        inventory.reservedQuantity - item.quantity,
-      )
-
-      await tx
-        .update(inventoryItems)
-        .set({
-          quantity: newQuantity,
-          reservedQuantity: newReserved,
-          updatedAt: new Date(),
-        })
-        .where(eq(inventoryItems.id, inventory.id))
-
-      await tx.insert(inventoryMovements).values({
-        inventoryItemId: inventory.id,
-        type: "sale",
-        quantity: -item.quantity,
-        previousQuantity: inventory.quantity,
-        newQuantity,
-        referenceType: "order",
-        referenceId: orderId,
-        notes: "Bank transfer payment verified",
-      })
-    }
-  }
 }
 
 // ============================================

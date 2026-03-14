@@ -1,7 +1,7 @@
 "use client"
 
 import { useTransition } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 
 import { ChevronLeft, ChevronRight } from "lucide-react"
 
@@ -15,25 +15,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-
-interface Movement {
-  id: string
-  type: string
-  quantity: number
-  previousQuantity: number
-  newQuantity: number
-  referenceType: string | null
-  referenceId: string | null
-  notes: string | null
-  createdAt: string | Date
-  inventoryItemId: string
-  variantName: string
-  variantSku: string
-  productName: string
-}
+import type { AdminInventoryTransaction } from "@/lib/types/admin-inventory"
 
 interface MovementHistoryProps {
-  movements: Movement[]
+  movements: AdminInventoryTransaction[]
   pagination: {
     page: number
     limit: number
@@ -43,36 +28,55 @@ interface MovementHistoryProps {
 }
 
 const TYPE_LABELS: Record<string, string> = {
-  purchase: "Purchase",
-  sale: "Sale",
-  adjustment: "Adjustment",
+  receipt: "Receipt",
+  adjustment_increase: "Adjust +",
+  adjustment_decrease: "Adjust -",
   return: "Return",
-  reserved: "Reserved",
-  released: "Released",
+  reservation: "Reserve",
+  reservation_release: "Release Reservation",
+  allocation: "Allocate",
+  allocation_release: "Release Allocation",
+  shipment: "Shipment",
+  damage: "Damage",
+  loss: "Loss",
+  transfer_in: "Transfer In",
+  transfer_out: "Transfer Out",
 }
 
 const TYPE_COLORS: Record<string, string> = {
-  purchase: "bg-green-100 text-green-800",
-  sale: "bg-blue-100 text-blue-800",
-  adjustment: "bg-yellow-100 text-yellow-800",
+  receipt: "bg-green-100 text-green-800",
+  adjustment_increase: "bg-emerald-100 text-emerald-800",
+  adjustment_decrease: "bg-yellow-100 text-yellow-800",
   return: "bg-purple-100 text-purple-800",
-  reserved: "bg-orange-100 text-orange-800",
-  released: "bg-cyan-100 text-cyan-800",
+  reservation: "bg-orange-100 text-orange-800",
+  reservation_release: "bg-cyan-100 text-cyan-800",
+  allocation: "bg-blue-100 text-blue-800",
+  allocation_release: "bg-slate-100 text-slate-800",
+  shipment: "bg-indigo-100 text-indigo-800",
+  damage: "bg-rose-100 text-rose-800",
+  loss: "bg-red-100 text-red-800",
+  transfer_in: "bg-lime-100 text-lime-800",
+  transfer_out: "bg-amber-100 text-amber-800",
 }
 
 export function MovementHistory({
   movements,
   pagination,
 }: MovementHistoryProps) {
+  const pathname = usePathname()
   const router = useRouter()
-  const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
 
   function goToPage(page: number) {
-    const params = new URLSearchParams(searchParams.toString())
-    params.set("page", page.toString())
+    const params = new URLSearchParams()
+
+    if (page > 1) {
+      params.set("page", page.toString())
+    }
+
     startTransition(() => {
-      router.push(`?${params.toString()}`)
+      const query = params.toString()
+      router.push(query ? `${pathname}?${query}` : pathname)
     })
   }
 
@@ -99,10 +103,10 @@ export function MovementHistory({
             <TableRow>
               <TableHead>Date</TableHead>
               <TableHead>Type</TableHead>
-              <TableHead>Product</TableHead>
               <TableHead className="text-center">Change</TableHead>
               <TableHead className="text-center">Before → After</TableHead>
               <TableHead>Reference</TableHead>
+              <TableHead>Actor</TableHead>
               <TableHead>Notes</TableHead>
             </TableRow>
           </TableHeader>
@@ -120,30 +124,23 @@ export function MovementHistory({
                     {TYPE_LABELS[movement.type] || movement.type}
                   </Badge>
                 </TableCell>
-                <TableCell>
-                  <div>
-                    <p className="font-medium">{movement.productName}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {movement.variantSku}
-                    </p>
-                  </div>
-                </TableCell>
                 <TableCell className="text-center">
                   <span
                     className={`font-medium ${
-                      movement.quantity > 0
+                      movement.quantityDelta > 0
                         ? "text-green-600"
-                        : movement.quantity < 0
+                        : movement.quantityDelta < 0
                           ? "text-red-600"
                           : ""
                     }`}
                   >
-                    {movement.quantity > 0 ? "+" : ""}
-                    {movement.quantity}
+                    {movement.quantityDelta > 0 ? "+" : ""}
+                    {movement.quantityDelta}
                   </span>
                 </TableCell>
                 <TableCell className="text-center text-muted-foreground">
-                  {movement.previousQuantity} → {movement.newQuantity}
+                  {movement.beforeOnHandQuantity} →{" "}
+                  {movement.afterOnHandQuantity}
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {movement.referenceType && (
@@ -151,6 +148,9 @@ export function MovementHistory({
                       {movement.referenceType.replace("_", " ")}
                     </span>
                   )}
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {movement.performedByName || "System"}
                 </TableCell>
                 <TableCell className="text-sm max-w-50 truncate">
                   {movement.notes}

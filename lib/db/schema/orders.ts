@@ -14,6 +14,7 @@ import { user } from "./auth"
 import { productVariants } from "./catalog"
 import { customerAddresses } from "./customer"
 import { orderStatusEnum } from "./enums"
+import { inventoryUnits } from "./inventory"
 
 /**
  * Orders - Customer orders.
@@ -188,6 +189,82 @@ export const shipments = pgTable(
   ],
 )
 
+/**
+ * Order item allocations - aggregate stock allocations for an order item.
+ * Used for quantity-based inventory and location-level reservation/allocation.
+ */
+export const orderItemAllocations = pgTable(
+  "order_item_allocations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    orderItemId: uuid("order_item_id")
+      .notNull()
+      .references(() => orderItems.id, { onDelete: "cascade" }),
+    variantId: uuid("variant_id")
+      .notNull()
+      .references(() => productVariants.id, { onDelete: "cascade" }),
+    quantity: integer("quantity").notNull(),
+    allocatedAt: timestamp("allocated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    releasedAt: timestamp("released_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("order_item_allocations_order_id_idx").on(table.orderId),
+    index("order_item_allocations_order_item_id_idx").on(table.orderItemId),
+    index("order_item_allocations_variant_id_idx").on(table.variantId),
+  ],
+)
+
+/**
+ * Order item unit assignments - exact serialized inventory units assigned to an
+ * order item during packing and shipment preparation.
+ */
+export const orderItemUnitAssignments = pgTable(
+  "order_item_unit_assignments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    orderItemId: uuid("order_item_id")
+      .notNull()
+      .references(() => orderItems.id, { onDelete: "cascade" }),
+    inventoryUnitId: uuid("inventory_unit_id")
+      .notNull()
+      .references(() => inventoryUnits.id, { onDelete: "cascade" })
+      .unique(),
+    assignedAt: timestamp("assigned_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    unassignedAt: timestamp("unassigned_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("order_item_unit_assignments_order_id_idx").on(table.orderId),
+    index("order_item_unit_assignments_order_item_id_idx").on(
+      table.orderItemId,
+    ),
+    index("order_item_unit_assignments_inventory_unit_id_idx").on(
+      table.inventoryUnitId,
+    ),
+  ],
+)
+
 // Relations
 export const ordersRelations = relations(orders, ({ one, many }) => ({
   user: one(user, {
@@ -203,11 +280,13 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
     references: [customerAddresses.id],
   }),
   items: many(orderItems),
+  allocations: many(orderItemAllocations),
+  unitAssignments: many(orderItemUnitAssignments),
   statusHistory: many(orderStatusHistory),
   shipments: many(shipments),
 }))
 
-export const orderItemsRelations = relations(orderItems, ({ one }) => ({
+export const orderItemsRelations = relations(orderItems, ({ one, many }) => ({
   order: one(orders, {
     fields: [orderItems.orderId],
     references: [orders.id],
@@ -216,6 +295,8 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
     fields: [orderItems.variantId],
     references: [productVariants.id],
   }),
+  allocations: many(orderItemAllocations),
+  unitAssignments: many(orderItemUnitAssignments),
 }))
 
 export const orderStatusHistoryRelations = relations(
@@ -238,3 +319,39 @@ export const shipmentsRelations = relations(shipments, ({ one }) => ({
     references: [orders.id],
   }),
 }))
+
+export const orderItemAllocationsRelations = relations(
+  orderItemAllocations,
+  ({ one }) => ({
+    order: one(orders, {
+      fields: [orderItemAllocations.orderId],
+      references: [orders.id],
+    }),
+    orderItem: one(orderItems, {
+      fields: [orderItemAllocations.orderItemId],
+      references: [orderItems.id],
+    }),
+    variant: one(productVariants, {
+      fields: [orderItemAllocations.variantId],
+      references: [productVariants.id],
+    }),
+  }),
+)
+
+export const orderItemUnitAssignmentsRelations = relations(
+  orderItemUnitAssignments,
+  ({ one }) => ({
+    order: one(orders, {
+      fields: [orderItemUnitAssignments.orderId],
+      references: [orders.id],
+    }),
+    orderItem: one(orderItems, {
+      fields: [orderItemUnitAssignments.orderItemId],
+      references: [orderItems.id],
+    }),
+    inventoryUnit: one(inventoryUnits, {
+      fields: [orderItemUnitAssignments.inventoryUnitId],
+      references: [inventoryUnits.id],
+    }),
+  }),
+)

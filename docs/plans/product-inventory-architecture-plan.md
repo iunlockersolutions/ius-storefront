@@ -156,6 +156,8 @@ Target schema:
 - `inventory_units`
 - `inventory_unit_identifiers`
 
+Legacy compatibility tables such as `inventory_items` and `inventory_movements` should not remain in the final implementation. `inventory_levels` and `inventory_transactions` are the stock source of truth.
+
 ### Inventory Levels
 
 `inventory_levels` is the fast read model for one variant at one location.

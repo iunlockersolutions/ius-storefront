@@ -9,8 +9,13 @@ import {
   orders,
   orderStatusHistory,
   payments,
-  productImages,
+  productVariants,
 } from "@/lib/db/schema"
+import {
+  getPrimaryProductImageMap,
+  getVariantSpecificProductImageMap,
+} from "@/lib/media/service"
+import { releaseOrderInventoryReservationsTx } from "@/lib/orders/inventory-reservations"
 
 // ============================================
 // Get Customer Orders
@@ -62,21 +67,26 @@ export async function getCustomerOrders(page: number = 1, limit: number = 10) {
           .where(inArray(orderItems.orderId, orderIds))
       : []
 
-  // Get images for the variants
   const variantIds = [
     ...new Set(firstItems.map((i) => i.variantId).filter(Boolean)),
   ] as string[]
-
-  const images =
+  const productVariantsForOrders =
     variantIds.length > 0
       ? await db
           .select({
-            productId: productImages.productId,
-            url: productImages.url,
+            id: productVariants.id,
+            productId: productVariants.productId,
           })
-          .from(productImages)
-          .where(eq(productImages.isPrimary, true))
+          .from(productVariants)
+          .where(inArray(productVariants.id, variantIds))
       : []
+  const productIdByVariantId = new Map(
+    productVariantsForOrders.map((variant) => [variant.id, variant.productId]),
+  )
+  const imageMap = await getPrimaryProductImageMap(
+    productVariantsForOrders.map((variant) => variant.productId),
+  )
+  const variantImageMap = await getVariantSpecificProductImageMap(variantIds)
 
   // Create order-to-image mapping
   const orderImageMap = new Map<
@@ -86,10 +96,15 @@ export async function getCustomerOrders(page: number = 1, limit: number = 10) {
   for (const order of customerOrders) {
     const firstItem = firstItems.find((i) => i.orderId === order.id)
     if (firstItem) {
-      const image = images.find((img) => img.productId)
+      const productId = firstItem.variantId
+        ? productIdByVariantId.get(firstItem.variantId)
+        : undefined
       orderImageMap.set(order.id, {
         productName: firstItem.productName,
-        imageUrl: image?.url || null,
+        imageUrl: firstItem.variantId
+          ? variantImageMap.get(firstItem.variantId) ||
+            (productId ? imageMap.get(productId) || null : null)
+          : null,
       })
     }
   }
@@ -199,28 +214,31 @@ export async function cancelCustomerOrder(orderId: string, reason?: string) {
     }
   }
 
-  // Update order status
-  await db
-    .update(orders)
-    .set({
-      status: "cancelled",
-      updatedAt: new Date(),
+  await db.transaction(async (tx) => {
+    await releaseOrderInventoryReservationsTx(
+      tx,
+      orderId,
+      "Released after customer cancellation",
+    )
+
+    await tx
+      .update(orders)
+      .set({
+        status: "cancelled",
+        updatedAt: new Date(),
+      })
+      .where(eq(orders.id, orderId))
+
+    await tx.insert(orderStatusHistory).values({
+      orderId,
+      fromStatus: order.status,
+      toStatus: "cancelled",
+      notes: reason
+        ? `Customer requested cancellation: ${reason}`
+        : "Cancelled by customer",
+      changedBy: session.user.id,
     })
-    .where(eq(orders.id, orderId))
-
-  // Record status change
-  await db.insert(orderStatusHistory).values({
-    orderId,
-    fromStatus: order.status,
-    toStatus: "cancelled",
-    notes: reason
-      ? `Customer requested cancellation: ${reason}`
-      : "Cancelled by customer",
-    changedBy: session.user.id,
   })
-
-  // TODO: Release reserved inventory if order was paid
-  // TODO: Initiate refund if payment was made
 
   return { success: true }
 }

@@ -5,28 +5,33 @@ import {
   pgTable,
   text,
   timestamp,
+  unique,
   uuid,
 } from "drizzle-orm/pg-core"
 
 import { user } from "./auth"
 import { productVariants } from "./catalog"
-import { inventoryMovementTypeEnum } from "./enums"
+import {
+  inventoryIdentifierTypeEnum,
+  inventoryTransactionTypeEnum,
+  inventoryUnitStatusEnum,
+} from "./enums"
 
 /**
- * Inventory items - Current stock levels per variant.
- * This is the computed state; movements are the source of truth.
+ * Inventory levels - aggregate stock counts per variant.
  */
-export const inventoryItems = pgTable(
-  "inventory_items",
+export const inventoryLevels = pgTable(
+  "inventory_levels",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     variantId: uuid("variant_id")
       .notNull()
-      .unique()
       .references(() => productVariants.id, { onDelete: "cascade" }),
-    quantity: integer("quantity").notNull().default(0),
+    onHandQuantity: integer("on_hand_quantity").notNull().default(0),
     reservedQuantity: integer("reserved_quantity").notNull().default(0),
-    lowStockThreshold: integer("low_stock_threshold").default(5),
+    allocatedQuantity: integer("allocated_quantity").notNull().default(0),
+    availableQuantity: integer("available_quantity").notNull().default(0),
+    lowStockThreshold: integer("low_stock_threshold").notNull().default(5),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -34,26 +39,46 @@ export const inventoryItems = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (table) => [index("inventory_items_variant_id_idx").on(table.variantId)],
+  (table) => [
+    index("inventory_levels_variant_idx").on(table.variantId),
+    unique("inventory_levels_variant_unique").on(table.variantId),
+  ],
 )
 
 /**
- * Inventory movements - Ledger for all stock changes.
- * Every stock change creates a movement record for auditability.
+ * Inventory transactions - immutable ledger for the new inventory model.
  */
-export const inventoryMovements = pgTable(
-  "inventory_movements",
+export const inventoryTransactions = pgTable(
+  "inventory_transactions",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    inventoryItemId: uuid("inventory_item_id")
+    variantId: uuid("variant_id")
       .notNull()
-      .references(() => inventoryItems.id, { onDelete: "cascade" }),
-    type: inventoryMovementTypeEnum("type").notNull(),
-    quantity: integer("quantity").notNull(), // Positive for additions, negative for deductions
-    previousQuantity: integer("previous_quantity").notNull(),
-    newQuantity: integer("new_quantity").notNull(),
-    referenceType: text("reference_type"), // 'order', 'adjustment', etc.
-    referenceId: uuid("reference_id"), // ID of the related entity
+      .references(() => productVariants.id, { onDelete: "cascade" }),
+    inventoryLevelId: uuid("inventory_level_id").references(
+      () => inventoryLevels.id,
+      {
+        onDelete: "set null",
+      },
+    ),
+    type: inventoryTransactionTypeEnum("type").notNull(),
+    quantityDelta: integer("quantity_delta").notNull(),
+    beforeOnHandQuantity: integer("before_on_hand_quantity").notNull(),
+    afterOnHandQuantity: integer("after_on_hand_quantity").notNull(),
+    beforeReservedQuantity: integer("before_reserved_quantity")
+      .notNull()
+      .default(0),
+    afterReservedQuantity: integer("after_reserved_quantity")
+      .notNull()
+      .default(0),
+    beforeAllocatedQuantity: integer("before_allocated_quantity")
+      .notNull()
+      .default(0),
+    afterAllocatedQuantity: integer("after_allocated_quantity")
+      .notNull()
+      .default(0),
+    referenceType: text("reference_type"),
+    referenceId: uuid("reference_id"),
     notes: text("notes"),
     performedBy: uuid("performed_by").references(() => user.id, {
       onDelete: "set null",
@@ -63,40 +88,130 @@ export const inventoryMovements = pgTable(
       .defaultNow(),
   },
   (table) => [
-    index("inventory_movements_inventory_item_id_idx").on(
-      table.inventoryItemId,
-    ),
-    index("inventory_movements_type_idx").on(table.type),
-    index("inventory_movements_reference_idx").on(
+    index("inventory_transactions_variant_idx").on(table.variantId),
+    index("inventory_transactions_type_idx").on(table.type),
+    index("inventory_transactions_reference_idx").on(
       table.referenceType,
       table.referenceId,
     ),
-    index("inventory_movements_created_at_idx").on(table.createdAt),
+    index("inventory_transactions_created_at_idx").on(table.createdAt),
   ],
 )
 
-// Relations
-export const inventoryItemsRelations = relations(
-  inventoryItems,
+/**
+ * Inventory units - one row per serialized physical unit.
+ */
+export const inventoryUnits = pgTable(
+  "inventory_units",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    variantId: uuid("variant_id")
+      .notNull()
+      .references(() => productVariants.id, { onDelete: "cascade" }),
+    status: inventoryUnitStatusEnum("status").notNull().default("received"),
+    notes: text("notes"),
+    allocatedOrderId: uuid("allocated_order_id"),
+    allocatedOrderItemId: uuid("allocated_order_item_id"),
+    receivedAt: timestamp("received_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    packedAt: timestamp("packed_at", { withTimezone: true }),
+    shippedAt: timestamp("shipped_at", { withTimezone: true }),
+    returnedAt: timestamp("returned_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("inventory_units_variant_idx").on(table.variantId),
+    index("inventory_units_status_idx").on(table.status),
+    index("inventory_units_order_idx").on(
+      table.allocatedOrderId,
+      table.allocatedOrderItemId,
+    ),
+  ],
+)
+
+/**
+ * Inventory unit identifiers - searchable unique identifiers such as serial,
+ * IMEI, or barcode.
+ */
+export const inventoryUnitIdentifiers = pgTable(
+  "inventory_unit_identifiers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    inventoryUnitId: uuid("inventory_unit_id")
+      .notNull()
+      .references(() => inventoryUnits.id, { onDelete: "cascade" }),
+    type: inventoryIdentifierTypeEnum("type").notNull(),
+    value: text("value").notNull(),
+    normalizedValue: text("normalized_value").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("inventory_unit_identifiers_value_idx").on(table.normalizedValue),
+    unique("inventory_unit_identifiers_unit_type_unique").on(
+      table.inventoryUnitId,
+      table.type,
+    ),
+    unique("inventory_unit_identifiers_type_value_unique").on(
+      table.type,
+      table.normalizedValue,
+    ),
+  ],
+)
+
+export const inventoryLevelsRelations = relations(
+  inventoryLevels,
   ({ one, many }) => ({
     variant: one(productVariants, {
-      fields: [inventoryItems.variantId],
+      fields: [inventoryLevels.variantId],
       references: [productVariants.id],
     }),
-    movements: many(inventoryMovements),
+    transactions: many(inventoryTransactions),
   }),
 )
 
-export const inventoryMovementsRelations = relations(
-  inventoryMovements,
+export const inventoryTransactionsRelations = relations(
+  inventoryTransactions,
   ({ one }) => ({
-    inventoryItem: one(inventoryItems, {
-      fields: [inventoryMovements.inventoryItemId],
-      references: [inventoryItems.id],
+    variant: one(productVariants, {
+      fields: [inventoryTransactions.variantId],
+      references: [productVariants.id],
+    }),
+    level: one(inventoryLevels, {
+      fields: [inventoryTransactions.inventoryLevelId],
+      references: [inventoryLevels.id],
     }),
     performedByUser: one(user, {
-      fields: [inventoryMovements.performedBy],
+      fields: [inventoryTransactions.performedBy],
       references: [user.id],
+    }),
+  }),
+)
+
+export const inventoryUnitsRelations = relations(
+  inventoryUnits,
+  ({ one, many }) => ({
+    variant: one(productVariants, {
+      fields: [inventoryUnits.variantId],
+      references: [productVariants.id],
+    }),
+    identifiers: many(inventoryUnitIdentifiers),
+  }),
+)
+
+export const inventoryUnitIdentifiersRelations = relations(
+  inventoryUnitIdentifiers,
+  ({ one }) => ({
+    unit: one(inventoryUnits, {
+      fields: [inventoryUnitIdentifiers.inventoryUnitId],
+      references: [inventoryUnits.id],
     }),
   }),
 )

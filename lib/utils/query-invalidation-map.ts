@@ -15,13 +15,17 @@ export type AdminMutationKey =
   | "review.moderate"
   | "review.bulkModerate"
   | "review.delete"
+  | "inventory.receive"
   | "inventory.adjust"
   | "inventory.updateThreshold"
   | "order.updateStatus"
   | "order.updateNotes"
   | "payment.verifyBankTransfer"
+  | "product.create"
   | "product.update"
+  | "product.publish"
   | "product.updateImages"
+  | "product.updateMedia"
   | "product.delete"
   | "settings.updateSite"
   | "profile.update"
@@ -39,6 +43,8 @@ export interface MutationInvalidationContext {
   customerId?: string
   modelId?: string
   orderId?: string
+  productId?: string
+  variantId?: string
 }
 
 function getInvalidationTargets(
@@ -89,9 +95,24 @@ function getInvalidationTargets(
         queryKeys.admin.reviewStats(),
       ]
 
+    case "inventory.receive":
     case "inventory.adjust":
     case "inventory.updateThreshold":
-      return [queryKeys.admin.inventory()]
+      return context.variantId
+        ? [
+            queryKeys.admin.inventoryRoot(),
+            queryKeys.admin.inventoryDetail(context.variantId),
+            queryKeys.admin.inventoryMovements(context.variantId),
+            ...(context.productId
+              ? [queryKeys.admin.productReceiveStock(context.productId)]
+              : []),
+          ]
+        : context.productId
+          ? [
+              queryKeys.admin.inventoryRoot(),
+              queryKeys.admin.productReceiveStock(context.productId),
+            ]
+          : [queryKeys.admin.inventoryRoot()]
 
     case "order.updateStatus":
       return context.orderId
@@ -117,10 +138,20 @@ function getInvalidationTargets(
             queryKeys.admin.orders(),
           ]
 
-    case "product.update":
-    case "product.updateImages":
-    case "product.delete":
+    case "product.create":
       return [queryKeys.admin.products()]
+
+    case "product.update":
+    case "product.publish":
+    case "product.updateImages":
+    case "product.updateMedia":
+    case "product.delete":
+      return context.productId
+        ? [
+            queryKeys.admin.products(),
+            queryKeys.admin.product(context.productId),
+          ]
+        : [queryKeys.admin.products()]
 
     case "settings.updateSite":
       return [queryKeys.admin.settings()]

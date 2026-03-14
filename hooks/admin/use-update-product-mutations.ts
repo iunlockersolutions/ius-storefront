@@ -2,54 +2,92 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 
+import type { AdminProductMutationPayload } from "@/lib/types/admin-product"
 import { invalidateMutationCaches } from "@/lib/utils/query-invalidation-map"
 
-type UpdateProductPayload = {
-  name: string
-  slug?: string
-  description?: string
-  shortDescription?: string
-  brandId?: string | null
-  primaryCategoryId?: string | null
-  modelId?: string | null
-  categoryIds: string[]
-  status: "draft" | "active" | "archived"
-  isFeatured: boolean
-  metaTitle?: string
-  metaDescription?: string
-  options: Array<{
-    name: string
-    values: string[]
-  }>
-  variants: Array<{
-    id?: string
-    sku?: string
-    name?: string
-    price: string
-    compareAtPrice?: string
-    costPrice?: string
-    weight?: string
-    quantity?: number
-    lowStockThreshold?: number
-    isDefault?: boolean
-    isActive?: boolean
-    optionValues: Record<string, string>
+type ProductMediaPayload = {
+  id?: string
+  assetId?: string
+  kind: "image" | "video"
+  provider?: "vercel_blob" | "external_url"
+  access: "public" | "private"
+  pathname: string
+  url: string
+  downloadUrl?: string | null
+  mimeType: string
+  byteSize: number
+  width?: number | null
+  height?: number | null
+  durationSeconds?: number | null
+  etag?: string | null
+  originalFilename: string
+  placeholderDataUrl?: string | null
+  altText?: string | null
+  variantAssignment?: {
+    mode: "all" | "specific"
+    variantIds: string[]
+  }
+  isPrimaryImage?: boolean
+  derivatives?: Array<{
+    kind: "blur" | "poster"
+    pathname: string
+    url: string
+    downloadUrl?: string | null
+    mimeType: string
+    byteSize?: number | null
+    width?: number | null
+    height?: number | null
   }>
 }
 
-type ProductImagePayload = {
-  id?: string
-  url: string
-  altText?: string
-  variantId?: string | null
-  isPrimary?: boolean
+async function readApiError(response: Response, fallback: string) {
+  const errorBody = await response.json().catch(() => null)
+  const detailsErrors = errorBody?.error?.details?.errors
+
+  if (Array.isArray(detailsErrors) && detailsErrors.length > 0) {
+    throw new Error(detailsErrors.join("\n"))
+  }
+
+  throw new Error(errorBody?.error?.message || errorBody?.error || fallback)
+}
+
+export function useCreateProductMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (payload: AdminProductMutationPayload) => {
+      const response = await fetch("/api/admin/products", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) {
+        await readApiError(response, "Failed to create product")
+      }
+
+      return response.json()
+    },
+    onSuccess: (result) => {
+      invalidateMutationCaches(queryClient, "product.create")
+
+      const productId = result?.data?.id as string | undefined
+      if (productId) {
+        invalidateMutationCaches(queryClient, "product.update", {
+          productId,
+        })
+      }
+    },
+  })
 }
 
 export function useUpdateProductMutation(productId: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (payload: UpdateProductPayload) => {
+    mutationFn: async (payload: AdminProductMutationPayload) => {
       const response = await fetch(`/api/admin/products/${productId}`, {
         method: "PATCH",
         headers: {
@@ -59,48 +97,65 @@ export function useUpdateProductMutation(productId: string) {
       })
 
       if (!response.ok) {
-        const errorBody = await response.json().catch(() => null)
-        const message =
-          errorBody?.error?.message ||
-          errorBody?.error ||
-          "Failed to update product"
-        throw new Error(message)
+        await readApiError(response, "Failed to update product")
       }
 
       return response.json()
     },
     onSuccess: () => {
-      invalidateMutationCaches(queryClient, "product.update")
+      invalidateMutationCaches(queryClient, "product.update", {
+        productId,
+      })
     },
   })
 }
 
-export function useUpdateProductImagesMutation(productId: string) {
+export function usePublishProductMutation(productId: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (images: ProductImagePayload[]) => {
-      const response = await fetch(`/api/admin/products/${productId}/images`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ images }),
+    mutationFn: async () => {
+      const response = await fetch(`/api/admin/products/${productId}/publish`, {
+        method: "POST",
       })
 
       if (!response.ok) {
-        const errorBody = await response.json().catch(() => null)
-        const message =
-          errorBody?.error?.message ||
-          errorBody?.error ||
-          "Failed to update product images"
-        throw new Error(message)
+        await readApiError(response, "Failed to publish product")
       }
 
       return response.json()
     },
     onSuccess: () => {
-      invalidateMutationCaches(queryClient, "product.updateImages")
+      invalidateMutationCaches(queryClient, "product.publish", {
+        productId,
+      })
+    },
+  })
+}
+
+export function useUpdateProductMediaMutation(productId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (media: ProductMediaPayload[]) => {
+      const response = await fetch(`/api/admin/products/${productId}/media`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ media }),
+      })
+
+      if (!response.ok) {
+        await readApiError(response, "Failed to update product media")
+      }
+
+      return response.json()
+    },
+    onSuccess: () => {
+      invalidateMutationCaches(queryClient, "product.updateMedia", {
+        productId,
+      })
     },
   })
 }

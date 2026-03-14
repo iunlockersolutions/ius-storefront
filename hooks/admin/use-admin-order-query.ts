@@ -2,77 +2,8 @@
 
 import { useQuery } from "@tanstack/react-query"
 
+import type { AdminOrder } from "@/lib/types/admin-order"
 import { queryKeys } from "@/lib/utils/query-keys"
-
-export interface AdminOrder {
-  id: string
-  orderNumber: string
-  status: string
-  subtotal: string
-  taxAmount: string
-  shippingCost: string
-  discountAmount: string
-  total: string
-  notes: string | null
-  adminNotes: string | null
-  customerEmail: string
-  customerPhone: string | null
-  customerName: string | null
-  shippingAddress: {
-    recipientName: string
-    phone: string
-    addressLine1: string
-    addressLine2?: string
-    city: string
-    state?: string
-    postalCode: string
-    country: string
-    instructions?: string
-  } | null
-  billingAddress: {
-    recipientName: string
-    phone: string
-    addressLine1: string
-    addressLine2?: string
-    city: string
-    state?: string
-    postalCode: string
-    country: string
-  } | null
-  createdAt: string | Date
-  updatedAt: string | Date
-  customer: {
-    id: string | null
-    name: string | null
-    email: string | null
-  } | null
-  items: Array<{
-    id: string
-    quantity: number
-    unitPrice: string
-    subtotal: string
-    productName: string
-    variantName: string
-    sku: string
-    variant: {
-      id: string | null
-      name: string | null
-      sku: string | null
-    } | null
-  }>
-  statusHistory: Array<{
-    id: string
-    fromStatus: string | null
-    toStatus: string
-    notes: string | null
-    createdAt: string | Date
-    changedBy: {
-      id: string | null
-      name: string | null
-      email: string | null
-    } | null
-  }>
-}
 
 export function useAdminOrderQuery(orderId: string) {
   return useQuery({

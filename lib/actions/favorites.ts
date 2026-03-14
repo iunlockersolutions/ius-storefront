@@ -6,12 +6,8 @@ import { and, desc, eq } from "drizzle-orm"
 
 import { getServerSession } from "@/lib/auth/rbac"
 import { db } from "@/lib/db"
-import {
-  favorites,
-  productImages,
-  products,
-  productVariants,
-} from "@/lib/db/schema"
+import { favorites, products, productVariants } from "@/lib/db/schema"
+import { getPrimaryProductImageMap } from "@/lib/media/service"
 
 import { addToCart } from "./cart"
 import { withStorefrontCatalogFallback } from "./storefront-catalog-read"
@@ -54,21 +50,10 @@ export async function getUserFavorites() {
       const imageMap = await withStorefrontCatalogFallback(
         "favorites:getUserFavorites:images",
         new Map<string, string>(),
-        async () => {
-          const productIds = userFavorites.map((favorite) => favorite.productId)
-          const images =
-            productIds.length > 0
-              ? await db
-                  .select({
-                    productId: productImages.productId,
-                    url: productImages.url,
-                  })
-                  .from(productImages)
-                  .where(and(eq(productImages.isPrimary, true)))
-              : []
-
-          return new Map(images.map((image) => [image.productId, image.url]))
-        },
+        () =>
+          getPrimaryProductImageMap(
+            userFavorites.map((favorite) => favorite.productId),
+          ),
       )
 
       return userFavorites.map((favorite) => ({

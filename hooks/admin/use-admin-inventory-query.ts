@@ -2,67 +2,22 @@
 
 import { useQuery } from "@tanstack/react-query"
 
+import type {
+  AdminInventoryListResponse,
+  AdminInventorySortField,
+  AdminInventorySortOrder,
+} from "@/lib/types/admin-inventory"
 import { queryKeys } from "@/lib/utils/query-keys"
 
 type StockStatus = "all" | "low" | "out" | "normal"
-
-interface InventoryItem {
-  id: string
-  variantId: string
-  quantity: number
-  reservedQuantity: number
-  lowStockThreshold: number | null
-  availableQuantity: number
-  isLowStock: boolean
-  isOutOfStock: boolean
-  variantName: string
-  variantSku: string
-  variantPrice: string
-  productId: string
-  productName: string
-  productSlug: string
-}
-
-interface InventoryStats {
-  totalItems: number
-  lowStockItems: number
-  outOfStockItems: number
-  totalReserved: number
-}
-
-interface LowStockAlert {
-  id: string
-  variantId: string
-  quantity: number
-  reservedQuantity: number
-  lowStockThreshold: number | null
-  availableQuantity: number
-  isOutOfStock: boolean
-  variantName: string
-  variantSku: string
-  productName: string
-  productSlug: string
-}
-
-interface InventoryResponse {
-  stats: InventoryStats
-  inventory: {
-    items: InventoryItem[]
-    pagination: {
-      page: number
-      limit: number
-      total: number
-      totalPages: number
-    }
-  }
-  lowStockAlerts: LowStockAlert[]
-}
 
 interface InventoryParams {
   page?: number
   limit?: number
   search?: string
   status?: StockStatus
+  sortBy?: AdminInventorySortField
+  sortOrder?: AdminInventorySortOrder
 }
 
 function buildUrl(params?: InventoryParams) {
@@ -72,6 +27,8 @@ function buildUrl(params?: InventoryParams) {
   if (params?.limit) searchParams.set("limit", String(params.limit))
   if (params?.search) searchParams.set("search", params.search)
   if (params?.status) searchParams.set("status", params.status)
+  if (params?.sortBy) searchParams.set("sortBy", params.sortBy)
+  if (params?.sortOrder) searchParams.set("sortOrder", params.sortOrder)
 
   const query = searchParams.toString()
   return query ? `/api/admin/inventory?${query}` : "/api/admin/inventory"
@@ -80,7 +37,7 @@ function buildUrl(params?: InventoryParams) {
 export function useAdminInventoryQuery(params?: InventoryParams) {
   return useQuery({
     queryKey: queryKeys.admin.inventory(params),
-    queryFn: async (): Promise<InventoryResponse> => {
+    queryFn: async (): Promise<AdminInventoryListResponse> => {
       const response = await fetch(buildUrl(params))
 
       if (!response.ok) {
@@ -93,7 +50,7 @@ export function useAdminInventoryQuery(params?: InventoryParams) {
       }
 
       const body = await response.json()
-      return body.data as InventoryResponse
+      return body.data as AdminInventoryListResponse
     },
     staleTime: 60_000,
   })

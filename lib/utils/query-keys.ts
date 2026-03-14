@@ -1,5 +1,6 @@
 export const queryKeys = {
   admin: {
+    inventoryRoot: () => ["admin", "inventory"] as const,
     brands: () => ["admin", "brands"] as const,
     brand: (id: string) => ["admin", "brands", id] as const,
     products: (params?: {
@@ -9,6 +10,7 @@ export const queryKeys = {
       status?: string
       categoryId?: string
     }) => ["admin", "products", params ?? {}] as const,
+    product: (id: string) => ["admin", "products", id] as const,
     orders: (params?: {
       page?: number
       limit?: number
@@ -49,7 +51,27 @@ export const queryKeys = {
       limit?: number
       search?: string
       status?: "all" | "low" | "out" | "normal"
-    }) => ["admin", "inventory", params ?? {}] as const,
+    }) => ["admin", "inventory", "list", params ?? {}] as const,
+    inventoryDetail: (id: string) =>
+      ["admin", "inventory", "detail", id] as const,
+    inventoryUnits: (
+      id: string,
+      params?: {
+        page?: number
+        limit?: number
+        search?: string
+        status?: string
+        identifierType?: string
+        sortBy?: string
+        sortOrder?: string
+      },
+    ) => ["admin", "inventory", "units", id, params ?? {}] as const,
+    productReceiveStock: (productId: string) =>
+      ["admin", "inventory", "product-receive-stock", productId] as const,
+    inventoryMovements: (
+      id: string,
+      params?: { page?: number; limit?: number },
+    ) => ["admin", "inventory", "movements", id, params ?? {}] as const,
     categories: () => ["admin", "categories"] as const,
     category: (id: string) => ["admin", "categories", id] as const,
     models: () => ["admin", "models"] as const,

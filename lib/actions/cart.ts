@@ -7,15 +7,14 @@ import { headers } from "next/headers"
 import { and, eq, sql } from "drizzle-orm"
 import { nanoid } from "nanoid"
 
+import { getVariantInventoryAvailabilityMap } from "@/lib/actions/inventory"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
+import { cartItems, carts, products, productVariants } from "@/lib/db/schema"
 import {
-  cartItems,
-  carts,
-  inventoryItems,
-  products,
-  productVariants,
-} from "@/lib/db/schema"
+  getPrimaryProductImageMap,
+  getVariantSpecificProductImageMap,
+} from "@/lib/media/service"
 
 const CART_SESSION_COOKIE = "cart_session_id"
 const CART_SESSION_EXPIRY = 30 * 24 * 60 * 60 * 1000 // 30 days
@@ -107,33 +106,43 @@ export async function getCart() {
         slug: products.slug,
         status: products.status,
       },
-      inventory: {
-        quantity: inventoryItems.quantity,
-      },
     })
     .from(cartItems)
     .innerJoin(productVariants, eq(cartItems.variantId, productVariants.id))
     .innerJoin(products, eq(productVariants.productId, products.id))
-    .leftJoin(inventoryItems, eq(inventoryItems.variantId, productVariants.id))
     .where(eq(cartItems.cartId, cart.id))
 
-  // Get primary image for each product
-  const itemsWithImages = await Promise.all(
-    items.map(async (item) => {
-      const [image] = await db
-        .select({ url: sql<string>`url` })
-        .from(sql`product_images`)
-        .where(
-          and(eq(sql`product_id`, item.product.id), eq(sql`is_primary`, true)),
-        )
-        .limit(1)
-
-      return {
-        ...item,
-        image: image?.url || null,
-      }
-    }),
+  const availabilityByVariant = await getVariantInventoryAvailabilityMap(
+    items.map((item) => item.variant.id),
   )
+
+  const imageMap = await getPrimaryProductImageMap(
+    items.map((item) => item.product.id),
+  )
+  const variantImageMap = await getVariantSpecificProductImageMap(
+    items.map((item) => item.variant.id),
+  )
+
+  const itemsWithImages = items.map((item) => ({
+    ...item,
+    inventory: availabilityByVariant.get(item.variant.id)
+      ? {
+          availableQuantity:
+            availabilityByVariant.get(item.variant.id)?.availableQuantity ??
+            null,
+          lowStockThreshold:
+            availabilityByVariant.get(item.variant.id)?.lowStockThreshold ??
+            null,
+          manageInventory:
+            availabilityByVariant.get(item.variant.id)?.manageInventory ??
+            false,
+        }
+      : null,
+    image:
+      variantImageMap.get(item.variant.id) ||
+      imageMap.get(item.product.id) ||
+      null,
+  }))
 
   // Calculate totals
   const subtotal = itemsWithImages.reduce((sum, item) => {
@@ -166,6 +175,7 @@ export async function addToCart(variantId: string, quantity: number = 1) {
         id: productVariants.id,
         price: productVariants.price,
         isActive: productVariants.isActive,
+        manageInventory: productVariants.manageInventory,
         product: {
           id: products.id,
           status: products.status,
@@ -184,14 +194,9 @@ export async function addToCart(variantId: string, quantity: number = 1) {
       return { success: false as const, error: "Product is not available" }
     }
 
-    // Check stock
-    const [inventory] = await db
-      .select({ quantity: inventoryItems.quantity })
-      .from(inventoryItems)
-      .where(eq(inventoryItems.variantId, variantId))
-      .limit(1)
-
-    const availableStock = inventory?.quantity || 0
+    const availability = await getVariantInventoryAvailabilityMap([variantId])
+    const inventory = availability.get(variantId)
+    const availableStock = inventory?.availableQuantity ?? 0
 
     // Check existing cart item
     const [existingItem] = await db
@@ -205,7 +210,7 @@ export async function addToCart(variantId: string, quantity: number = 1) {
     const currentQuantity = existingItem?.quantity || 0
     const newQuantity = currentQuantity + quantity
 
-    if (newQuantity > availableStock) {
+    if (variant.manageInventory && newQuantity > availableStock) {
       return {
         success: false as const,
         error: `Only ${availableStock} items available in stock`,
@@ -266,15 +271,14 @@ export async function updateCartItemQuantity(itemId: string, quantity: number) {
       await db.delete(cartItems).where(eq(cartItems.id, itemId))
     } else {
       // Check stock
-      const [inventory] = await db
-        .select({ quantity: inventoryItems.quantity })
-        .from(inventoryItems)
-        .where(eq(inventoryItems.variantId, item.variantId))
-        .limit(1)
+      const availability = await getVariantInventoryAvailabilityMap([
+        item.variantId,
+      ])
+      const inventory = availability.get(item.variantId)
+      const availableStock = inventory?.availableQuantity ?? 0
+      const manageInventory = inventory?.manageInventory ?? false
 
-      const availableStock = inventory?.quantity || 0
-
-      if (quantity > availableStock) {
+      if (manageInventory && quantity > availableStock) {
         return {
           success: false as const,
           error: `Only ${availableStock} items available in stock`,

@@ -39,7 +39,9 @@ export function EditBrandPageClient({ brandId }: EditBrandPageClientProps) {
           brandQuery.error ?? categoriesQuery.error,
           "Failed to load brand",
         )}
-        onRetry={() => Promise.all([brandQuery.refetch(), categoriesQuery.refetch()])}
+        onRetry={() =>
+          Promise.all([brandQuery.refetch(), categoriesQuery.refetch()])
+        }
         backHref="/ops/catalog-setup?tab=brands"
         backLabel="Back to Brands"
       />

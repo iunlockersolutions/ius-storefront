@@ -2,14 +2,11 @@ import { notFound } from "next/navigation"
 
 import { eq } from "drizzle-orm"
 
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { getServerSession, normalizeUserRoles } from "@/lib/auth/rbac"
 import { db } from "@/lib/db"
 import { user } from "@/lib/db/schema/auth"
 
-import AppHeader from "./_components/app-header"
-import AppSidebar from "./_components/app-sidebar"
-import OpsRouteGuard from "./_components/ops-route-guard"
+import OpsShell from "./_components/ops-shell"
 
 export default async function AdminLayout({
   children,
@@ -40,25 +37,16 @@ export default async function AdminLayout({
   }
 
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
-        <OpsRouteGuard
-          mustChangePassword={Boolean(currentUser.mustChangePassword)}
-        >
-          <AppHeader
-            user={{
-              id: session.user.id,
-              email: session.user.email,
-              name: session.user.name,
-              image: session.user.image,
-            }}
-          />
-          <main className="flex-1 overflow-y-auto bg-neutral-50 p-6 dark:bg-neutral-900">
-            {children}
-          </main>
-        </OpsRouteGuard>
-      </SidebarInset>
-    </SidebarProvider>
+    <OpsShell
+      mustChangePassword={Boolean(currentUser.mustChangePassword)}
+      user={{
+        id: session.user.id,
+        email: session.user.email,
+        name: session.user.name,
+        image: session.user.image,
+      }}
+    >
+      {children}
+    </OpsShell>
   )
 }

@@ -7,12 +7,8 @@ import { z } from "zod"
 
 import { getServerSession, requireAuth } from "@/lib/auth/rbac"
 import { db } from "@/lib/db"
-import {
-  productImages,
-  products,
-  reviewHelpfulVotes,
-  reviews,
-} from "@/lib/db/schema"
+import { products, reviewHelpfulVotes, reviews } from "@/lib/db/schema"
+import { getPrimaryProductImageMap } from "@/lib/media/service"
 
 // ============================================
 // Get User's Reviews
@@ -52,23 +48,7 @@ export async function getUserReviews(page: number = 1, limit: number = 10) {
 
   // Get product images
   const productIds = userReviews.map((r) => r.productId)
-  const images =
-    productIds.length > 0
-      ? await db
-          .select({
-            productId: productImages.productId,
-            url: productImages.url,
-          })
-          .from(productImages)
-          .where(
-            and(
-              inArray(productImages.productId, productIds),
-              eq(productImages.isPrimary, true),
-            ),
-          )
-      : []
-
-  const imageMap = new Map(images.map((i) => [i.productId, i.url]))
+  const imageMap = await getPrimaryProductImageMap(productIds)
 
   // Get total count
   const [{ total }] = await db

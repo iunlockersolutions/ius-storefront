@@ -53,7 +53,9 @@ interface CartItem {
     status: string
   }
   inventory: {
-    quantity: number
+    availableQuantity: number | null
+    lowStockThreshold: number | null
+    manageInventory: boolean
   } | null
   image: string | null
 }
@@ -76,9 +78,16 @@ function CartItemRow({ item }: { item: CartItem }) {
 
   const price = parseFloat(item.variant.price)
   const subtotal = price * quantity
-  const maxQuantity = item.inventory?.quantity || 0
-  const isOutOfStock = maxQuantity === 0
-  const isLowStock = maxQuantity > 0 && maxQuantity <= 5
+  const maxQuantity = item.inventory?.manageInventory
+    ? (item.inventory.availableQuantity ?? 0)
+    : 99
+  const isOutOfStock = item.inventory?.manageInventory
+    ? maxQuantity === 0
+    : false
+  const isLowStock =
+    item.inventory?.manageInventory && maxQuantity > 0
+      ? maxQuantity <= (item.inventory.lowStockThreshold ?? 5)
+      : false
   const priceChanged = item.priceAtAdd !== item.variant.price
 
   const handleQuantityChange = (newQuantity: number) => {
