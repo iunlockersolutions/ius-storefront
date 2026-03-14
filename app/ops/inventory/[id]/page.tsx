@@ -1,6 +1,8 @@
+import { Suspense } from "react"
 import { redirect } from "next/navigation"
 
 import { InventoryDetailPageClient } from "@/components/admin/inventory/inventory-detail-page-client"
+import { AdminQueryLoadingState } from "@/components/admin/query-state"
 import { requireStaff } from "@/lib/auth/rbac"
 
 interface PageProps {
@@ -23,5 +25,11 @@ export default async function InventoryDetailPage({
   const initialTab =
     tab === "receipts" || tab === "transactions" ? tab : "overview"
 
-  return <InventoryDetailPageClient variantId={id} initialTab={initialTab} />
+  return (
+    <Suspense
+      fallback={<AdminQueryLoadingState skeletonClassName="h-[34rem] w-full" />}
+    >
+      <InventoryDetailPageClient variantId={id} initialTab={initialTab} />
+    </Suspense>
+  )
 }

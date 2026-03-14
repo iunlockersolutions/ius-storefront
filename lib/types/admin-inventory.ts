@@ -46,6 +46,16 @@ export type AdminInventoryIdentifierType =
   | "imei2"
   | "barcode"
 
+export type AdminInventoryUnitIdentifierFilter =
+  | "all"
+  | AdminInventoryIdentifierType
+
+export type AdminInventoryUnitSortField =
+  | "identifier"
+  | "status"
+  | "received"
+  | "updated"
+
 export interface AdminInventoryStats {
   totalTrackedVariants: number
   quantityTrackedVariants: number
@@ -102,6 +112,7 @@ export interface AdminInventoryUnit {
   notes: string | null
   receivedAt: string | Date
   updatedAt: string | Date
+  primaryIdentifier: AdminInventoryIdentifier | null
   identifiers: AdminInventoryIdentifier[]
 }
 
@@ -141,8 +152,17 @@ export interface AdminInventoryDetail {
     serializedUnitCount: number
     availableUnitCount: number
   }
-  units: AdminInventoryUnit[]
   transactions: AdminInventoryTransaction[]
+}
+
+export interface AdminInventoryUnitsResponse {
+  units: AdminInventoryUnit[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
 }
 
 export interface AdminProductReceiveStockVariant {

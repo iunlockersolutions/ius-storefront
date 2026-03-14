@@ -54,6 +54,18 @@ export const queryKeys = {
     }) => ["admin", "inventory", "list", params ?? {}] as const,
     inventoryDetail: (id: string) =>
       ["admin", "inventory", "detail", id] as const,
+    inventoryUnits: (
+      id: string,
+      params?: {
+        page?: number
+        limit?: number
+        search?: string
+        status?: string
+        identifierType?: string
+        sortBy?: string
+        sortOrder?: string
+      },
+    ) => ["admin", "inventory", "units", id, params ?? {}] as const,
     productReceiveStock: (productId: string) =>
       ["admin", "inventory", "product-receive-stock", productId] as const,
     inventoryMovements: (

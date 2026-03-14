@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation"
 
 import { ArrowLeft, RefreshCw, ScanBarcode } from "lucide-react"
 
+import { InventoryOverviewTab } from "@/components/admin/inventory/inventory-overview-tab"
 import { InventoryReceiptSessionCard } from "@/components/admin/inventory/inventory-receipt-session-card"
 import {
   AdminQueryErrorState,
@@ -66,7 +67,7 @@ export function InventoryDetailPageClient({
     })
   }
 
-  if (detailQuery.isLoading || detailQuery.isFetching) {
+  if (detailQuery.isLoading && !detailQuery.data) {
     return <AdminQueryLoadingState skeletonClassName="h-[34rem] w-full" />
   }
 
@@ -108,14 +109,19 @@ export function InventoryDetailPageClient({
           </Button>
           <div>
             <h1 className="text-3xl font-bold">{detail.productName}</h1>
+            <p className="text-lg text-foreground">{detail.variantName}</p>
             <p className="text-muted-foreground">
-              {detail.variantName} • {detail.variantSku}
+              SKU {detail.variantSku} ·{" "}
+              {detail.trackingMode === "serial"
+                ? "Each physical unit is tracked individually, so staff can search by identifier and follow device-level history."
+                : "Stock is tracked by quantity, so the overview focuses on counts, reservations, and replenishment signals."}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Badge variant="outline" className="capitalize">
               {detail.trackingMode}
             </Badge>
+            <Badge variant="outline">{detail.variantSku}</Badge>
             <Badge variant="secondary">
               Available {detail.stats.availableQuantity}
             </Badge>
@@ -129,8 +135,14 @@ export function InventoryDetailPageClient({
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => void detailQuery.refetch()}>
-            <RefreshCw className="mr-2 h-4 w-4" />
+          <Button
+            variant="outline"
+            onClick={() => void detailQuery.refetch()}
+            disabled={detailQuery.isFetching}
+          >
+            <RefreshCw
+              className={`mr-2 h-4 w-4 ${detailQuery.isFetching ? "animate-spin" : ""}`}
+            />
             Refresh
           </Button>
           <Button asChild>
@@ -153,116 +165,8 @@ export function InventoryDetailPageClient({
           <TabsTrigger value="transactions">Transactions</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview" className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            <Card>
-              <CardContent className="p-6">
-                <p className="text-sm text-muted-foreground">On Hand</p>
-                <p className="text-3xl font-semibold">
-                  {detail.stats.onHandQuantity}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6">
-                <p className="text-sm text-muted-foreground">Available</p>
-                <p className="text-3xl font-semibold">
-                  {detail.stats.availableQuantity}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6">
-                <p className="text-sm text-muted-foreground">Reserved</p>
-                <p className="text-3xl font-semibold">
-                  {detail.stats.reservedQuantity}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6">
-                <p className="text-sm text-muted-foreground">Allocated</p>
-                <p className="text-3xl font-semibold">
-                  {detail.stats.allocatedQuantity}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6">
-                <p className="text-sm text-muted-foreground">Threshold</p>
-                <p className="text-3xl font-semibold">
-                  {detail.stats.lowStockThreshold}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {detail.trackingMode === "serial" ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Serialized Units</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Identifiers</TableHead>
-                        <TableHead>Received</TableHead>
-                        <TableHead>Updated</TableHead>
-                        <TableHead>Notes</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {detail.units.length === 0 ? (
-                        <TableRow>
-                          <TableCell
-                            colSpan={5}
-                            className="py-8 text-center text-muted-foreground"
-                          >
-                            No serialized units have been received yet.
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        detail.units.map((unit) => (
-                          <TableRow key={unit.id}>
-                            <TableCell>
-                              <Badge variant="outline" className="capitalize">
-                                {unit.status}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex flex-wrap gap-2">
-                                {unit.identifiers.map((identifier) => (
-                                  <Badge
-                                    key={identifier.id}
-                                    variant="secondary"
-                                  >
-                                    {identifier.type.toUpperCase()}:{" "}
-                                    {identifier.value}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {formatDate(unit.receivedAt)}
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {formatDate(unit.updatedAt)}
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {unit.notes || "—"}
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-          ) : null}
+        <TabsContent value="overview">
+          <InventoryOverviewTab detail={detail} />
         </TabsContent>
 
         <TabsContent value="receipts" className="space-y-6">

@@ -1,6 +1,6 @@
 "use server"
 
-import { and, asc, desc, eq, ilike, inArray, or } from "drizzle-orm"
+import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm"
 import { z } from "zod"
 
 import { getServerSession } from "@/lib/auth/rbac"
@@ -31,6 +31,10 @@ import type {
   AdminInventoryStats,
   AdminInventoryTrackingMode,
   AdminInventoryTransactionType,
+  AdminInventoryUnit,
+  AdminInventoryUnitIdentifierFilter,
+  AdminInventoryUnitSortField,
+  AdminInventoryUnitsResponse,
   AdminInventoryUnitStatus,
   AdminProductReceiveStockContext,
 } from "@/lib/types/admin-inventory"
@@ -62,6 +66,34 @@ const inventoryListInputSchema = z.object({
       "status",
       "updated",
     ])
+    .default("updated"),
+  sortOrder: z.enum(["asc", "desc"]).default("desc"),
+})
+
+const inventoryUnitsInputSchema = z.object({
+  variantId: z.string().uuid(),
+  page: z.number().int().positive().default(1),
+  limit: z.number().int().positive().max(100).default(10),
+  search: z.string().trim().default(""),
+  status: z
+    .enum([
+      "all",
+      "received",
+      "available",
+      "reserved",
+      "allocated",
+      "packed",
+      "shipped",
+      "returned",
+      "damaged",
+      "lost",
+    ])
+    .default("all"),
+  identifierType: z
+    .enum(["all", "serial", "imei", "imei2", "barcode"])
+    .default("all"),
+  sortBy: z
+    .enum(["identifier", "status", "received", "updated"])
     .default("updated"),
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
 })
@@ -810,60 +842,67 @@ export async function getInventoryDetail(
   const variant = await getVariantContext(db, variantId)
   ensureManagedInventory(variant)
 
-  const [levelRows, transactions, units] = await Promise.all([
-    db
-      .select({
-        id: inventoryLevels.id,
-        variantId: inventoryLevels.variantId,
-        onHandQuantity: inventoryLevels.onHandQuantity,
-        availableQuantity: inventoryLevels.availableQuantity,
-        reservedQuantity: inventoryLevels.reservedQuantity,
-        allocatedQuantity: inventoryLevels.allocatedQuantity,
-        lowStockThreshold: inventoryLevels.lowStockThreshold,
-        updatedAt: inventoryLevels.updatedAt,
-      })
-      .from(inventoryLevels)
-      .where(eq(inventoryLevels.variantId, variantId))
-      .limit(1),
-    db
-      .select({
-        id: inventoryTransactions.id,
-        type: inventoryTransactions.type,
-        quantityDelta: inventoryTransactions.quantityDelta,
-        beforeOnHandQuantity: inventoryTransactions.beforeOnHandQuantity,
-        afterOnHandQuantity: inventoryTransactions.afterOnHandQuantity,
-        beforeReservedQuantity: inventoryTransactions.beforeReservedQuantity,
-        afterReservedQuantity: inventoryTransactions.afterReservedQuantity,
-        beforeAllocatedQuantity: inventoryTransactions.beforeAllocatedQuantity,
-        afterAllocatedQuantity: inventoryTransactions.afterAllocatedQuantity,
-        referenceType: inventoryTransactions.referenceType,
-        referenceId: inventoryTransactions.referenceId,
-        notes: inventoryTransactions.notes,
-        createdAt: inventoryTransactions.createdAt,
-        performedByName: user.name,
-      })
-      .from(inventoryTransactions)
-      .leftJoin(user, eq(inventoryTransactions.performedBy, user.id))
-      .where(eq(inventoryTransactions.variantId, variantId))
-      .orderBy(desc(inventoryTransactions.createdAt))
-      .limit(50),
-    db.query.inventoryUnits.findMany({
-      where: eq(inventoryUnits.variantId, variantId),
-      with: {
-        identifiers: true,
-      },
-      orderBy: [desc(inventoryUnits.updatedAt)],
-    }),
-  ])
+  const [levelRows, transactions, totalUnitsResult, availableUnitsResult] =
+    await Promise.all([
+      db
+        .select({
+          id: inventoryLevels.id,
+          variantId: inventoryLevels.variantId,
+          onHandQuantity: inventoryLevels.onHandQuantity,
+          availableQuantity: inventoryLevels.availableQuantity,
+          reservedQuantity: inventoryLevels.reservedQuantity,
+          allocatedQuantity: inventoryLevels.allocatedQuantity,
+          lowStockThreshold: inventoryLevels.lowStockThreshold,
+          updatedAt: inventoryLevels.updatedAt,
+        })
+        .from(inventoryLevels)
+        .where(eq(inventoryLevels.variantId, variantId))
+        .limit(1),
+      db
+        .select({
+          id: inventoryTransactions.id,
+          type: inventoryTransactions.type,
+          quantityDelta: inventoryTransactions.quantityDelta,
+          beforeOnHandQuantity: inventoryTransactions.beforeOnHandQuantity,
+          afterOnHandQuantity: inventoryTransactions.afterOnHandQuantity,
+          beforeReservedQuantity: inventoryTransactions.beforeReservedQuantity,
+          afterReservedQuantity: inventoryTransactions.afterReservedQuantity,
+          beforeAllocatedQuantity:
+            inventoryTransactions.beforeAllocatedQuantity,
+          afterAllocatedQuantity: inventoryTransactions.afterAllocatedQuantity,
+          referenceType: inventoryTransactions.referenceType,
+          referenceId: inventoryTransactions.referenceId,
+          notes: inventoryTransactions.notes,
+          createdAt: inventoryTransactions.createdAt,
+          performedByName: user.name,
+        })
+        .from(inventoryTransactions)
+        .leftJoin(user, eq(inventoryTransactions.performedBy, user.id))
+        .where(eq(inventoryTransactions.variantId, variantId))
+        .orderBy(desc(inventoryTransactions.createdAt))
+        .limit(50),
+      db
+        .select({ count: count() })
+        .from(inventoryUnits)
+        .where(eq(inventoryUnits.variantId, variantId)),
+      db
+        .select({ count: count() })
+        .from(inventoryUnits)
+        .where(
+          and(
+            eq(inventoryUnits.variantId, variantId),
+            inArray(inventoryUnits.status, [
+              "available",
+              "received",
+              "returned",
+            ]),
+          ),
+        ),
+    ])
 
   const listItem = buildInventoryListItem(variant, levelRows[0])
-  const serializedUnitCount = units.length
-  const availableUnitCount = units.filter(
-    (unit) =>
-      unit.status === "available" ||
-      unit.status === "received" ||
-      unit.status === "returned",
-  ).length
+  const serializedUnitCount = totalUnitsResult[0]?.count ?? 0
+  const availableUnitCount = availableUnitsResult[0]?.count ?? 0
 
   return {
     variantId: variant.variantId,
@@ -884,22 +923,232 @@ export async function getInventoryDetail(
       serializedUnitCount,
       availableUnitCount,
     },
-    units: units.map((unit) => ({
-      id: unit.id,
-      status: unit.status,
-      notes: unit.notes,
-      receivedAt: unit.receivedAt,
-      updatedAt: unit.updatedAt,
-      identifiers: unit.identifiers.map((identifier) => ({
-        id: identifier.id,
-        type: identifier.type,
-        value: identifier.value,
-      })),
-    })),
     transactions: transactions.map((transaction) => ({
       ...transaction,
       performedByName: transaction.performedByName,
     })),
+  }
+}
+
+function resolvePrimaryIdentifierType(
+  receiptIdentifierTypes: AdminInventoryIdentifierType[],
+) {
+  return receiptIdentifierTypes[0] ?? "serial"
+}
+
+function mapInventoryUnit(
+  unit: Omit<AdminInventoryUnit, "primaryIdentifier">,
+  primaryIdentifierType: AdminInventoryIdentifierType,
+): AdminInventoryUnit {
+  const primaryIdentifier =
+    unit.identifiers.find(
+      (identifier) => identifier.type === primaryIdentifierType,
+    ) ??
+    unit.identifiers[0] ??
+    null
+
+  return {
+    ...unit,
+    primaryIdentifier,
+  }
+}
+
+export async function getInventoryUnits(input: {
+  variantId: string
+  page: number
+  limit?: number
+  search?: string
+  status?: AdminInventoryUnitStatus | "all"
+  identifierType?: AdminInventoryUnitIdentifierFilter
+  sortBy?: AdminInventoryUnitSortField
+  sortOrder?: AdminInventorySortOrder
+}): Promise<AdminInventoryUnitsResponse> {
+  const parsed = inventoryUnitsInputSchema.parse({
+    variantId: input.variantId,
+    page: input.page,
+    limit: input.limit ?? 10,
+    search: input.search ?? "",
+    status: input.status ?? "all",
+    identifierType: input.identifierType ?? "all",
+    sortBy: input.sortBy ?? "updated",
+    sortOrder: input.sortOrder ?? "desc",
+  })
+
+  const variant = await getVariantContext(db, parsed.variantId)
+  ensureManagedInventory(variant)
+
+  if (variant.trackingMode !== "serial") {
+    return {
+      units: [],
+      pagination: {
+        page: 1,
+        limit: parsed.limit,
+        total: 0,
+        totalPages: 1,
+      },
+    }
+  }
+
+  const primaryIdentifierType = resolvePrimaryIdentifierType(
+    variant.receiptIdentifierTypes,
+  )
+  const offset = (parsed.page - 1) * parsed.limit
+  const searchValue = parsed.search.trim()
+  const normalizedSearchValue = normalizeIdentifierValue(searchValue)
+  const searchPattern = `%${searchValue}%`
+  const normalizedSearchPattern = `%${normalizedSearchValue}%`
+
+  const conditions = [eq(inventoryUnits.variantId, parsed.variantId)]
+
+  if (parsed.status !== "all") {
+    conditions.push(eq(inventoryUnits.status, parsed.status))
+  }
+
+  if (parsed.identifierType !== "all") {
+    conditions.push(
+      sql`exists (
+        select 1
+        from ${inventoryUnitIdentifiers}
+        where ${inventoryUnitIdentifiers.inventoryUnitId} = ${inventoryUnits.id}
+          and ${inventoryUnitIdentifiers.type} = ${parsed.identifierType}
+      )`,
+    )
+  }
+
+  if (searchValue) {
+    const identifierSearch =
+      parsed.identifierType === "all"
+        ? sql`exists (
+            select 1
+            from ${inventoryUnitIdentifiers}
+            where ${inventoryUnitIdentifiers.inventoryUnitId} = ${inventoryUnits.id}
+              and ${inventoryUnitIdentifiers.normalizedValue} ilike ${normalizedSearchPattern}
+          )`
+        : sql`exists (
+            select 1
+            from ${inventoryUnitIdentifiers}
+            where ${inventoryUnitIdentifiers.inventoryUnitId} = ${inventoryUnits.id}
+              and ${inventoryUnitIdentifiers.type} = ${parsed.identifierType}
+              and ${inventoryUnitIdentifiers.normalizedValue} ilike ${normalizedSearchPattern}
+          )`
+
+    conditions.push(
+      or(ilike(inventoryUnits.notes, searchPattern), identifierSearch)!,
+    )
+  }
+
+  const whereClause = and(...conditions)
+  const primaryIdentifierSortValue = sql<string | null>`(
+    select ${inventoryUnitIdentifiers.normalizedValue}
+    from ${inventoryUnitIdentifiers}
+    where ${inventoryUnitIdentifiers.inventoryUnitId} = ${inventoryUnits.id}
+      and ${inventoryUnitIdentifiers.type} = ${primaryIdentifierType}
+    limit 1
+  )`
+
+  const orderByClause =
+    parsed.sortBy === "identifier"
+      ? [
+          parsed.sortOrder === "asc"
+            ? asc(primaryIdentifierSortValue)
+            : desc(primaryIdentifierSortValue),
+          desc(inventoryUnits.updatedAt),
+        ]
+      : parsed.sortBy === "status"
+        ? [
+            parsed.sortOrder === "asc"
+              ? asc(inventoryUnits.status)
+              : desc(inventoryUnits.status),
+            desc(inventoryUnits.updatedAt),
+          ]
+        : parsed.sortBy === "received"
+          ? [
+              parsed.sortOrder === "asc"
+                ? asc(inventoryUnits.receivedAt)
+                : desc(inventoryUnits.receivedAt),
+              desc(inventoryUnits.updatedAt),
+            ]
+          : [
+              parsed.sortOrder === "asc"
+                ? asc(inventoryUnits.updatedAt)
+                : desc(inventoryUnits.updatedAt),
+            ]
+
+  const [totalRows, unitsPage] = await Promise.all([
+    db.select({ count: count() }).from(inventoryUnits).where(whereClause),
+    db
+      .select({
+        id: inventoryUnits.id,
+        status: inventoryUnits.status,
+        notes: inventoryUnits.notes,
+        receivedAt: inventoryUnits.receivedAt,
+        updatedAt: inventoryUnits.updatedAt,
+      })
+      .from(inventoryUnits)
+      .where(whereClause)
+      .orderBy(...orderByClause)
+      .limit(parsed.limit)
+      .offset(offset),
+  ])
+
+  const unitIds = unitsPage.map((unit) => unit.id)
+  const identifiers =
+    unitIds.length === 0
+      ? []
+      : await db
+          .select({
+            id: inventoryUnitIdentifiers.id,
+            inventoryUnitId: inventoryUnitIdentifiers.inventoryUnitId,
+            type: inventoryUnitIdentifiers.type,
+            value: inventoryUnitIdentifiers.value,
+          })
+          .from(inventoryUnitIdentifiers)
+          .where(inArray(inventoryUnitIdentifiers.inventoryUnitId, unitIds))
+          .orderBy(
+            asc(inventoryUnitIdentifiers.inventoryUnitId),
+            asc(inventoryUnitIdentifiers.type),
+            asc(inventoryUnitIdentifiers.value),
+          )
+
+  const identifiersByUnitId = new Map<
+    string,
+    AdminInventoryUnit["identifiers"]
+  >()
+
+  for (const identifier of identifiers) {
+    const existing = identifiersByUnitId.get(identifier.inventoryUnitId) ?? []
+    existing.push({
+      id: identifier.id,
+      type: identifier.type,
+      value: identifier.value,
+    })
+    identifiersByUnitId.set(identifier.inventoryUnitId, existing)
+  }
+
+  const units = unitsPage.map((unit) =>
+    mapInventoryUnit(
+      {
+        id: unit.id,
+        status: unit.status,
+        notes: unit.notes,
+        receivedAt: unit.receivedAt,
+        updatedAt: unit.updatedAt,
+        identifiers: identifiersByUnitId.get(unit.id) ?? [],
+      },
+      primaryIdentifierType,
+    ),
+  )
+
+  const total = totalRows[0]?.count ?? 0
+
+  return {
+    units,
+    pagination: {
+      page: parsed.page,
+      limit: parsed.limit,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / parsed.limit)),
+    },
   }
 }
 
