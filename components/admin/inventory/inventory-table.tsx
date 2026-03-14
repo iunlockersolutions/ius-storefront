@@ -388,10 +388,10 @@ export function InventoryTable({
             <TableRow>
               {renderSortableHead("Product", "product")}
               {renderSortableHead("SKU", "sku")}
-              {renderSortableHead("Available", "available", "text-center")}
-              {renderSortableHead("Reserved", "reserved", "text-center")}
-              {renderSortableHead("Allocated", "allocated", "text-center")}
-              {renderSortableHead("On Hand", "onHand", "text-center")}
+              {renderSortableHead("Sellable", "available", "text-center")}
+              {renderSortableHead("Committed", "reserved", "text-center")}
+              {renderSortableHead("Preparing", "allocated", "text-center")}
+              {renderSortableHead("Physical", "onHand", "text-center")}
               {renderSortableHead("Status", "status")}
               {renderSortableHead("Updated", "updated")}
               <TableHead className="w-12 text-right text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
@@ -438,16 +438,16 @@ export function InventoryTable({
                     {item.variantSku}
                   </TableCell>
                   <TableCell className="text-center font-medium">
-                    {item.availableQuantity}
+                    {item.availableToSell}
                   </TableCell>
                   <TableCell className="text-center text-muted-foreground">
-                    {item.reservedQuantity}
+                    {item.committedQuantity}
                   </TableCell>
                   <TableCell className="text-center text-muted-foreground">
-                    {item.allocatedQuantity}
+                    {item.preparingQuantity}
                   </TableCell>
                   <TableCell className="text-center">
-                    {item.onHandQuantity}
+                    {item.onHandPhysical}
                   </TableCell>
                   <TableCell>
                     <div className="space-y-1">
@@ -608,7 +608,7 @@ export function InventoryTable({
                 <>
                   {selectedItem.productName} • {selectedItem.variantSku}
                   <br />
-                  On hand: {selectedItem.onHandQuantity}
+                  Physical stock: {selectedItem.onHandPhysical}
                   {selectedItem.trackingMode === "serial"
                     ? " • serialized variants only support negative adjustments here"
                     : null}
@@ -628,10 +628,10 @@ export function InventoryTable({
                 }
               />
               <p className="text-sm text-muted-foreground">
-                New on-hand stock:{" "}
+                New physical stock:{" "}
                 <strong>
                   {selectedItem
-                    ? selectedItem.onHandQuantity + adjustment
+                    ? selectedItem.onHandPhysical + adjustment
                     : adjustment}
                 </strong>
               </p>

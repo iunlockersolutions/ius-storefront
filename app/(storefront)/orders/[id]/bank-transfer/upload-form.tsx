@@ -10,16 +10,19 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { uploadBankTransferProof } from "@/lib/actions/payment"
 
 interface BankTransferUploadFormProps {
   paymentId: string
   orderId: string
+  accessToken?: string
+  returnHref?: string
 }
 
 export function BankTransferUploadForm({
   paymentId,
   orderId,
+  accessToken,
+  returnHref,
 }: BankTransferUploadFormProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -60,39 +63,38 @@ export function BankTransferUploadForm({
 
     startTransition(async () => {
       try {
-        // Upload file to Vercel Blob
         const formData = new FormData()
         formData.append("file", file)
-
-        const uploadResponse = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-        })
-
-        if (!uploadResponse.ok) {
-          throw new Error("Failed to upload file")
+        formData.append("paymentId", paymentId)
+        formData.append("orderId", orderId)
+        if (notes.trim()) {
+          formData.append("notes", notes.trim())
+        }
+        if (accessToken) {
+          formData.append("accessToken", accessToken)
         }
 
-        const { url } = await uploadResponse.json()
-
-        // Record the upload
-        const result = await uploadBankTransferProof(
-          paymentId,
-          url,
-          file.name,
-          notes || undefined,
+        const uploadResponse = await fetch(
+          "/api/storefront/bank-transfer-proof",
+          {
+            method: "POST",
+            body: formData,
+          },
         )
 
-        if (result.success) {
-          setUploaded(true)
-          toast.success("Proof of payment uploaded successfully")
-          router.refresh()
-        } else {
-          toast.error("Failed to record upload")
+        if (!uploadResponse.ok) {
+          const payload = await uploadResponse.json().catch(() => null)
+          throw new Error(payload?.error || "Failed to upload file")
         }
+
+        setUploaded(true)
+        toast.success("Proof of payment uploaded successfully")
+        router.refresh()
       } catch (error) {
         console.error("Upload error:", error)
-        toast.error("Failed to upload file")
+        toast.error(
+          error instanceof Error ? error.message : "Failed to upload file",
+        )
       }
     })
   }
@@ -111,7 +113,7 @@ export function BankTransferUploadForm({
         </p>
         <Button
           variant="outline"
-          onClick={() => router.push(`/orders/${orderId}`)}
+          onClick={() => router.push(returnHref || `/orders/${orderId}`)}
         >
           Back to Order
         </Button>

@@ -12,17 +12,17 @@ export const metadata = {
 }
 
 interface SuccessPageProps {
-  searchParams: Promise<{ orderId?: string }>
+  searchParams: Promise<{ token?: string }>
 }
 
-async function OrderConfirmationContent({ orderId }: { orderId: string }) {
-  const order = await getCheckoutSuccessOrder(orderId)
+async function OrderConfirmationContent({ token }: { token: string }) {
+  const order = await getCheckoutSuccessOrder(token)
 
   if (!order) {
     notFound()
   }
 
-  return <OrderConfirmation order={order} />
+  return <OrderConfirmation order={order} token={token} />
 }
 
 function SuccessSkeleton() {
@@ -47,15 +47,15 @@ export default async function CheckoutSuccessPage({
   searchParams,
 }: SuccessPageProps) {
   const params = await searchParams
-  const orderId = params.orderId
+  const token = params.token
 
-  if (!orderId) {
+  if (!token) {
     notFound()
   }
 
   return (
     <Suspense fallback={<SuccessSkeleton />}>
-      <OrderConfirmationContent orderId={orderId} />
+      <OrderConfirmationContent token={token} />
     </Suspense>
   )
 }

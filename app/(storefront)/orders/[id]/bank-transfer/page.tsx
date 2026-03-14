@@ -21,6 +21,7 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { getCustomerOrder } from "@/lib/actions/customer-orders"
 import { getServerSession } from "@/lib/auth/rbac"
+import { formatCurrency } from "@/lib/utils"
 
 import { BankTransferUploadForm } from "./upload-form"
 
@@ -31,14 +32,6 @@ interface BankTransferPageProps {
 export const metadata = {
   title: "Bank Transfer Payment | IUS Shop",
   description: "Complete your bank transfer payment",
-}
-
-function formatCurrency(amount: string | number): string {
-  const num = typeof amount === "string" ? parseFloat(amount) : amount
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(num)
 }
 
 // Bank details - these would typically come from settings

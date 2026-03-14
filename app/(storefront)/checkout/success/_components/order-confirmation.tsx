@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import { formatCurrency, parseCurrencyAmount } from "@/lib/utils"
 
 import type { getCheckoutSuccessOrder } from "../_actions/get-order-confirmation"
 
@@ -21,15 +22,21 @@ type CheckoutSuccessOrder = NonNullable<
   Awaited<ReturnType<typeof getCheckoutSuccessOrder>>
 >
 
-function formatCurrency(amount: string | number): string {
-  const num = typeof amount === "string" ? parseFloat(amount) : amount
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(num)
-}
+export function OrderConfirmation({
+  order,
+  token,
+}: {
+  order: CheckoutSuccessOrder
+  token: string
+}) {
+  const isGuestOrder = !order.userId
+  const orderHref = isGuestOrder
+    ? `/guest/orders/${token}`
+    : `/orders/${order.id}`
+  const bankTransferHref = isGuestOrder
+    ? `/guest/orders/${token}/bank-transfer`
+    : `/orders/${order.id}/bank-transfer`
 
-export function OrderConfirmation({ order }: { order: CheckoutSuccessOrder }) {
   return (
     <div className="container mx-auto px-4 py-12 max-w-3xl">
       <div className="text-center mb-8">
@@ -112,9 +119,15 @@ export function OrderConfirmation({ order }: { order: CheckoutSuccessOrder }) {
               <p className="text-muted-foreground">Shipping</p>
               <p className="font-medium flex items-center gap-2">
                 <Truck className="h-4 w-4" />
-                {parseFloat(order.shippingCost) > 15
-                  ? "Express (1-2 days)"
-                  : "Standard (5-7 days)"}
+                {order.shippingMethod === "express"
+                  ? "Express delivery"
+                  : "Standard delivery"}
+              </p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Payment Method</p>
+              <p className="font-medium capitalize">
+                {order.paymentMethod?.replaceAll("_", " ") || "Card"}
               </p>
             </div>
           </CardContent>
@@ -153,7 +166,7 @@ export function OrderConfirmation({ order }: { order: CheckoutSuccessOrder }) {
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Shipping</span>
               <span>
-                {parseFloat(order.shippingCost) === 0
+                {parseCurrencyAmount(order.shippingCost) === 0
                   ? "Free"
                   : formatCurrency(order.shippingCost)}
               </span>
@@ -162,7 +175,7 @@ export function OrderConfirmation({ order }: { order: CheckoutSuccessOrder }) {
               <span className="text-muted-foreground">Tax</span>
               <span>{formatCurrency(order.taxAmount)}</span>
             </div>
-            {parseFloat(order.discountAmount) > 0 && (
+            {parseCurrencyAmount(order.discountAmount) > 0 && (
               <div className="flex justify-between text-sm text-green-600">
                 <span>Discount</span>
                 <span>-{formatCurrency(order.discountAmount)}</span>
@@ -227,15 +240,23 @@ export function OrderConfirmation({ order }: { order: CheckoutSuccessOrder }) {
 
       <div className="flex flex-col sm:flex-row gap-4">
         <Button asChild className="flex-1">
-          <Link href="/products">
-            Continue Shopping
+          <Link
+            href={
+              order.paymentMethod === "bank_transfer"
+                ? bankTransferHref
+                : orderHref
+            }
+          >
+            {order.paymentMethod === "bank_transfer"
+              ? "Complete Bank Transfer"
+              : "View Order"}
             <ArrowRight className="ml-2 h-4 w-4" />
           </Link>
         </Button>
         <Button asChild variant="outline" className="flex-1">
-          <Link href="/">
+          <Link href="/products">
             <Home className="mr-2 h-4 w-4" />
-            Back to Home
+            Continue Shopping
           </Link>
         </Button>
       </div>

@@ -1,10 +1,12 @@
 "use server"
 
-import { and, desc, eq, inArray, sql } from "drizzle-orm"
+import crypto from "crypto"
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm"
 
 import { getServerSession, requireAuth } from "@/lib/auth/rbac"
 import { db } from "@/lib/db"
 import {
+  guestOrderAccessTokens,
   orderItems,
   orders,
   orderStatusHistory,
@@ -17,12 +19,129 @@ import {
 } from "@/lib/media/service"
 import { releaseOrderInventoryReservationsTx } from "@/lib/orders/inventory-reservations"
 
+function hashToken(token: string) {
+  return crypto.createHash("sha256").update(token).digest("hex")
+}
+
+async function claimGuestOrdersForUser(userId: string, email: string) {
+  await db
+    .update(orders)
+    .set({
+      userId,
+      updatedAt: new Date(),
+    })
+    .where(and(isNull(orders.userId), eq(orders.customerEmail, email)))
+}
+
+export async function claimGuestOrdersForAccount() {
+  const session = await getServerSession()
+
+  if (!session?.user?.id || !session.user.email) {
+    return { success: false as const }
+  }
+
+  await claimGuestOrdersForUser(session.user.id, session.user.email)
+  return { success: true as const }
+}
+
+async function getCustomerAccessibleOrder(orderId: string) {
+  const order = await db.query.orders.findFirst({
+    where: eq(orders.id, orderId),
+  })
+
+  if (!order) {
+    return null
+  }
+
+  const items = await db
+    .select({
+      id: orderItems.id,
+      quantity: orderItems.quantity,
+      unitPrice: orderItems.unitPrice,
+      subtotal: orderItems.subtotal,
+      productName: orderItems.productName,
+      productSlug: orderItems.productSlug,
+      variantName: orderItems.variantName,
+      sku: orderItems.sku,
+      variantId: orderItems.variantId,
+      snapshot: orderItems.snapshot,
+    })
+    .from(orderItems)
+    .where(eq(orderItems.orderId, orderId))
+
+  const history = await db
+    .select({
+      id: orderStatusHistory.id,
+      fromStatus: orderStatusHistory.fromStatus,
+      toStatus: orderStatusHistory.toStatus,
+      notes: orderStatusHistory.notes,
+      createdAt: orderStatusHistory.createdAt,
+    })
+    .from(orderStatusHistory)
+    .where(eq(orderStatusHistory.orderId, orderId))
+    .orderBy(desc(orderStatusHistory.createdAt))
+
+  const payment = await db.query.payments.findFirst({
+    where: eq(payments.orderId, orderId),
+  })
+
+  return {
+    ...order,
+    items,
+    statusHistory: history,
+    payment,
+  }
+}
+
+async function buildOrderTimeline(orderId: string) {
+  const order = await db.query.orders.findFirst({
+    where: eq(orders.id, orderId),
+  })
+
+  if (!order) {
+    return null
+  }
+
+  const history = await db
+    .select({
+      id: orderStatusHistory.id,
+      fromStatus: orderStatusHistory.fromStatus,
+      toStatus: orderStatusHistory.toStatus,
+      notes: orderStatusHistory.notes,
+      createdAt: orderStatusHistory.createdAt,
+    })
+    .from(orderStatusHistory)
+    .where(eq(orderStatusHistory.orderId, orderId))
+    .orderBy(orderStatusHistory.createdAt)
+
+  const timeline = [
+    {
+      status: "created",
+      label: "Order Placed",
+      date: order.createdAt,
+      description: `Order #${order.orderNumber} was placed`,
+    },
+  ]
+
+  for (const entry of history) {
+    timeline.push({
+      status: entry.toStatus,
+      label: getStatusLabel(entry.toStatus),
+      date: entry.createdAt,
+      description: entry.notes || getStatusDescription(entry.toStatus),
+    })
+  }
+
+  return timeline
+}
+
 // ============================================
 // Get Customer Orders
 // ============================================
 
 export async function getCustomerOrders(page: number = 1, limit: number = 10) {
   const session = await requireAuth()
+  await claimGuestOrdersForUser(session.user.id, session.user.email)
 
   const offset = (page - 1) * limit
 
@@ -129,6 +248,7 @@ export async function getCustomerOrders(page: number = 1, limit: number = 10) {
 
 export async function getCustomerOrder(orderId: string) {
   const session = await requireAuth()
+  await claimGuestOrdersForUser(session.user.id, session.user.email)
 
   // Get order with ownership check
   const order = await db.query.orders.findFirst({
@@ -139,54 +259,50 @@ export async function getCustomerOrder(orderId: string) {
     return null
   }
 
-  // Get order items
-  const items = await db
-    .select({
-      id: orderItems.id,
-      quantity: orderItems.quantity,
-      unitPrice: orderItems.unitPrice,
-      subtotal: orderItems.subtotal,
-      productName: orderItems.productName,
-      variantName: orderItems.variantName,
-      sku: orderItems.sku,
-      variantId: orderItems.variantId,
-    })
-    .from(orderItems)
-    .where(eq(orderItems.orderId, orderId))
-
-  // Get status history
-  const history = await db
-    .select({
-      id: orderStatusHistory.id,
-      fromStatus: orderStatusHistory.fromStatus,
-      toStatus: orderStatusHistory.toStatus,
-      notes: orderStatusHistory.notes,
-      createdAt: orderStatusHistory.createdAt,
-    })
-    .from(orderStatusHistory)
-    .where(eq(orderStatusHistory.orderId, orderId))
-    .orderBy(desc(orderStatusHistory.createdAt))
-
-  // Get payment info
-  const payment = await db.query.payments.findFirst({
-    where: eq(payments.orderId, orderId),
-  })
-
-  return {
-    ...order,
-    items,
-    statusHistory: history,
-    payment,
-  }
+  return getCustomerAccessibleOrder(orderId)
 }
 
-export async function getOrderConfirmationById(orderId: string) {
-  return db.query.orders.findFirst({
-    where: eq(orders.id, orderId),
-    with: {
-      items: true,
-    },
+export async function verifyGuestOrderAccess(token: string) {
+  const tokenRecord = await db.query.guestOrderAccessTokens.findFirst({
+    where: eq(guestOrderAccessTokens.tokenHash, hashToken(token)),
   })
+
+  if (!tokenRecord || tokenRecord.expiresAt <= new Date()) {
+    return null
+  }
+
+  await db
+    .update(guestOrderAccessTokens)
+    .set({
+      lastUsedAt: new Date(),
+    })
+    .where(eq(guestOrderAccessTokens.id, tokenRecord.id))
+
+  return tokenRecord
+}
+
+export async function getOrderConfirmationByToken(token: string) {
+  const tokenRecord = await verifyGuestOrderAccess(token)
+
+  if (!tokenRecord) {
+    return null
+  }
+
+  return getCustomerAccessibleOrder(tokenRecord.orderId)
+}
+
+export async function getGuestOrderByAccessToken(token: string) {
+  return getOrderConfirmationByToken(token)
+}
+
+export async function getGuestOrderTimeline(token: string) {
+  const tokenRecord = await verifyGuestOrderAccess(token)
+
+  if (!tokenRecord) {
+    return null
+  }
+
+  return buildOrderTimeline(tokenRecord.orderId)
 }
 
 // ============================================
@@ -195,6 +311,7 @@ export async function getOrderConfirmationById(orderId: string) {
 
 export async function cancelCustomerOrder(orderId: string, reason?: string) {
   const session = await requireAuth()
+  await claimGuestOrdersForUser(session.user.id, session.user.email)
 
   // Get order with ownership check
   const order = await db.query.orders.findFirst({
@@ -225,6 +342,8 @@ export async function cancelCustomerOrder(orderId: string, reason?: string) {
       .update(orders)
       .set({
         status: "cancelled",
+        paymentStatus: "cancelled",
+        fulfillmentStatus: "cancelled",
         updatedAt: new Date(),
       })
       .where(eq(orders.id, orderId))
@@ -249,6 +368,7 @@ export async function cancelCustomerOrder(orderId: string, reason?: string) {
 
 export async function getOrderTimeline(orderId: string) {
   const session = await requireAuth()
+  await claimGuestOrdersForUser(session.user.id, session.user.email)
 
   // Verify ownership
   const order = await db.query.orders.findFirst({
@@ -259,39 +379,7 @@ export async function getOrderTimeline(orderId: string) {
     return null
   }
 
-  const history = await db
-    .select({
-      id: orderStatusHistory.id,
-      fromStatus: orderStatusHistory.fromStatus,
-      toStatus: orderStatusHistory.toStatus,
-      notes: orderStatusHistory.notes,
-      createdAt: orderStatusHistory.createdAt,
-    })
-    .from(orderStatusHistory)
-    .where(eq(orderStatusHistory.orderId, orderId))
-    .orderBy(orderStatusHistory.createdAt)
-
-  // Create a timeline including order creation
-  const timeline = [
-    {
-      status: "created",
-      label: "Order Placed",
-      date: order.createdAt,
-      description: `Order #${order.orderNumber} was placed`,
-    },
-  ]
-
-  // Add status changes
-  for (const entry of history) {
-    timeline.push({
-      status: entry.toStatus,
-      label: getStatusLabel(entry.toStatus),
-      date: entry.createdAt,
-      description: entry.notes || getStatusDescription(entry.toStatus),
-    })
-  }
-
-  return timeline
+  return buildOrderTimeline(orderId)
 }
 
 // ============================================
@@ -337,6 +425,8 @@ export async function getCustomerOrderCounts() {
   if (!session?.user?.id) {
     return null
   }
+
+  await claimGuestOrdersForUser(session.user.id, session.user.email)
 
   const counts = await db
     .select({

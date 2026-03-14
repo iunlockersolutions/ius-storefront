@@ -22,16 +22,16 @@ interface LowStockAlertsContentProps {
 }
 
 function AlertStateBadge({
-  availableQuantity,
+  availableToSell,
   isOutOfStock,
-}: Pick<AdminInventoryLowStockAlert, "availableQuantity" | "isOutOfStock">) {
+}: Pick<AdminInventoryLowStockAlert, "availableToSell" | "isOutOfStock">) {
   if (isOutOfStock) {
     return <Badge variant="destructive">Out of stock</Badge>
   }
 
   return (
     <Badge variant="outline" className="border-border/80 bg-background">
-      {availableQuantity} left
+      {availableToSell} sellable
     </Badge>
   )
 }
@@ -68,7 +68,7 @@ function AlertList({ alerts, onNavigate }: LowStockAlertsContentProps) {
               </p>
             </div>
             <AlertStateBadge
-              availableQuantity={item.availableQuantity}
+              availableToSell={item.availableToSell}
               isOutOfStock={item.isOutOfStock}
             />
           </div>

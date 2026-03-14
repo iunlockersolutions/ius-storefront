@@ -1,15 +1,15 @@
 import Link from "next/link"
-import { notFound, redirect } from "next/navigation"
+import { notFound } from "next/navigation"
 
 import { format } from "date-fns"
 import {
-  ChevronLeft,
   Clock,
   CreditCard,
-  Download,
   HelpCircle,
+  Home,
   MapPin,
   Package,
+  Wallet,
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -17,24 +17,15 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import {
-  getCustomerOrder,
-  getOrderTimeline,
+  getGuestOrderByAccessToken,
+  getGuestOrderTimeline,
 } from "@/lib/actions/customer-orders"
-import { getServerSession } from "@/lib/auth/rbac"
 import { formatCurrency } from "@/lib/utils"
 
-import { CancelOrderButton } from "./cancel-order-button"
-import { OrderTimeline } from "./order-timeline"
+import { OrderTimeline } from "../../../orders/[id]/order-timeline"
 
-interface OrderDetailPageProps {
-  params: Promise<{ id: string }>
-}
-
-export async function generateMetadata({ params }: OrderDetailPageProps) {
-  return {
-    title: `Order Details | IUS Shop`,
-    description: `View details for your order`,
-  }
+interface GuestOrderDetailPageProps {
+  params: Promise<{ token: string }>
 }
 
 function getStatusConfig(status: string) {
@@ -43,65 +34,44 @@ function getStatusConfig(status: string) {
     {
       label: string
       variant: "default" | "secondary" | "destructive" | "outline"
-      color: string
     }
   > = {
-    draft: { label: "Draft", variant: "outline", color: "text-gray-500" },
-    pending_payment: {
-      label: "Pending Payment",
-      variant: "secondary",
-      color: "text-yellow-600",
-    },
-    paid: { label: "Paid", variant: "default", color: "text-green-600" },
-    processing: {
-      label: "Processing",
-      variant: "default",
-      color: "text-blue-600",
-    },
-    packing: { label: "Packing", variant: "default", color: "text-blue-600" },
-    shipped: { label: "Shipped", variant: "default", color: "text-purple-600" },
-    delivered: {
-      label: "Delivered",
-      variant: "secondary",
-      color: "text-green-600",
-    },
-    cancelled: {
-      label: "Cancelled",
-      variant: "destructive",
-      color: "text-red-600",
-    },
-    refunded: { label: "Refunded", variant: "outline", color: "text-gray-500" },
+    draft: { label: "Draft", variant: "outline" },
+    pending_payment: { label: "Awaiting Payment", variant: "secondary" },
+    paid: { label: "Paid", variant: "default" },
+    processing: { label: "Processing", variant: "default" },
+    packing: { label: "Packing", variant: "default" },
+    shipped: { label: "Shipped", variant: "default" },
+    delivered: { label: "Delivered", variant: "secondary" },
+    cancelled: { label: "Cancelled", variant: "destructive" },
+    refunded: { label: "Refunded", variant: "outline" },
   }
+
   return (
     configs[status] || {
       label: status,
       variant: "outline" as const,
-      color: "text-gray-500",
     }
   )
 }
 
-function getPaymentMethodLabel(method: string): string {
+function getPaymentMethodLabel(method: string) {
   const labels: Record<string, string> = {
-    card: "Credit/Debit Card",
+    card: "Credit / Debit Card",
     bank_transfer: "Bank Transfer",
     cash_on_delivery: "Cash on Delivery",
   }
+
   return labels[method] || method
 }
 
-export default async function OrderDetailPage({
+export default async function GuestOrderDetailPage({
   params,
-}: OrderDetailPageProps) {
-  const session = await getServerSession()
-  if (!session?.user?.id) {
-    redirect("/auth/login?callbackUrl=/orders")
-  }
-
-  const { id } = await params
+}: GuestOrderDetailPageProps) {
+  const { token } = await params
   const [order, timeline] = await Promise.all([
-    getCustomerOrder(id),
-    getOrderTimeline(id),
+    getGuestOrderByAccessToken(token),
+    getGuestOrderTimeline(token),
   ])
 
   if (!order) {
@@ -109,22 +79,22 @@ export default async function OrderDetailPage({
   }
 
   const statusConfig = getStatusConfig(order.status)
-  const canCancel = ["draft", "pending_payment", "paid"].includes(order.status)
+  const canCompleteBankTransfer =
+    order.payment?.method === "bank_transfer" &&
+    order.payment.status === "pending"
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      {/* Back Link */}
-      <Button variant="ghost" asChild className="mb-6 -ml-2">
-        <Link href="/orders">
-          <ChevronLeft className="h-4 w-4 mr-1" />
-          Back to Orders
-        </Link>
-      </Button>
+    <div className="container mx-auto max-w-4xl px-4 py-8">
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <Badge variant="outline">Secure guest access</Badge>
+        <p className="text-sm text-muted-foreground">
+          Save this link or use the confirmation email to reopen your order.
+        </p>
+      </div>
 
-      {/* Order Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold mb-1">Order {order.orderNumber}</h1>
+          <h1 className="mb-1 text-2xl font-bold">Order {order.orderNumber}</h1>
           <p className="text-muted-foreground">
             Placed on{" "}
             {format(new Date(order.createdAt), "MMMM d, yyyy 'at' h:mm a")}
@@ -140,7 +110,6 @@ export default async function OrderDetailPage({
 
       <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
         <div className="space-y-6">
-          {/* Order Items */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -154,24 +123,22 @@ export default async function OrderDetailPage({
                   <div key={item.id}>
                     {index > 0 && <Separator className="mb-4" />}
                     <div className="flex gap-4">
-                      <div className="h-20 w-20 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                      <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-muted">
                         <Package className="h-8 w-8 text-muted-foreground" />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-medium truncate">
+                      <div className="min-w-0 flex-1">
+                        <h3 className="truncate font-medium">
                           {item.productName}
                         </h3>
-                        {item.variantName && (
-                          <p className="text-sm text-muted-foreground">
-                            {item.variantName}
-                          </p>
-                        )}
+                        <p className="text-sm text-muted-foreground">
+                          {item.variantName}
+                        </p>
                         <p className="text-sm text-muted-foreground">
                           SKU: {item.sku}
                         </p>
-                        <div className="flex items-center justify-between mt-2">
+                        <div className="mt-2 flex items-center justify-between">
                           <span className="text-sm">
-                            {formatCurrency(item.unitPrice)} × {item.quantity}
+                            {formatCurrency(item.unitPrice)} x {item.quantity}
                           </span>
                           <span className="font-medium">
                             {formatCurrency(item.subtotal)}
@@ -185,8 +152,7 @@ export default async function OrderDetailPage({
             </CardContent>
           </Card>
 
-          {/* Order Timeline */}
-          {timeline && timeline.length > 0 && (
+          {timeline && timeline.length > 0 ? (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -201,9 +167,8 @@ export default async function OrderDetailPage({
                 />
               </CardContent>
             </Card>
-          )}
+          ) : null}
 
-          {/* Shipping Address */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -220,11 +185,11 @@ export default async function OrderDetailPage({
                   <p className="text-muted-foreground">
                     {order.shippingAddress.addressLine1}
                   </p>
-                  {order.shippingAddress.addressLine2 && (
+                  {order.shippingAddress.addressLine2 ? (
                     <p className="text-muted-foreground">
                       {order.shippingAddress.addressLine2}
                     </p>
-                  )}
+                  ) : null}
                   <p className="text-muted-foreground">
                     {order.shippingAddress.city}, {order.shippingAddress.state}{" "}
                     {order.shippingAddress.postalCode}
@@ -232,11 +197,11 @@ export default async function OrderDetailPage({
                   <p className="text-muted-foreground">
                     {order.shippingAddress.country}
                   </p>
-                  {order.shippingAddress.phone && (
-                    <p className="text-muted-foreground mt-2">
+                  {order.shippingAddress.phone ? (
+                    <p className="mt-2 text-muted-foreground">
                       Phone: {order.shippingAddress.phone}
                     </p>
-                  )}
+                  ) : null}
                 </div>
               ) : (
                 <p className="text-muted-foreground">
@@ -247,9 +212,7 @@ export default async function OrderDetailPage({
           </Card>
         </div>
 
-        {/* Sidebar */}
         <div className="space-y-6">
-          {/* Order Summary */}
           <Card>
             <CardHeader>
               <CardTitle>Order Summary</CardTitle>
@@ -268,12 +231,12 @@ export default async function OrderDetailPage({
                   <span className="text-muted-foreground">Tax</span>
                   <span>{formatCurrency(order.taxAmount)}</span>
                 </div>
-                {parseFloat(order.discountAmount) > 0 && (
+                {Number.parseFloat(order.discountAmount) > 0 ? (
                   <div className="flex justify-between text-green-600">
                     <span>Discount</span>
                     <span>-{formatCurrency(order.discountAmount)}</span>
                   </div>
-                )}
+                ) : null}
               </div>
               <Separator />
               <div className="flex justify-between font-medium">
@@ -283,8 +246,7 @@ export default async function OrderDetailPage({
             </CardContent>
           </Card>
 
-          {/* Payment Info */}
-          {order.payment && (
+          {order.payment ? (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -311,22 +273,30 @@ export default async function OrderDetailPage({
                 </div>
               </CardContent>
             </Card>
-          )}
+          ) : null}
 
-          {/* Actions */}
           <Card>
-            <CardContent className="pt-6 space-y-3">
-              <Button variant="outline" className="w-full" disabled>
-                <Download className="h-4 w-4 mr-2" />
-                Download Invoice
+            <CardContent className="space-y-3 pt-6">
+              {canCompleteBankTransfer ? (
+                <Button asChild className="w-full">
+                  <Link href={`/guest/orders/${token}/bank-transfer`}>
+                    <Wallet className="mr-2 h-4 w-4" />
+                    Complete Bank Transfer
+                  </Link>
+                </Button>
+              ) : null}
+              <Button asChild variant="outline" className="w-full">
+                <Link href="/">
+                  <Home className="mr-2 h-4 w-4" />
+                  Back to Home
+                </Link>
               </Button>
-              <Button variant="outline" className="w-full" asChild>
+              <Button asChild variant="outline" className="w-full">
                 <Link href="/contact">
-                  <HelpCircle className="h-4 w-4 mr-2" />
+                  <HelpCircle className="mr-2 h-4 w-4" />
                   Need Help?
                 </Link>
               </Button>
-              {canCancel && <CancelOrderButton orderId={order.id} />}
             </CardContent>
           </Card>
         </div>

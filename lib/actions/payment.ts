@@ -9,6 +9,9 @@ import { getServerSession, requireStaff } from "@/lib/auth/rbac"
 import { db } from "@/lib/db"
 import {
   bankTransferProofs,
+  cartItems,
+  checkoutSessions,
+  orderItems,
   orders,
   orderStatusHistory,
   payments,
@@ -27,6 +30,76 @@ const DIRECTPAY_CONFIG = {
   merchantId: process.env.DIRECTPAY_MERCHANT_ID || "MERCHANT_TEST",
   apiKey: process.env.DIRECTPAY_API_KEY || "test_api_key",
   secretKey: process.env.DIRECTPAY_SECRET_KEY || "test_secret_key",
+}
+
+async function restoreCartFromOrderTx(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  orderId: string,
+) {
+  const order = await tx.query.orders.findFirst({
+    where: eq(orders.id, orderId),
+  })
+
+  if (!order?.checkoutSessionId) {
+    return
+  }
+
+  const checkoutSession = await tx.query.checkoutSessions.findFirst({
+    where: eq(checkoutSessions.id, order.checkoutSessionId),
+  })
+
+  if (!checkoutSession) {
+    return
+  }
+
+  const restorableItems = await tx
+    .select({
+      variantId: orderItems.variantId,
+      quantity: orderItems.quantity,
+      unitPrice: orderItems.unitPrice,
+    })
+    .from(orderItems)
+    .where(eq(orderItems.orderId, orderId))
+
+  await tx.delete(cartItems).where(eq(cartItems.cartId, checkoutSession.cartId))
+
+  const values = restorableItems
+    .filter((item): item is typeof item & { variantId: string } =>
+      Boolean(item.variantId),
+    )
+    .map((item) => ({
+      cartId: checkoutSession.cartId,
+      variantId: item.variantId,
+      quantity: item.quantity,
+      priceAtAdd: item.unitPrice,
+    }))
+
+  if (values.length > 0) {
+    await tx.insert(cartItems).values(values)
+  }
+}
+
+async function clearCartForOrderTx(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  orderId: string,
+) {
+  const order = await tx.query.orders.findFirst({
+    where: eq(orders.id, orderId),
+  })
+
+  if (!order?.checkoutSessionId) {
+    return
+  }
+
+  const checkoutSession = await tx.query.checkoutSessions.findFirst({
+    where: eq(checkoutSessions.id, order.checkoutSessionId),
+  })
+
+  if (!checkoutSession) {
+    return
+  }
+
+  await tx.delete(cartItems).where(eq(cartItems.cartId, checkoutSession.cartId))
 }
 
 // ============================================
@@ -133,7 +206,12 @@ export async function initiateCardPayment(input: InitiatePaymentInput) {
     // Update order status
     await db
       .update(orders)
-      .set({ status: "pending_payment", updatedAt: new Date() })
+      .set({
+        status: "pending_payment",
+        paymentStatus: "unpaid",
+        fulfillmentStatus: "confirmed",
+        updatedAt: new Date(),
+      })
       .where(eq(orders.id, order.id))
 
     return {
@@ -239,7 +317,13 @@ async function processSuccessfulPayment(orderId: string) {
     // Update order status to paid
     await tx
       .update(orders)
-      .set({ status: "paid", updatedAt: new Date() })
+      .set({
+        status: "paid",
+        paymentStatus: "paid",
+        fulfillmentStatus: "confirmed",
+        confirmedAt: new Date(),
+        updatedAt: new Date(),
+      })
       .where(eq(orders.id, orderId))
 
     // Add status history
@@ -250,6 +334,8 @@ async function processSuccessfulPayment(orderId: string) {
       notes: "Payment completed",
       changedBy: session?.user?.id || null,
     })
+
+    await clearCartForOrderTx(tx, orderId)
   })
 }
 
@@ -273,7 +359,12 @@ async function processFailedPayment(orderId: string, notes: string) {
 
     await tx
       .update(orders)
-      .set({ status: "cancelled", updatedAt: new Date() })
+      .set({
+        status: "cancelled",
+        paymentStatus: "failed",
+        fulfillmentStatus: "cancelled",
+        updatedAt: new Date(),
+      })
       .where(eq(orders.id, orderId))
 
     await tx.insert(orderStatusHistory).values({
@@ -283,6 +374,8 @@ async function processFailedPayment(orderId: string, notes: string) {
       notes,
       changedBy: session?.user?.id || null,
     })
+
+    await restoreCartFromOrderTx(tx, orderId)
   })
 }
 
@@ -326,7 +419,12 @@ export async function recordBankTransferPayment(orderId: string) {
   // Update order status
   await db
     .update(orders)
-    .set({ status: "pending_payment", updatedAt: new Date() })
+    .set({
+      status: "pending_payment",
+      paymentStatus: "pending_verification",
+      fulfillmentStatus: "confirmed",
+      updatedAt: new Date(),
+    })
     .where(eq(orders.id, orderId))
 
   await db.insert(orderStatusHistory).values({
@@ -382,7 +480,12 @@ export async function recordCODPayment(orderId: string) {
   // Update order status to processing (COD orders go directly to processing)
   await db
     .update(orders)
-    .set({ status: "processing", updatedAt: new Date() })
+    .set({
+      status: "processing",
+      paymentStatus: "unpaid",
+      fulfillmentStatus: "confirmed",
+      updatedAt: new Date(),
+    })
     .where(eq(orders.id, orderId))
 
   await db.insert(orderStatusHistory).values({
@@ -440,6 +543,14 @@ export async function markCODPaymentCollected(orderId: string) {
           updatedAt: new Date(),
         })
         .where(eq(payments.id, payment.id))
+
+      await tx
+        .update(orders)
+        .set({
+          paymentStatus: "paid",
+          updatedAt: new Date(),
+        })
+        .where(eq(orders.id, orderId))
     })
 
     revalidatePath("/ops/orders")
@@ -472,6 +583,46 @@ export async function uploadBankTransferProof(
 
   revalidatePath("/ops/payments")
   return { success: true }
+}
+
+export async function verifyCardPaymentForOrder(orderId: string) {
+  const payment = await db.query.payments.findFirst({
+    where: and(eq(payments.orderId, orderId), eq(payments.method, "card")),
+  })
+
+  if (!payment) {
+    return { success: false as const, error: "Payment not found" }
+  }
+
+  if (payment.status === "completed") {
+    return { success: true as const, status: "completed" as const }
+  }
+
+  if (payment.status === "failed") {
+    return { success: true as const, status: "failed" as const }
+  }
+
+  if (!payment.externalId) {
+    return { success: true as const, status: "pending" as const }
+  }
+
+  const result = await verifyPaymentStatus(payment.externalId)
+  if (!result.success) {
+    return {
+      success: false as const,
+      error: result.error || "Failed to verify payment",
+    }
+  }
+
+  if (result.status === "completed") {
+    return { success: true as const, status: "completed" as const }
+  }
+
+  if (result.status === "failed" || result.status === "cancelled") {
+    return { success: true as const, status: "failed" as const }
+  }
+
+  return { success: true as const, status: "pending" as const }
 }
 
 // ============================================
@@ -675,7 +826,12 @@ export async function verifyBankTransfer(
 
         await tx
           .update(orders)
-          .set({ status: "cancelled", updatedAt: new Date() })
+          .set({
+            status: "cancelled",
+            paymentStatus: "failed",
+            fulfillmentStatus: "cancelled",
+            updatedAt: new Date(),
+          })
           .where(eq(orders.id, payment.orderId))
 
         await tx.insert(orderStatusHistory).values({
@@ -707,7 +863,13 @@ async function processSuccessfulPaymentInTx(
 ) {
   await tx
     .update(orders)
-    .set({ status: "paid", updatedAt: new Date() })
+    .set({
+      status: "paid",
+      paymentStatus: "paid",
+      fulfillmentStatus: "confirmed",
+      confirmedAt: new Date(),
+      updatedAt: new Date(),
+    })
     .where(eq(orders.id, orderId))
 
   await tx.insert(orderStatusHistory).values({

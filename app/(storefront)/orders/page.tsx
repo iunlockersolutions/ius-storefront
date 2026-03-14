@@ -21,18 +21,11 @@ import {
   getCustomerOrders,
 } from "@/lib/actions/customer-orders"
 import { getServerSession } from "@/lib/auth/rbac"
+import { formatCurrency } from "@/lib/utils"
 
 export const metadata = {
   title: "My Orders | IUS Shop",
   description: "View and track your orders",
-}
-
-function formatCurrency(amount: string | number): string {
-  const num = typeof amount === "string" ? parseFloat(amount) : amount
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(num)
 }
 
 function getStatusConfig(status: string) {

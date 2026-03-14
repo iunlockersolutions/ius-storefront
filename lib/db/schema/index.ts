@@ -23,6 +23,9 @@ export * from "./inventory"
 // Cart Domain
 export * from "./cart"
 
+// Checkout Domain
+export * from "./checkout"
+
 // Orders Domain
 export * from "./orders"
 

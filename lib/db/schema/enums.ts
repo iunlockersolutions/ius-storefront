@@ -31,6 +31,32 @@ export const orderStatusEnum = pgEnum("order_status", [
 ])
 
 /**
+ * Payment state from the order's perspective.
+ * Separate from the payment record lifecycle to support checkout UX.
+ */
+export const orderPaymentStatusEnum = pgEnum("order_payment_status", [
+  "unpaid",
+  "pending_verification",
+  "authorized",
+  "paid",
+  "failed",
+  "refunded",
+  "cancelled",
+])
+
+/**
+ * Fulfillment state from the order's perspective.
+ */
+export const orderFulfillmentStatusEnum = pgEnum("order_fulfillment_status", [
+  "confirmed",
+  "processing",
+  "packing",
+  "shipped",
+  "delivered",
+  "cancelled",
+])
+
+/**
  * Payment status for tracking payment lifecycle.
  */
 export const paymentStatusEnum = pgEnum("payment_status", [
@@ -50,6 +76,24 @@ export const paymentMethodEnum = pgEnum("payment_method", [
   "bank_transfer",
   "cash_on_delivery",
 ])
+
+/**
+ * Checkout session lifecycle.
+ */
+export const checkoutSessionStatusEnum = pgEnum("checkout_session_status", [
+  "open",
+  "submitted",
+  "expired",
+  "abandoned",
+])
+
+/**
+ * Guest order access token purpose.
+ */
+export const guestOrderAccessTokenKindEnum = pgEnum(
+  "guest_order_access_token_kind",
+  ["confirmation", "access"],
+)
 
 /**
  * Inventory tracking mode per variant.

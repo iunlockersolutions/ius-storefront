@@ -1,5 +1,5 @@
-import { getOrderConfirmationById } from "@/lib/actions/customer-orders"
+import { getOrderConfirmationByToken } from "@/lib/actions/customer-orders"
 
-export async function getCheckoutSuccessOrder(orderId: string) {
-  return getOrderConfirmationById(orderId)
+export async function getCheckoutSuccessOrder(token: string) {
+  return getOrderConfirmationByToken(token)
 }

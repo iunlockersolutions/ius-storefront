@@ -5,12 +5,7 @@ import {
   reserveInventory,
 } from "@/lib/actions/inventory"
 import { db } from "@/lib/db"
-import {
-  inventoryTransactions,
-  orderItems,
-  orders,
-  productVariants,
-} from "@/lib/db/schema"
+import { inventoryTransactions, orderItems, orders } from "@/lib/db/schema"
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -40,16 +35,15 @@ async function getOrderManagedVariants(
     .select({
       variantId: orderItems.variantId,
       quantity: orderItems.quantity,
-      manageInventory: productVariants.manageInventory,
+      snapshot: orderItems.snapshot,
     })
     .from(orderItems)
-    .leftJoin(productVariants, eq(orderItems.variantId, productVariants.id))
     .where(eq(orderItems.orderId, orderId))
 
   const totalsByVariant = new Map<string, number>()
 
   for (const line of lines) {
-    if (!line.variantId || !line.manageInventory) {
+    if (!line.variantId || !line.snapshot?.manageInventory) {
       continue
     }
 

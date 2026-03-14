@@ -25,6 +25,7 @@ import {
 import { getServerSession, requireStaff } from "@/lib/auth/rbac"
 import { db } from "@/lib/db"
 import {
+  bankTransferProofs,
   inventoryUnitIdentifiers,
   inventoryUnits,
   orderItemAllocations,
@@ -32,7 +33,7 @@ import {
   orderItemUnitAssignments,
   orders,
   orderStatusHistory,
-  products,
+  payments,
   productVariants,
   shipments,
   user,
@@ -45,11 +46,16 @@ import {
 import { ensureOrderInventoryReservationsTx } from "@/lib/orders/inventory-reservations"
 import type {
   AdminOrder,
+  AdminOrderFulfillmentStatus,
   AdminOrderItem,
+  AdminOrderListItem,
+  AdminOrderListView,
+  AdminOrderPaymentStatus,
   AdminOrderShipment,
   AdminOrderStatus,
   AdminOrderUnitAssignment,
 } from "@/lib/types/admin-order"
+import { formatCurrency } from "@/lib/utils"
 import { revalidateOrderCaches } from "@/lib/utils/cache"
 
 type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
@@ -80,6 +86,53 @@ const orderFilterSchema = z.object({
       "refunded",
     ])
     .optional(),
+  paymentStatus: z
+    .enum([
+      "unpaid",
+      "pending_verification",
+      "authorized",
+      "paid",
+      "failed",
+      "refunded",
+      "cancelled",
+    ])
+    .optional(),
+  fulfillmentStatus: z
+    .enum([
+      "confirmed",
+      "processing",
+      "packing",
+      "shipped",
+      "delivered",
+      "cancelled",
+    ])
+    .optional(),
+  customerType: z.enum(["all", "guest", "registered"]).default("all"),
+  shippingMethod: z.string().trim().optional(),
+  view: z
+    .enum([
+      "all",
+      "needs_payment_review",
+      "awaiting_processing",
+      "needs_serial_assignment",
+      "ready_to_ship",
+      "delivered",
+      "exceptions",
+    ])
+    .default("all"),
+  sortBy: z
+    .enum([
+      "createdAt",
+      "updatedAt",
+      "latestActivityAt",
+      "total",
+      "customer",
+      "paymentStatus",
+      "fulfillmentStatus",
+      "orderNumber",
+    ])
+    .default("createdAt"),
+  sortOrder: z.enum(["asc", "desc"]).default("desc"),
   search: z.string().optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
@@ -131,6 +184,16 @@ const completePackingSchema = z.object({
 type OrderFilterInput = z.infer<typeof orderFilterSchema>
 type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusSchema>
 
+interface OrderListLineSnapshot {
+  orderId: string
+  orderItemId: string
+  quantity: number
+  trackingMode: "quantity" | "serial" | null
+  manageInventory: boolean
+  allocatedQuantity: number
+  assignedUnitCount: number
+}
+
 function normalizeIdentifierValue(value: string) {
   return value.trim().toLowerCase()
 }
@@ -139,12 +202,208 @@ function isValidTransition(from: AdminOrderStatus, to: AdminOrderStatus) {
   return ORDER_VALID_TRANSITIONS[from]?.includes(to) ?? false
 }
 
+function deriveFulfillmentStatus(status: AdminOrderStatus) {
+  switch (status) {
+    case "processing":
+      return "processing" as const
+    case "packing":
+      return "packing" as const
+    case "shipped":
+      return "shipped" as const
+    case "delivered":
+      return "delivered" as const
+    case "cancelled":
+    case "refunded":
+      return "cancelled" as const
+    default:
+      return "confirmed" as const
+  }
+}
+
+function buildLineProgress(
+  line: Pick<
+    OrderListLineSnapshot,
+    | "quantity"
+    | "trackingMode"
+    | "manageInventory"
+    | "allocatedQuantity"
+    | "assignedUnitCount"
+  >,
+  orderStatus: AdminOrderStatus,
+) {
+  if (!line.manageInventory) {
+    return {
+      committedQuantity: 0,
+      preparingQuantity: 0,
+      readyToShipQuantity: line.quantity,
+      remainingToAssign: 0,
+      remainingToShip:
+        orderStatus === "shipped" ||
+        orderStatus === "delivered" ||
+        orderStatus === "refunded"
+          ? 0
+          : line.quantity,
+      isReadyToShip: true,
+      blockedReason: null,
+    }
+  }
+
+  const committedQuantity =
+    orderStatus === "cancelled" || orderStatus === "refunded"
+      ? 0
+      : line.quantity
+
+  if (line.trackingMode === "serial") {
+    const readyToShipQuantity =
+      orderStatus === "shipped" ||
+      orderStatus === "delivered" ||
+      orderStatus === "refunded"
+        ? line.quantity
+        : line.assignedUnitCount
+
+    const remainingToAssign = Math.max(
+      0,
+      line.quantity - line.assignedUnitCount,
+    )
+
+    return {
+      committedQuantity,
+      preparingQuantity: line.assignedUnitCount,
+      readyToShipQuantity,
+      remainingToAssign,
+      remainingToShip: Math.max(0, line.quantity - readyToShipQuantity),
+      isReadyToShip: readyToShipQuantity >= line.quantity,
+      blockedReason:
+        remainingToAssign > 0
+          ? `Assign ${remainingToAssign} more serialized unit(s)`
+          : null,
+    }
+  }
+
+  const preparingQuantity =
+    orderStatus === "shipped" ||
+    orderStatus === "delivered" ||
+    orderStatus === "refunded"
+      ? line.quantity
+      : line.allocatedQuantity
+  const remainingToAllocate = Math.max(
+    0,
+    line.quantity - line.allocatedQuantity,
+  )
+
+  return {
+    committedQuantity,
+    preparingQuantity,
+    readyToShipQuantity: preparingQuantity,
+    remainingToAssign: 0,
+    remainingToShip: Math.max(0, line.quantity - preparingQuantity),
+    isReadyToShip: preparingQuantity >= line.quantity,
+    blockedReason:
+      remainingToAllocate > 0
+        ? `Allocate ${remainingToAllocate} more unit(s)`
+        : null,
+  }
+}
+
+function buildOrderProgressSummary(
+  lines: OrderListLineSnapshot[],
+  orderStatus: AdminOrderStatus,
+) {
+  let readyLines = 0
+  let serialLines = 0
+  let serialAssignedUnits = 0
+  let serialRequiredUnits = 0
+  let quantityLines = 0
+  let allocatedQuantityUnits = 0
+  let committedQuantityUnits = 0
+
+  for (const line of lines) {
+    const progress = buildLineProgress(line, orderStatus)
+    committedQuantityUnits += progress.committedQuantity
+
+    if (progress.isReadyToShip) {
+      readyLines += 1
+    }
+
+    if (!line.manageInventory) {
+      continue
+    }
+
+    if (line.trackingMode === "serial") {
+      serialLines += 1
+      serialAssignedUnits += line.assignedUnitCount
+      serialRequiredUnits += line.quantity
+    } else if (line.trackingMode === "quantity") {
+      quantityLines += 1
+      allocatedQuantityUnits += Math.min(line.quantity, line.allocatedQuantity)
+    }
+  }
+
+  const attentionState: AdminOrderListItem["progress"]["attentionState"] =
+    orderStatus === "cancelled" || orderStatus === "refunded"
+      ? "exception"
+      : null
+
+  return {
+    totalLines: lines.length,
+    readyLines,
+    serialLines,
+    serialAssignedUnits,
+    serialRequiredUnits,
+    quantityLines,
+    allocatedQuantityUnits,
+    committedQuantityUnits,
+    canShipNow: lines.length > 0 && readyLines === lines.length,
+    attentionState,
+  }
+}
+
+function resolveOrderAttentionState(
+  order: Pick<
+    AdminOrderListItem,
+    "status" | "paymentStatus" | "paymentMethod" | "progress"
+  >,
+): AdminOrderListItem["progress"]["attentionState"] {
+  if (order.status === "cancelled" || order.status === "refunded") {
+    return "exception"
+  }
+
+  if (
+    order.paymentMethod === "bank_transfer" &&
+    order.paymentStatus === "pending_verification"
+  ) {
+    return "needs_payment_review"
+  }
+
+  if (order.status === "paid" || order.status === "processing") {
+    return "awaiting_processing"
+  }
+
+  if (
+    order.status === "packing" &&
+    order.progress.serialLines > 0 &&
+    order.progress.serialAssignedUnits < order.progress.serialRequiredUnits
+  ) {
+    return "needs_serial_assignment"
+  }
+
+  if (order.status === "packing" && order.progress.canShipNow) {
+    return "ready_to_ship"
+  }
+
+  return null
+}
+
 async function getOrderBase(tx: typeof db | DbTransaction, orderId: string) {
   const [order] = await tx
     .select({
       id: orders.id,
       orderNumber: orders.orderNumber,
       status: orders.status,
+      paymentStatus: orders.paymentStatus,
+      fulfillmentStatus: orders.fulfillmentStatus,
+      paymentMethod: orders.paymentMethod,
+      shippingMethod: orders.shippingMethod,
       subtotal: orders.subtotal,
       taxAmount: orders.taxAmount,
       shippingCost: orders.shippingCost,
@@ -157,6 +416,8 @@ async function getOrderBase(tx: typeof db | DbTransaction, orderId: string) {
       customerName: orders.customerName,
       shippingAddress: orders.shippingAddress,
       billingAddress: orders.billingAddress,
+      placedAt: orders.placedAt,
+      confirmedAt: orders.confirmedAt,
       createdAt: orders.createdAt,
       updatedAt: orders.updatedAt,
       customer: {
@@ -191,7 +452,7 @@ function buildPackingSummary(
       continue
     }
 
-    if (!item.variantId || !item.variant) {
+    if (!item.variantId) {
       if (enforcePackingRequirements) {
         issues.push(`${item.productName}: missing variant link for packing`)
       }
@@ -257,6 +518,8 @@ async function getOrderAggregate(
     assignmentRows,
     shipmentRows,
     statusHistory,
+    paymentRows,
+    paymentProofRows,
   ] = await Promise.all([
     tx
       .select({
@@ -268,17 +531,15 @@ async function getOrderAggregate(
         productName: orderItems.productName,
         variantName: orderItems.variantName,
         sku: orderItems.sku,
+        snapshot: orderItems.snapshot,
         variant: {
           id: productVariants.id,
           name: productVariants.name,
           sku: productVariants.sku,
-          trackingMode: products.inventoryTrackingMode,
-          manageInventory: productVariants.manageInventory,
         },
       })
       .from(orderItems)
       .leftJoin(productVariants, eq(orderItems.variantId, productVariants.id))
-      .leftJoin(products, eq(productVariants.productId, products.id))
       .where(eq(orderItems.orderId, orderId)),
     tx
       .select({
@@ -336,6 +597,38 @@ async function getOrderAggregate(
       .leftJoin(user, eq(orderStatusHistory.changedBy, user.id))
       .where(eq(orderStatusHistory.orderId, orderId))
       .orderBy(desc(orderStatusHistory.createdAt)),
+    tx
+      .select({
+        id: payments.id,
+        method: payments.method,
+        status: payments.status,
+        amount: payments.amount,
+        currency: payments.currency,
+        externalId: payments.externalId,
+        externalStatus: payments.externalStatus,
+        failureReason: payments.failureReason,
+        processedAt: payments.processedAt,
+        createdAt: payments.createdAt,
+      })
+      .from(payments)
+      .where(eq(payments.orderId, orderId))
+      .orderBy(desc(payments.createdAt)),
+    tx
+      .select({
+        id: bankTransferProofs.id,
+        paymentId: bankTransferProofs.paymentId,
+        fileUrl: bankTransferProofs.fileUrl,
+        fileName: bankTransferProofs.fileName,
+        notes: bankTransferProofs.notes,
+        verifiedAt: bankTransferProofs.verifiedAt,
+        verificationNotes: bankTransferProofs.verificationNotes,
+        isApproved: bankTransferProofs.isApproved,
+        createdAt: bankTransferProofs.createdAt,
+      })
+      .from(bankTransferProofs)
+      .innerJoin(payments, eq(bankTransferProofs.paymentId, payments.id))
+      .where(eq(payments.orderId, orderId))
+      .orderBy(desc(bankTransferProofs.createdAt)),
   ])
 
   const unitIds = assignmentRows.map((assignment) => assignment.inventoryUnitId)
@@ -412,8 +705,18 @@ async function getOrderAggregate(
       0,
     )
     const assignedUnitCount = activeAssignments.length
-    const trackingMode = item.variant?.trackingMode ?? null
-    const manageInventory = item.variant?.manageInventory ?? false
+    const trackingMode = item.snapshot?.trackingMode ?? null
+    const manageInventory = item.snapshot?.manageInventory ?? false
+    const progress = buildLineProgress(
+      {
+        quantity: item.quantity,
+        trackingMode,
+        manageInventory,
+        allocatedQuantity,
+        assignedUnitCount,
+      },
+      order.status,
+    )
 
     return {
       id: item.id,
@@ -424,13 +727,17 @@ async function getOrderAggregate(
       productName: item.productName,
       variantName: item.variantName,
       sku: item.sku,
-      variant: item.variant
+      snapshot: item.snapshot,
+      variant: item.variantId
         ? {
-            id: item.variant.id,
-            name: item.variant.name,
-            sku: item.variant.sku,
-            trackingMode: item.variant.trackingMode,
-            manageInventory: item.variant.manageInventory ?? false,
+            id: item.variant?.id ?? item.variantId,
+            name:
+              item.variant?.name ??
+              item.snapshot?.variantName ??
+              item.variantName,
+            sku: item.variant?.sku ?? item.snapshot?.sku ?? item.sku,
+            trackingMode,
+            manageInventory,
           }
         : null,
       packing: {
@@ -445,11 +752,35 @@ async function getOrderAggregate(
         allocations,
         assignments,
       },
+      progress,
     }
   })
 
+  const proofsByPaymentId = new Map<
+    string,
+    AdminOrder["payments"][number]["proofs"]
+  >()
+  for (const proof of paymentProofRows) {
+    const existing = proofsByPaymentId.get(proof.paymentId) ?? []
+    existing.push({
+      id: proof.id,
+      fileUrl: proof.fileUrl,
+      fileName: proof.fileName,
+      notes: proof.notes,
+      verifiedAt: proof.verifiedAt,
+      verificationNotes: proof.verificationNotes,
+      isApproved: proof.isApproved,
+      createdAt: proof.createdAt,
+    })
+    proofsByPaymentId.set(proof.paymentId, existing)
+  }
+
   return {
     ...order,
+    payments: paymentRows.map((payment) => ({
+      ...payment,
+      proofs: proofsByPaymentId.get(payment.id) ?? [],
+    })),
     items,
     statusHistory,
     shipments: shipmentRows as AdminOrderShipment[],
@@ -477,6 +808,7 @@ async function transitionOrderStatusTx(
     .update(orders)
     .set({
       status: input.nextStatus,
+      fulfillmentStatus: deriveFulfillmentStatus(input.nextStatus),
       updatedAt: new Date(),
     })
     .where(eq(orders.id, input.orderId))
@@ -534,20 +866,11 @@ async function releasePackingStateTx(tx: DbTransaction, order: AdminOrder) {
         )
     }
 
-    const reservedQuantityRemaining = Math.max(
-      0,
-      item.quantity -
-        activeAllocations.reduce(
-          (sum, allocation) => sum + allocation.quantity,
-          0,
-        ),
-    )
-
-    if (item.packing.trackingMode === "quantity" && reservedQuantityRemaining) {
+    if (item.packing.trackingMode === "quantity" && item.quantity > 0) {
       await releaseReservedInventory(
         {
           variantId: item.variantId,
-          quantity: reservedQuantityRemaining,
+          quantity: item.quantity,
           referenceType: "order",
           referenceId: order.id,
           notes: "Released after order cancellation",
@@ -603,19 +926,11 @@ async function releasePackingStateTx(tx: DbTransaction, order: AdminOrder) {
         .where(inArray(inventoryUnits.id, unitIds))
     }
 
-    const reservedSerializedQuantityRemaining = Math.max(
-      0,
-      item.quantity - activeAssignments.length,
-    )
-
-    if (
-      item.packing.trackingMode === "serial" &&
-      reservedSerializedQuantityRemaining
-    ) {
+    if (item.packing.trackingMode === "serial" && item.quantity > 0) {
       await releaseReservedInventory(
         {
           variantId: item.variantId,
-          quantity: reservedSerializedQuantityRemaining,
+          quantity: item.quantity,
           referenceType: "order",
           referenceId: order.id,
           notes: "Released after order cancellation",
@@ -648,30 +963,34 @@ async function getOrderForEmail(
     orderNumber: order.orderNumber,
     customerName: order.customerName || "Customer",
     customerEmail: order.customerEmail,
-    total: new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(parseFloat(order.total)),
+    total: formatCurrency(order.total),
     items: items.map((item) => ({
       name: item.productName,
       quantity: item.quantity,
-      price: new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-      }).format(parseFloat(item.unitPrice)),
+      price: formatCurrency(item.unitPrice),
     })),
     shippingAddress: order.shippingAddress as OrderEmailData["shippingAddress"],
   }
 }
 
-export async function getOrders(
-  input: OrderFilterInput = { page: 1, limit: 20 },
-) {
+export async function getOrders(input?: Partial<OrderFilterInput>) {
   try {
     await requireStaff()
-    const { status, search, startDate, endDate, page, limit } =
-      orderFilterSchema.parse(input)
-    const offset = (page - 1) * limit
+    const {
+      status,
+      paymentStatus,
+      fulfillmentStatus,
+      customerType,
+      shippingMethod,
+      view,
+      sortBy,
+      sortOrder,
+      search,
+      startDate,
+      endDate,
+      page,
+      limit,
+    } = orderFilterSchema.parse(input ?? {})
 
     const conditions = []
 
@@ -679,11 +998,55 @@ export async function getOrders(
       conditions.push(eq(orders.status, status))
     }
 
+    if (paymentStatus) {
+      conditions.push(eq(orders.paymentStatus, paymentStatus))
+    }
+
+    if (fulfillmentStatus) {
+      conditions.push(eq(orders.fulfillmentStatus, fulfillmentStatus))
+    }
+
+    if (customerType === "guest") {
+      conditions.push(isNull(orders.userId))
+    }
+
+    if (customerType === "registered") {
+      conditions.push(sql`${orders.userId} IS NOT NULL`)
+    }
+
+    if (shippingMethod) {
+      conditions.push(eq(orders.shippingMethod, shippingMethod))
+    }
+
     if (search) {
+      const searchValue = `%${search}%`
       conditions.push(
         or(
-          ilike(orders.orderNumber, `%${search}%`),
-          ilike(user.email, `%${search}%`),
+          ilike(orders.orderNumber, searchValue),
+          ilike(orders.customerEmail, searchValue),
+          ilike(orders.customerName, searchValue),
+          ilike(orders.customerPhone, searchValue),
+          ilike(user.email, searchValue),
+          ilike(user.name, searchValue),
+          sql<boolean>`EXISTS (
+            SELECT 1
+            FROM ${orderItems} AS oi
+            WHERE oi.order_id = ${orders.id}
+              AND (
+                oi.product_name ILIKE ${searchValue}
+                OR oi.variant_name ILIKE ${searchValue}
+                OR oi.sku ILIKE ${searchValue}
+              )
+          )`,
+          sql<boolean>`EXISTS (
+            SELECT 1
+            FROM ${shipments} AS shipment
+            WHERE shipment.order_id = ${orders.id}
+              AND (
+                shipment.tracking_number ILIKE ${searchValue}
+                OR shipment.carrier ILIKE ${searchValue}
+              )
+          )`,
         ),
       )
     }
@@ -698,46 +1061,249 @@ export async function getOrders(
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined
 
-    const [ordersList, [{ total }]] = await Promise.all([
-      db
-        .select({
-          id: orders.id,
-          orderNumber: orders.orderNumber,
-          status: orders.status,
-          subtotal: orders.subtotal,
-          tax: orders.taxAmount,
-          shippingCost: orders.shippingCost,
-          discount: orders.discountAmount,
-          total: orders.total,
-          createdAt: orders.createdAt,
-          customer: {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-          },
-        })
-        .from(orders)
-        .leftJoin(user, eq(orders.userId, user.id))
-        .where(whereClause)
-        .orderBy(desc(orders.createdAt))
-        .limit(limit)
-        .offset(offset),
-      db
-        .select({ total: count() })
-        .from(orders)
-        .leftJoin(user, eq(orders.userId, user.id))
-        .where(whereClause),
-    ])
+    const baseOrders = await db
+      .select({
+        id: orders.id,
+        orderNumber: orders.orderNumber,
+        status: orders.status,
+        paymentStatus: orders.paymentStatus,
+        fulfillmentStatus: orders.fulfillmentStatus,
+        paymentMethod: orders.paymentMethod,
+        shippingMethod: orders.shippingMethod,
+        total: orders.total,
+        createdAt: orders.createdAt,
+        updatedAt: orders.updatedAt,
+        customerEmail: orders.customerEmail,
+        customerName: orders.customerName,
+        customerPhone: orders.customerPhone,
+        customer: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+        },
+      })
+      .from(orders)
+      .leftJoin(user, eq(orders.userId, user.id))
+      .where(whereClause)
+
+    const orderIds = baseOrders.map((order) => order.id)
+
+    const [listItemRows, allocationRows, assignmentRows, shipmentRows] =
+      orderIds.length > 0
+        ? await Promise.all([
+            db
+              .select({
+                orderId: orderItems.orderId,
+                orderItemId: orderItems.id,
+                quantity: orderItems.quantity,
+                trackingMode: sql<
+                  "quantity" | "serial" | null
+                >`${orderItems.snapshot} ->> 'trackingMode'`,
+                manageInventory: sql<boolean>`COALESCE((${orderItems.snapshot} ->> 'manageInventory')::boolean, false)`,
+              })
+              .from(orderItems)
+              .where(inArray(orderItems.orderId, orderIds)),
+            db
+              .select({
+                orderItemId: orderItemAllocations.orderItemId,
+                quantity: orderItemAllocations.quantity,
+                releasedAt: orderItemAllocations.releasedAt,
+              })
+              .from(orderItemAllocations)
+              .where(inArray(orderItemAllocations.orderId, orderIds)),
+            db
+              .select({
+                orderItemId: orderItemUnitAssignments.orderItemId,
+                unassignedAt: orderItemUnitAssignments.unassignedAt,
+              })
+              .from(orderItemUnitAssignments)
+              .where(inArray(orderItemUnitAssignments.orderId, orderIds)),
+            db
+              .select({
+                orderId: shipments.orderId,
+                carrier: shipments.carrier,
+                trackingNumber: shipments.trackingNumber,
+                createdAt: shipments.createdAt,
+              })
+              .from(shipments)
+              .where(inArray(shipments.orderId, orderIds))
+              .orderBy(desc(shipments.createdAt)),
+          ])
+        : [[], [], [], []]
+
+    const activeAllocationQuantityByItemId = new Map<string, number>()
+    for (const allocation of allocationRows) {
+      if (allocation.releasedAt !== null) {
+        continue
+      }
+
+      activeAllocationQuantityByItemId.set(
+        allocation.orderItemId,
+        (activeAllocationQuantityByItemId.get(allocation.orderItemId) ?? 0) +
+          allocation.quantity,
+      )
+    }
+
+    const activeAssignmentCountByItemId = new Map<string, number>()
+    for (const assignment of assignmentRows) {
+      if (assignment.unassignedAt !== null) {
+        continue
+      }
+
+      activeAssignmentCountByItemId.set(
+        assignment.orderItemId,
+        (activeAssignmentCountByItemId.get(assignment.orderItemId) ?? 0) + 1,
+      )
+    }
+
+    const linesByOrderId = new Map<string, OrderListLineSnapshot[]>()
+    for (const item of listItemRows) {
+      const existing = linesByOrderId.get(item.orderId) ?? []
+      existing.push({
+        orderId: item.orderId,
+        orderItemId: item.orderItemId,
+        quantity: item.quantity,
+        trackingMode: item.trackingMode,
+        manageInventory: item.manageInventory,
+        allocatedQuantity:
+          activeAllocationQuantityByItemId.get(item.orderItemId) ?? 0,
+        assignedUnitCount:
+          activeAssignmentCountByItemId.get(item.orderItemId) ?? 0,
+      })
+      linesByOrderId.set(item.orderId, existing)
+    }
+
+    const latestShipmentByOrderId = new Map<
+      string,
+      { trackingNumber: string | null; carrier: string | null; createdAt: Date }
+    >()
+    for (const shipment of shipmentRows) {
+      if (!latestShipmentByOrderId.has(shipment.orderId)) {
+        latestShipmentByOrderId.set(shipment.orderId, shipment)
+      }
+    }
+
+    const enrichedOrders: AdminOrderListItem[] = baseOrders.map((order) => {
+      const lines = linesByOrderId.get(order.id) ?? []
+      const progress = buildOrderProgressSummary(lines, order.status)
+      const latestShipment = latestShipmentByOrderId.get(order.id) ?? null
+      const latestActivityAt = latestShipment
+        ? new Date(
+            Math.max(
+              new Date(order.updatedAt).getTime(),
+              new Date(latestShipment.createdAt).getTime(),
+            ),
+          )
+        : order.updatedAt
+
+      const listItem: AdminOrderListItem = {
+        id: order.id,
+        orderNumber: order.orderNumber,
+        status: order.status,
+        paymentStatus: order.paymentStatus as AdminOrderPaymentStatus,
+        fulfillmentStatus:
+          order.fulfillmentStatus as AdminOrderFulfillmentStatus,
+        paymentMethod: order.paymentMethod,
+        shippingMethod: order.shippingMethod,
+        total: order.total,
+        createdAt: order.createdAt,
+        updatedAt: order.updatedAt,
+        latestActivityAt,
+        customer: order.customer,
+        customerEmail: order.customerEmail,
+        customerName: order.customerName,
+        customerPhone: order.customerPhone,
+        isGuest: !order.customer?.id,
+        itemCount: lines.length,
+        totalQuantity: lines.reduce((sum, line) => sum + line.quantity, 0),
+        latestTrackingNumber: latestShipment?.trackingNumber ?? null,
+        latestCarrier: latestShipment?.carrier ?? null,
+        progress: {
+          ...progress,
+          attentionState: null,
+        },
+      }
+
+      listItem.progress.attentionState = resolveOrderAttentionState(listItem)
+      return listItem
+    })
+
+    const viewedOrders = enrichedOrders.filter((order) => {
+      switch (view) {
+        case "needs_payment_review":
+          return order.progress.attentionState === "needs_payment_review"
+        case "awaiting_processing":
+          return order.progress.attentionState === "awaiting_processing"
+        case "needs_serial_assignment":
+          return order.progress.attentionState === "needs_serial_assignment"
+        case "ready_to_ship":
+          return order.progress.attentionState === "ready_to_ship"
+        case "delivered":
+          return order.status === "delivered"
+        case "exceptions":
+          return order.progress.attentionState === "exception"
+        case "all":
+        default:
+          return true
+      }
+    })
+
+    const sortDirection = sortOrder === "asc" ? 1 : -1
+    const sortedOrders = [...viewedOrders].sort((left, right) => {
+      const compare = (() => {
+        switch (sortBy) {
+          case "updatedAt":
+            return (
+              new Date(left.updatedAt).getTime() -
+              new Date(right.updatedAt).getTime()
+            )
+          case "latestActivityAt":
+            return (
+              new Date(left.latestActivityAt).getTime() -
+              new Date(right.latestActivityAt).getTime()
+            )
+          case "total":
+            return (
+              Number.parseFloat(left.total) - Number.parseFloat(right.total)
+            )
+          case "customer":
+            return (left.customerName || left.customerEmail).localeCompare(
+              right.customerName || right.customerEmail,
+            )
+          case "paymentStatus":
+            return left.paymentStatus.localeCompare(right.paymentStatus)
+          case "fulfillmentStatus":
+            return left.fulfillmentStatus.localeCompare(right.fulfillmentStatus)
+          case "orderNumber":
+            return left.orderNumber.localeCompare(right.orderNumber)
+          case "createdAt":
+          default:
+            return (
+              new Date(left.createdAt).getTime() -
+              new Date(right.createdAt).getTime()
+            )
+        }
+      })()
+
+      if (compare !== 0) {
+        return compare * sortDirection
+      }
+
+      return right.orderNumber.localeCompare(left.orderNumber)
+    })
+
+    const offset = (page - 1) * limit
+    const paginatedOrders = sortedOrders.slice(offset, offset + limit)
 
     return {
       success: true as const,
       data: {
-        orders: ordersList,
+        orders: paginatedOrders,
         pagination: {
           page,
           limit,
-          total,
-          totalPages: Math.ceil(total / limit),
+          total: sortedOrders.length,
+          totalPages: Math.max(1, Math.ceil(sortedOrders.length / limit)),
         },
       },
     }
@@ -954,7 +1520,7 @@ export async function scanOrderPackingUnit(
 
       const item = order.items.find((candidate) => candidate.id === orderItemId)
 
-      if (!item || !item.variantId || !item.variant) {
+      if (!item || !item.variantId) {
         return { success: false as const, error: "Order item not found" }
       }
 

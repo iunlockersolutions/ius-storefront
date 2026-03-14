@@ -62,6 +62,10 @@ export interface AdminInventoryStats {
   serialTrackedVariants: number
   lowStockVariants: number
   outOfStockVariants: number
+  totalOnHandPhysical: number
+  totalAvailableToSell: number
+  totalCommitted: number
+  totalPreparing: number
   totalOnHand: number
   totalAvailable: number
   totalReserved: number
@@ -78,6 +82,10 @@ export interface AdminInventoryListItem {
   variantSku: string
   trackingMode: AdminInventoryTrackingMode
   manageInventory: boolean
+  onHandPhysical: number
+  availableToSell: number
+  committedQuantity: number
+  preparingQuantity: number
   onHandQuantity: number
   availableQuantity: number
   reservedQuantity: number
@@ -95,6 +103,7 @@ export interface AdminInventoryLowStockAlert {
   variantName: string
   variantSku: string
   trackingMode: AdminInventoryTrackingMode
+  availableToSell: number
   availableQuantity: number
   lowStockThreshold: number
   isOutOfStock: boolean
@@ -144,6 +153,10 @@ export interface AdminInventoryDetail {
   manageInventory: boolean
   receiptIdentifierTypes: AdminInventoryIdentifierType[]
   stats: {
+    onHandPhysical: number
+    availableToSell: number
+    committedQuantity: number
+    preparingQuantity: number
     onHandQuantity: number
     availableQuantity: number
     reservedQuantity: number
@@ -172,6 +185,8 @@ export interface AdminProductReceiveStockVariant {
   trackingMode: AdminInventoryTrackingMode
   manageInventory: boolean
   receiptIdentifierTypes: AdminInventoryIdentifierType[]
+  onHandPhysical: number | null
+  availableToSell: number | null
   onHandQuantity: number | null
   availableQuantity: number | null
 }

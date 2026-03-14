@@ -3,23 +3,39 @@
 import { revalidatePath } from "next/cache"
 import { cookies } from "next/headers"
 
-import { eq } from "drizzle-orm"
+import crypto from "crypto"
+import { and, eq } from "drizzle-orm"
 import { nanoid } from "nanoid"
 
 import {
   getVariantInventoryAvailabilityMap,
   reserveInventory,
 } from "@/lib/actions/inventory"
+import {
+  initiateCardPayment,
+  recordBankTransferPayment,
+  recordCODPayment,
+} from "@/lib/actions/payment"
 import { getServerSession } from "@/lib/auth/rbac"
+import {
+  calculateCheckoutPricing,
+  type CheckoutPaymentMethod,
+  type CheckoutPricing,
+  type CheckoutShippingMethod,
+  resolveCheckoutPricingConfig,
+} from "@/lib/checkout/pricing"
 import { db } from "@/lib/db"
 import {
   cartItems,
   carts,
+  checkoutSessions,
   customerAddresses,
   customerProfiles,
+  guestOrderAccessTokens,
   orderItems,
   orders,
   orderStatusHistory,
+  siteSettings,
 } from "@/lib/db/schema"
 import {
   getPrimaryProductImageMap,
@@ -27,19 +43,72 @@ import {
 } from "@/lib/media/service"
 import {
   type AddressForCheckout,
-  calculateOrderTotals,
   type CartValidationResult,
-  type CheckoutData,
-  checkoutDataSchema,
+  type CheckoutPageData,
+  type CheckoutSessionInput,
+  checkoutSessionInputSchema,
   type CheckoutSummary,
-  type CreateOrderResult,
+  type SubmitCheckoutResult,
 } from "@/lib/schemas/checkout"
 
-const CART_SESSION_COOKIE = "cart_session"
+const CART_SESSION_COOKIE = "cart_session_id"
+const CHECKOUT_SESSION_TTL_MS = 24 * 60 * 60 * 1000
+const ORDER_ACCESS_TOKEN_TTL_MS = 72 * 60 * 60 * 1000
 
-// ============================================
-// Get User Addresses
-// ============================================
+type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+function hashToken(token: string) {
+  return crypto.createHash("sha256").update(token).digest("hex")
+}
+
+function buildAbsoluteUrl(path: string) {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+  return new URL(path, siteUrl).toString()
+}
+
+function toMoneyString(amount: number) {
+  return amount.toFixed(2)
+}
+
+async function getSettingsMap() {
+  const settings = await db.select().from(siteSettings)
+  return Object.fromEntries(
+    settings.map((setting) => [setting.key, setting.value]),
+  )
+}
+
+async function getCheckoutActor() {
+  const session = await getServerSession()
+  const cookieStore = await cookies()
+  const cartSessionId = cookieStore.get(CART_SESSION_COOKIE)?.value ?? null
+
+  return {
+    session,
+    userId: session?.user?.id ?? null,
+    cartSessionId,
+  }
+}
+
+async function getCheckoutCart() {
+  const actor = await getCheckoutActor()
+
+  let cart = null
+
+  if (actor.userId) {
+    cart = await db.query.carts.findFirst({
+      where: eq(carts.userId, actor.userId),
+    })
+  } else if (actor.cartSessionId) {
+    cart = await db.query.carts.findFirst({
+      where: eq(carts.sessionId, actor.cartSessionId),
+    })
+  }
+
+  return {
+    ...actor,
+    cart,
+  }
+}
 
 export async function getUserAddresses(): Promise<AddressForCheckout[]> {
   const session = await getServerSession()
@@ -48,7 +117,6 @@ export async function getUserAddresses(): Promise<AddressForCheckout[]> {
     return []
   }
 
-  // First get the customer profile
   const profile = await db.query.customerProfiles.findFirst({
     where: eq(customerProfiles.userId, session.user.id),
   })
@@ -59,51 +127,32 @@ export async function getUserAddresses(): Promise<AddressForCheckout[]> {
 
   const addresses = await db.query.customerAddresses.findMany({
     where: eq(customerAddresses.customerId, profile.id),
-    orderBy: (addresses, { desc }) => [desc(addresses.isDefault)],
+    orderBy: (addressTable, { desc }) => [desc(addressTable.isDefault)],
   })
 
-  return addresses.map((addr) => ({
-    id: addr.id,
-    type: addr.type,
-    recipientName: addr.recipientName,
-    phone: addr.phone,
-    addressLine1: addr.addressLine1,
-    addressLine2: addr.addressLine2,
-    city: addr.city,
-    state: addr.state,
-    postalCode: addr.postalCode,
-    country: addr.country,
-    isDefault: addr.isDefault,
-    label: addr.label,
+  return addresses.map((address) => ({
+    id: address.id,
+    type: address.type,
+    recipientName: address.recipientName,
+    phone: address.phone,
+    addressLine1: address.addressLine1,
+    addressLine2: address.addressLine2,
+    city: address.city,
+    district: address.state,
+    postalCode: address.postalCode,
+    country: address.country,
+    isDefault: address.isDefault,
+    label: address.label,
   }))
 }
 
-// ============================================
-// Validate Cart for Checkout
-// ============================================
-
 export async function validateCartForCheckout(): Promise<CartValidationResult> {
-  const session = await getServerSession()
-  const cookieStore = await cookies()
-  const guestCartId = cookieStore.get(CART_SESSION_COOKIE)?.value
-
-  // Find cart
-  let cart
-  if (session?.user?.id) {
-    cart = await db.query.carts.findFirst({
-      where: eq(carts.userId, session.user.id),
-    })
-  } else if (guestCartId) {
-    cart = await db.query.carts.findFirst({
-      where: eq(carts.id, guestCartId),
-    })
-  }
+  const { cart } = await getCheckoutCart()
 
   if (!cart) {
     return { success: false, errors: ["Cart not found"] }
   }
 
-  // Get cart items with variant data
   const items = await db.query.cartItems.findMany({
     where: eq(cartItems.cartId, cart.id),
     with: {
@@ -119,63 +168,60 @@ export async function validateCartForCheckout(): Promise<CartValidationResult> {
     return { success: false, errors: ["Cart is empty"] }
   }
 
-  const errors: string[] = []
-  const validatedItems = []
-  let subtotal = 0
   const availabilityByVariant = await getVariantInventoryAvailabilityMap(
     items.map((item) => item.variant.id),
   )
 
-  for (const item of items) {
+  const errors: string[] = []
+  let subtotal = 0
+  const validatedItems = items.flatMap((item) => {
     const availability = availabilityByVariant.get(item.variant.id)
-    const managesInventory = availability?.manageInventory ?? false
-    const availableQuantity = managesInventory
+    const manageInventory = availability?.manageInventory ?? false
+    const availableQuantity = manageInventory
       ? (availability?.availableQuantity ?? 0)
       : Number.MAX_SAFE_INTEGER
 
-    // Check if product is still active
     if (item.variant.product.status !== "active") {
       errors.push(`${item.variant.product.name} is no longer available`)
-      continue
+      return []
     }
 
-    // Check if variant is active
     if (!item.variant.isActive) {
       errors.push(`${item.variant.name} is no longer available`)
-      continue
+      return []
     }
 
-    // Check stock
     if (availableQuantity < item.quantity) {
-      if (availableQuantity === 0) {
-        errors.push(
-          `${item.variant.product.name} (${item.variant.name}) is out of stock`,
-        )
-      } else {
-        errors.push(
-          `${item.variant.product.name} (${item.variant.name}): only ${availableQuantity} available`,
-        )
-      }
+      errors.push(
+        availableQuantity === 0
+          ? `${item.variant.product.name} (${item.variant.name}) is out of stock`
+          : `${item.variant.product.name} (${item.variant.name}): only ${availableQuantity} available`,
+      )
+      return []
     }
 
-    const price = parseFloat(item.variant.price)
+    const price = Number.parseFloat(item.variant.price)
     subtotal += price * item.quantity
 
-    validatedItems.push({
-      id: item.id,
-      quantity: item.quantity,
-      variantId: item.variant.id,
-      variantName: item.variant.name,
-      variantSku: item.variant.sku,
-      variantPrice: item.variant.price,
-      productId: item.variant.product.id,
-      productName: item.variant.product.name,
-      productSlug: item.variant.product.slug,
-      productStatus: item.variant.product.status,
-      manageInventory: managesInventory,
-      availableQuantity,
-    })
-  }
+    return [
+      {
+        id: item.id,
+        quantity: item.quantity,
+        variantId: item.variant.id,
+        variantName: item.variant.name,
+        variantSku: item.variant.sku,
+        variantPrice: item.variant.price,
+        productId: item.variant.product.id,
+        productName: item.variant.product.name,
+        productSlug: item.variant.product.slug,
+        productStatus: item.variant.product.status,
+        manageInventory,
+        trackingMode: availability?.trackingMode ?? null,
+        receiptIdentifierTypes: item.variant.product.receiptIdentifierTypes,
+        availableQuantity,
+      },
+    ]
+  })
 
   return {
     success: errors.length === 0,
@@ -189,248 +235,664 @@ export async function validateCartForCheckout(): Promise<CartValidationResult> {
   }
 }
 
-// ============================================
-// Create Order
-// ============================================
-
-export async function createOrder(
-  checkoutData: CheckoutData,
-): Promise<CreateOrderResult> {
-  // Validate checkout data
-  const validation = checkoutDataSchema.safeParse(checkoutData)
-  if (!validation.success) {
-    return {
-      success: false,
-      error: validation.error.errors[0]?.message || "Invalid checkout data",
-    }
-  }
-
-  // Validate cart
+async function buildCheckoutSummary(): Promise<CheckoutSummary | null> {
   const cartValidation = await validateCartForCheckout()
+
   if (!cartValidation.success || !cartValidation.cart) {
-    return {
-      success: false,
-      error: cartValidation.errors?.[0] || "Cart validation failed",
-    }
-  }
-
-  const session = await getServerSession()
-  const cart = cartValidation.cart
-  const totals = calculateOrderTotals(
-    cart.subtotal,
-    checkoutData.shippingMethod,
-  )
-
-  // Generate order number
-  const orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}-${nanoid(4).toUpperCase()}`
-
-  // Prepare shipping address JSONB
-  const shippingAddress = {
-    recipientName: checkoutData.shipping.recipientName,
-    phone: checkoutData.shipping.phone,
-    addressLine1: checkoutData.shipping.addressLine1,
-    addressLine2: checkoutData.shipping.addressLine2,
-    city: checkoutData.shipping.city,
-    state: checkoutData.shipping.state,
-    postalCode: checkoutData.shipping.postalCode,
-    country: checkoutData.shipping.country,
-    instructions: checkoutData.shipping.instructions,
-  }
-
-  try {
-    // Create order in transaction
-    const result = await db.transaction(async (tx) => {
-      // 1. Create order
-      const [order] = await tx
-        .insert(orders)
-        .values({
-          orderNumber,
-          userId: session?.user?.id || null,
-          customerEmail: checkoutData.contact.email,
-          customerPhone: checkoutData.contact.phone || null,
-          customerName: checkoutData.shipping.recipientName,
-          status: "draft", // Initial status
-          subtotal: cart.subtotal.toFixed(2),
-          shippingCost: totals.shipping.toFixed(2),
-          taxAmount: totals.tax.toFixed(2),
-          discountAmount: "0.00",
-          total: totals.total.toFixed(2),
-          shippingAddress,
-          billingAddress: shippingAddress, // Same for billing for now
-          notes: checkoutData.notes || null,
-        })
-        .returning()
-
-      // 2. Create order items
-      for (const item of cart.items) {
-        await tx.insert(orderItems).values({
-          orderId: order.id,
-          variantId: item.variantId,
-          quantity: item.quantity,
-          unitPrice: item.variantPrice,
-          subtotal: (parseFloat(item.variantPrice) * item.quantity).toFixed(2),
-          // Denormalized product data
-          productName: item.productName,
-          variantName: item.variantName,
-          sku: item.variantSku,
-        })
-
-        if (item.manageInventory) {
-          await reserveInventory(
-            {
-              variantId: item.variantId,
-              quantity: item.quantity,
-              referenceType: "order",
-              referenceId: order.id,
-              notes: `Reserved for order ${orderNumber}`,
-            },
-            { tx },
-          )
-        }
-      }
-
-      // 4. Add order status history
-      await tx.insert(orderStatusHistory).values({
-        orderId: order.id,
-        fromStatus: null,
-        toStatus: "draft",
-        notes: "Order placed",
-        changedBy: session?.user?.id || null,
-      })
-
-      // 5. Delete cart items (effectively marks cart as converted)
-      await tx.delete(cartItems).where(eq(cartItems.cartId, cart.id))
-
-      // 6. Save address if requested and user is logged in
-      if (
-        session?.user?.id &&
-        checkoutData.shipping.saveAddress &&
-        !checkoutData.shipping.addressId
-      ) {
-        // Get or create customer profile
-        let profile = await tx.query.customerProfiles.findFirst({
-          where: eq(customerProfiles.userId, session.user.id),
-        })
-
-        if (!profile) {
-          const [newProfile] = await tx
-            .insert(customerProfiles)
-            .values({
-              userId: session.user.id,
-              phone: checkoutData.shipping.phone,
-            })
-            .returning()
-          profile = newProfile
-        }
-
-        if (profile) {
-          await tx.insert(customerAddresses).values({
-            customerId: profile.id,
-            type: "shipping",
-            recipientName: checkoutData.shipping.recipientName,
-            phone: checkoutData.shipping.phone,
-            addressLine1: checkoutData.shipping.addressLine1,
-            addressLine2: checkoutData.shipping.addressLine2 || null,
-            city: checkoutData.shipping.city,
-            state: checkoutData.shipping.state || null,
-            postalCode: checkoutData.shipping.postalCode,
-            country: checkoutData.shipping.country,
-            instructions: checkoutData.shipping.instructions || null,
-            isDefault: false,
-          })
-        }
-      }
-
-      return order
-    })
-
-    revalidatePath("/cart")
-    revalidatePath("/orders")
-    revalidatePath("/ops/orders")
-
-    return {
-      success: true,
-      orderId: result.id,
-      orderNumber: result.orderNumber,
-    }
-  } catch (error) {
-    console.error("Failed to create order:", error)
-    return {
-      success: false,
-      error: "Failed to create order. Please try again.",
-    }
-  }
-}
-
-// ============================================
-// Get Checkout Summary
-// ============================================
-
-export async function getCheckoutSummary(): Promise<CheckoutSummary | null> {
-  const session = await getServerSession()
-  const cookieStore = await cookies()
-  const guestCartId = cookieStore.get(CART_SESSION_COOKIE)?.value
-
-  // Find cart
-  let cart
-  if (session?.user?.id) {
-    cart = await db.query.carts.findFirst({
-      where: eq(carts.userId, session.user.id),
-    })
-  } else if (guestCartId) {
-    cart = await db.query.carts.findFirst({
-      where: eq(carts.id, guestCartId),
-    })
-  }
-
-  if (!cart) {
-    return null
-  }
-
-  // Get cart items with variant and product data
-  const items = await db.query.cartItems.findMany({
-    where: eq(cartItems.cartId, cart.id),
-    with: {
-      variant: {
-        with: {
-          product: true,
-        },
-      },
-    },
-  })
-
-  if (items.length === 0) {
     return null
   }
 
   const imageMap = await getPrimaryProductImageMap(
-    items.map((item) => item.variant.product.id),
+    cartValidation.cart.items.map((item) => item.productId),
   )
   const variantImageMap = await getVariantSpecificProductImageMap(
-    items.map((item) => item.variant.id),
+    cartValidation.cart.items.map((item) => item.variantId),
   )
 
-  let subtotal = 0
-  const formattedItems = items.map((item) => {
-    const price = parseFloat(item.variant.price)
-    subtotal += price * item.quantity
-
-    return {
+  return {
+    items: cartValidation.cart.items.map((item) => ({
       id: item.id,
-      name: item.variant.product.name,
-      variant: item.variant.name,
-      price,
+      name: item.productName,
+      variant: item.variantName,
+      sku: item.variantSku,
+      price: Number.parseFloat(item.variantPrice),
       quantity: item.quantity,
       image:
-        variantImageMap.get(item.variant.id) ||
-        imageMap.get(item.variant.product.id) ||
+        variantImageMap.get(item.variantId) ||
+        imageMap.get(item.productId) ||
         null,
-    }
+    })),
+    subtotal: cartValidation.cart.subtotal,
+    itemCount: cartValidation.cart.itemCount,
+  }
+}
+
+export async function getCheckoutSummary() {
+  return buildCheckoutSummary()
+}
+
+async function upsertCheckoutSession(
+  input?: Partial<CheckoutSessionInput>,
+  pricingOverride?: CheckoutPricing,
+) {
+  const [{ settings, actor, cartValidation, addresses }, summary] =
+    await Promise.all([
+      Promise.all([
+        getSettingsMap(),
+        getCheckoutCart(),
+        validateCartForCheckout(),
+        getUserAddresses(),
+      ]).then(([settings, actor, cartValidation, addresses]) => ({
+        settings,
+        actor,
+        cartValidation,
+        addresses,
+      })),
+      buildCheckoutSummary(),
+    ])
+
+  if (!actor.cart) {
+    throw new Error("Cart not found")
+  }
+
+  if (!cartValidation.success || !cartValidation.cart || !summary) {
+    throw new Error(cartValidation.errors?.[0] || "Cart is empty")
+  }
+
+  const existingSession = await db.query.checkoutSessions.findFirst({
+    where: and(
+      eq(checkoutSessions.cartId, actor.cart.id),
+      eq(checkoutSessions.status, "open"),
+    ),
   })
 
+  const defaultAddress =
+    addresses.find((address) => address.isDefault) ?? addresses[0]
+  const nextInput: Partial<CheckoutSessionInput> = {
+    contact: existingSession?.contact
+      ? {
+          email: existingSession.contact.email,
+          phone: existingSession.contact.phone,
+        }
+      : {
+          email: actor.session?.user?.email ?? "",
+          phone: defaultAddress?.phone ?? "",
+        },
+    shippingAddress: existingSession?.shippingAddress
+      ? {
+          recipientName: existingSession.shippingAddress.recipientName,
+          phone: existingSession.shippingAddress.phone,
+          addressLine1: existingSession.shippingAddress.addressLine1,
+          addressLine2: existingSession.shippingAddress.addressLine2,
+          city: existingSession.shippingAddress.city,
+          district: existingSession.shippingAddress.district || "",
+          postalCode: existingSession.shippingAddress.postalCode,
+          country: existingSession.shippingAddress.country,
+          instructions: existingSession.shippingAddress.instructions,
+          saveAddress: false,
+        }
+      : defaultAddress
+        ? {
+            addressId: defaultAddress.id,
+            recipientName: defaultAddress.recipientName,
+            phone: defaultAddress.phone,
+            addressLine1: defaultAddress.addressLine1,
+            addressLine2: defaultAddress.addressLine2 ?? undefined,
+            city: defaultAddress.city,
+            district: defaultAddress.district || "",
+            postalCode: defaultAddress.postalCode ?? undefined,
+            country: defaultAddress.country,
+            instructions: undefined,
+            saveAddress: false,
+          }
+        : {
+            recipientName: "",
+            phone: "",
+            addressLine1: "",
+            addressLine2: "",
+            city: "",
+            district: "",
+            postalCode: "",
+            country: "Sri Lanka",
+            instructions: "",
+            saveAddress: false,
+          },
+    shippingMethod:
+      existingSession?.shippingMethod === "express" ? "express" : "standard",
+    paymentMethod:
+      existingSession?.paymentMethod === "bank_transfer" ||
+      existingSession?.paymentMethod === "cash_on_delivery"
+        ? existingSession.paymentMethod
+        : "card",
+    notes: existingSession?.notes ?? "",
+    ...input,
+  }
+
+  const validatedInput = checkoutSessionInputSchema.partial().parse(nextInput)
+  const pricing = pricingOverride
+    ? pricingOverride
+    : calculateCheckoutPricing(
+        cartValidation.cart.subtotal,
+        ((validatedInput.shippingMethod as
+          | CheckoutShippingMethod
+          | undefined) ?? "standard") as CheckoutShippingMethod,
+        ((validatedInput.paymentMethod as CheckoutPaymentMethod | undefined) ??
+          "card") as CheckoutPaymentMethod,
+        resolveCheckoutPricingConfig(settings),
+      )
+
+  const sessionValues = {
+    contact:
+      validatedInput.contact &&
+      validatedInput.contact.email &&
+      validatedInput.contact.phone
+        ? validatedInput.contact
+        : null,
+    shippingAddress:
+      validatedInput.shippingAddress?.recipientName &&
+      validatedInput.shippingAddress.phone &&
+      validatedInput.shippingAddress.addressLine1 &&
+      validatedInput.shippingAddress.city &&
+      validatedInput.shippingAddress.district
+        ? validatedInput.shippingAddress
+        : null,
+    shippingMethod:
+      (validatedInput.shippingMethod as CheckoutShippingMethod | undefined) ??
+      "standard",
+    paymentMethod:
+      (validatedInput.paymentMethod as CheckoutPaymentMethod | undefined) ??
+      "card",
+    notes: validatedInput.notes ?? null,
+    pricingSnapshot: {
+      currency: "LKR" as const,
+      subtotal: toMoneyString(pricing.subtotal),
+      shippingCost: toMoneyString(pricing.shippingCost),
+      taxAmount: toMoneyString(pricing.taxAmount),
+      discountAmount: toMoneyString(pricing.discountAmount),
+      codFee: toMoneyString(pricing.codFee),
+      total: toMoneyString(pricing.total),
+      freeShippingApplied: pricing.freeShippingApplied,
+    },
+    expiresAt: new Date(Date.now() + CHECKOUT_SESSION_TTL_MS),
+    updatedAt: new Date(),
+  }
+
+  const sessionRecord = existingSession
+    ? (
+        await db
+          .update(checkoutSessions)
+          .set(sessionValues)
+          .where(eq(checkoutSessions.id, existingSession.id))
+          .returning()
+      )[0]
+    : (
+        await db
+          .insert(checkoutSessions)
+          .values({
+            cartId: actor.cart.id,
+            userId: actor.userId,
+            cartSessionId: actor.cartSessionId,
+            ...sessionValues,
+          })
+          .returning()
+      )[0]
+
   return {
-    items: formattedItems,
-    subtotal,
-    itemCount: formattedItems.reduce((sum, item) => sum + item.quantity, 0),
+    actor,
+    summary,
+    cartValidation,
+    pricing,
+    settings,
+    addresses,
+    session: sessionRecord,
+    defaultInput: nextInput,
+  }
+}
+
+export async function getOrCreateCheckoutSession() {
+  const data = await upsertCheckoutSession()
+
+  return {
+    id: data.session.id,
+    pricing: data.pricing,
+    input: data.defaultInput,
+  }
+}
+
+export async function updateCheckoutSession(input: CheckoutSessionInput) {
+  const validatedInput = checkoutSessionInputSchema.parse(input)
+  const data = await upsertCheckoutSession(validatedInput)
+
+  return {
+    success: true as const,
+    sessionId: data.session.id,
+    pricing: data.pricing,
+  }
+}
+
+export async function getCheckoutPricing(sessionId: string) {
+  const actor = await getCheckoutCart()
+  const session = await db.query.checkoutSessions.findFirst({
+    where: eq(checkoutSessions.id, sessionId),
+  })
+
+  if (!session || !actor.cart || session.cartId !== actor.cart.id) {
+    throw new Error("Checkout session not found")
+  }
+
+  const data = await upsertCheckoutSession({
+    shippingMethod:
+      (session.shippingMethod as CheckoutShippingMethod | null) ?? "standard",
+    paymentMethod:
+      (session.paymentMethod as CheckoutPaymentMethod | null) ?? "card",
+  })
+
+  return data.pricing
+}
+
+export async function getCheckoutPageData(): Promise<CheckoutPageData | null> {
+  try {
+    const data = await upsertCheckoutSession()
+
+    return {
+      sessionId: data.session.id,
+      isLoggedIn: Boolean(data.actor.userId),
+      userEmail: data.actor.session?.user?.email ?? "",
+      addresses: data.addresses,
+      summary: data.summary,
+      pricing: data.pricing,
+      defaultInput: data.defaultInput,
+    }
+  } catch {
+    return null
+  }
+}
+
+async function clearCartItems(cartId: string) {
+  await db.delete(cartItems).where(eq(cartItems.cartId, cartId))
+}
+
+async function createOrderAccessTokenTx(
+  tx: DbTransaction,
+  orderId: string,
+  email: string,
+  kind: "confirmation" | "access" = "confirmation",
+) {
+  const token = nanoid(48)
+
+  await tx.insert(guestOrderAccessTokens).values({
+    orderId,
+    email,
+    kind,
+    tokenHash: hashToken(token),
+    expiresAt: new Date(Date.now() + ORDER_ACCESS_TOKEN_TTL_MS),
+  })
+
+  return token
+}
+
+async function saveCheckoutAddressIfNeeded(
+  tx: DbTransaction,
+  userId: string | null,
+  input: CheckoutSessionInput,
+) {
+  if (
+    !userId ||
+    !input.shippingAddress.saveAddress ||
+    input.shippingAddress.addressId
+  ) {
+    return
+  }
+
+  let profile = await tx.query.customerProfiles.findFirst({
+    where: eq(customerProfiles.userId, userId),
+  })
+
+  if (!profile) {
+    ;[profile] = await tx
+      .insert(customerProfiles)
+      .values({
+        userId,
+        phone: input.shippingAddress.phone,
+      })
+      .returning()
+  }
+
+  await tx.insert(customerAddresses).values({
+    customerId: profile.id,
+    type: "shipping",
+    recipientName: input.shippingAddress.recipientName,
+    phone: input.shippingAddress.phone,
+    addressLine1: input.shippingAddress.addressLine1,
+    addressLine2: input.shippingAddress.addressLine2 || null,
+    city: input.shippingAddress.city,
+    state: input.shippingAddress.district || null,
+    postalCode: input.shippingAddress.postalCode || "",
+    country: input.shippingAddress.country,
+    instructions: input.shippingAddress.instructions || null,
+    isDefault: false,
+  })
+}
+
+async function createOrderFromCheckoutSession(
+  tx: DbTransaction,
+  input: CheckoutSessionInput,
+  sessionId: string,
+  actor: Awaited<ReturnType<typeof getCheckoutActor>>,
+  cartValidation: NonNullable<CartValidationResult["cart"]>,
+  pricing: CheckoutPricing,
+  settings: Record<string, string>,
+) {
+  const orderPrefix = settings.order_prefix || "IUS"
+  const orderNumber = `${orderPrefix}-${Date.now().toString(36).toUpperCase()}-${nanoid(5).toUpperCase()}`
+
+  const legacyStatus =
+    input.paymentMethod === "cash_on_delivery"
+      ? "processing"
+      : "pending_payment"
+  const paymentStatus =
+    input.paymentMethod === "bank_transfer"
+      ? "pending_verification"
+      : input.paymentMethod === "cash_on_delivery"
+        ? "unpaid"
+        : "unpaid"
+
+  const [order] = await tx
+    .insert(orders)
+    .values({
+      orderNumber,
+      userId: actor.userId,
+      checkoutSessionId: sessionId,
+      status: legacyStatus,
+      paymentMethod: input.paymentMethod as
+        | "card"
+        | "bank_transfer"
+        | "cash_on_delivery",
+      paymentStatus: paymentStatus as
+        | "unpaid"
+        | "pending_verification"
+        | "authorized"
+        | "paid"
+        | "failed"
+        | "refunded"
+        | "cancelled",
+      fulfillmentStatus: "confirmed",
+      currencyCode: "LKR",
+      shippingMethod: input.shippingMethod,
+      subtotal: toMoneyString(pricing.subtotal),
+      shippingCost: toMoneyString(pricing.shippingCost),
+      taxAmount: toMoneyString(pricing.taxAmount),
+      discountAmount: toMoneyString(pricing.discountAmount),
+      total: toMoneyString(pricing.total),
+      customerEmail: input.contact.email,
+      customerPhone: input.contact.phone,
+      customerName: input.shippingAddress.recipientName,
+      shippingAddress: {
+        recipientName: input.shippingAddress.recipientName,
+        phone: input.shippingAddress.phone,
+        addressLine1: input.shippingAddress.addressLine1,
+        addressLine2: input.shippingAddress.addressLine2,
+        city: input.shippingAddress.city,
+        state: input.shippingAddress.district,
+        postalCode: input.shippingAddress.postalCode || "",
+        country: input.shippingAddress.country,
+        instructions: input.shippingAddress.instructions,
+      },
+      billingAddress: {
+        recipientName: input.shippingAddress.recipientName,
+        phone: input.shippingAddress.phone,
+        addressLine1: input.shippingAddress.addressLine1,
+        addressLine2: input.shippingAddress.addressLine2,
+        city: input.shippingAddress.city,
+        state: input.shippingAddress.district,
+        postalCode: input.shippingAddress.postalCode || "",
+        country: input.shippingAddress.country,
+      },
+      notes: input.notes || null,
+    })
+    .returning()
+
+  for (const item of cartValidation.items) {
+    await tx.insert(orderItems).values({
+      orderId: order.id,
+      variantId: item.variantId,
+      productName: item.productName,
+      productSlug: item.productSlug,
+      variantName: item.variantName,
+      sku: item.variantSku,
+      snapshot: {
+        productId: item.productId,
+        variantId: item.variantId,
+        productName: item.productName,
+        productSlug: item.productSlug,
+        variantName: item.variantName,
+        sku: item.variantSku,
+        manageInventory: item.manageInventory,
+        trackingMode: item.trackingMode,
+        receiptIdentifierTypes: item.receiptIdentifierTypes,
+        unitPrice: item.variantPrice,
+        currency: "LKR",
+      },
+      quantity: item.quantity,
+      unitPrice: item.variantPrice,
+      subtotal: toMoneyString(
+        Number.parseFloat(item.variantPrice) * item.quantity,
+      ),
+    })
+
+    if (item.manageInventory) {
+      await reserveInventory(
+        {
+          variantId: item.variantId,
+          quantity: item.quantity,
+          referenceType: "order",
+          referenceId: order.id,
+          notes: `Reserved for order ${orderNumber}`,
+        },
+        { tx },
+      )
+    }
+  }
+
+  await tx.insert(orderStatusHistory).values({
+    orderId: order.id,
+    fromStatus: null,
+    toStatus: legacyStatus,
+    notes: "Order created from checkout",
+    changedBy: actor.userId,
+  })
+
+  await tx
+    .update(checkoutSessions)
+    .set({
+      status: "submitted",
+      submittedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(checkoutSessions.id, sessionId))
+
+  await saveCheckoutAddressIfNeeded(tx, actor.userId, input)
+
+  const confirmationToken = await createOrderAccessTokenTx(
+    tx,
+    order.id,
+    input.contact.email,
+    "confirmation",
+  )
+  await createOrderAccessTokenTx(tx, order.id, input.contact.email, "access")
+
+  return { order, confirmationToken }
+}
+
+async function cancelSubmittedOrder(orderId: string, reason: string) {
+  await db.transaction(async (tx) => {
+    const order = await tx.query.orders.findFirst({
+      where: eq(orders.id, orderId),
+    })
+
+    if (!order) {
+      return
+    }
+
+    await tx
+      .update(orders)
+      .set({
+        status: "cancelled",
+        paymentStatus: "failed",
+        fulfillmentStatus: "cancelled",
+        updatedAt: new Date(),
+      })
+      .where(eq(orders.id, orderId))
+
+    await tx.insert(orderStatusHistory).values({
+      orderId,
+      fromStatus: order.status,
+      toStatus: "cancelled",
+      notes: reason,
+      changedBy: order.userId,
+    })
+  })
+}
+
+export async function submitCheckoutSession(
+  sessionId: string,
+): Promise<SubmitCheckoutResult> {
+  try {
+    const actor = await getCheckoutActor()
+    const session = await db.query.checkoutSessions.findFirst({
+      where: eq(checkoutSessions.id, sessionId),
+    })
+
+    if (!session) {
+      return { success: false, error: "Checkout session not found" }
+    }
+
+    const cartValidation = await validateCartForCheckout()
+    if (!cartValidation.success || !cartValidation.cart) {
+      return {
+        success: false,
+        error: cartValidation.errors?.[0] || "Cart is empty",
+      }
+    }
+
+    const validatedInput = checkoutSessionInputSchema.safeParse({
+      contact: session.contact,
+      shippingAddress: session.shippingAddress,
+      shippingMethod: session.shippingMethod,
+      paymentMethod: session.paymentMethod,
+      notes: session.notes,
+    })
+
+    if (!validatedInput.success) {
+      return {
+        success: false,
+        error:
+          validatedInput.error.errors[0]?.message ||
+          "Checkout details are incomplete",
+      }
+    }
+
+    const settings = await getSettingsMap()
+    const pricing = calculateCheckoutPricing(
+      cartValidation.cart.subtotal,
+      validatedInput.data.shippingMethod as CheckoutShippingMethod,
+      validatedInput.data.paymentMethod as CheckoutPaymentMethod,
+      resolveCheckoutPricingConfig(settings),
+    )
+
+    const created = await db.transaction((tx) =>
+      createOrderFromCheckoutSession(
+        tx,
+        validatedInput.data,
+        session.id,
+        actor,
+        cartValidation.cart!,
+        pricing,
+        settings,
+      ),
+    )
+
+    if (validatedInput.data.paymentMethod === "card") {
+      const paymentResult = await initiateCardPayment({
+        orderId: created.order.id,
+        returnUrl: buildAbsoluteUrl(
+          `/checkout/complete?orderId=${created.order.id}&token=${created.confirmationToken}`,
+        ),
+        cancelUrl: buildAbsoluteUrl(
+          `/checkout/complete?orderId=${created.order.id}&token=${created.confirmationToken}&cancelled=1`,
+        ),
+      })
+
+      if (!paymentResult.success || !paymentResult.paymentUrl) {
+        await cancelSubmittedOrder(
+          created.order.id,
+          paymentResult.error || "Card payment initiation failed",
+        )
+
+        return {
+          success: false,
+          error: paymentResult.error || "Unable to start card payment",
+        }
+      }
+
+      revalidatePath("/cart")
+      revalidatePath("/checkout")
+
+      return {
+        success: true,
+        redirectUrl: paymentResult.paymentUrl,
+        paymentUrl: paymentResult.paymentUrl,
+        orderId: created.order.id,
+        orderNumber: created.order.orderNumber,
+      }
+    }
+
+    const methodResult =
+      validatedInput.data.paymentMethod === "bank_transfer"
+        ? await recordBankTransferPayment(created.order.id)
+        : await recordCODPayment(created.order.id)
+
+    if (!methodResult.success) {
+      await cancelSubmittedOrder(
+        created.order.id,
+        methodResult.error || "Checkout payment setup failed",
+      )
+
+      return {
+        success: false,
+        error: methodResult.error || "Unable to complete checkout",
+      }
+    }
+
+    if (session.cartId) {
+      await clearCartItems(session.cartId)
+    }
+
+    revalidatePath("/cart")
+    revalidatePath("/checkout")
+    revalidatePath("/orders")
+    revalidatePath("/ops/orders")
+
+    const postSubmitRedirect =
+      validatedInput.data.paymentMethod === "bank_transfer"
+        ? actor.userId
+          ? `/orders/${created.order.id}/bank-transfer`
+          : `/guest/orders/${created.confirmationToken}/bank-transfer`
+        : `/checkout/success?token=${created.confirmationToken}`
+
+    return {
+      success: true,
+      redirectUrl: postSubmitRedirect,
+      confirmationToken: created.confirmationToken,
+      orderId: created.order.id,
+      orderNumber: created.order.orderNumber,
+    }
+  } catch (error) {
+    console.error("Failed to submit checkout session:", error)
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to submit checkout",
+    }
   }
 }

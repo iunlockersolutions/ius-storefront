@@ -15,6 +15,41 @@ export const queryKeys = {
       page?: number
       limit?: number
       search?: string
+      paymentStatus?:
+        | "unpaid"
+        | "pending_verification"
+        | "authorized"
+        | "paid"
+        | "failed"
+        | "refunded"
+        | "cancelled"
+      fulfillmentStatus?:
+        | "confirmed"
+        | "processing"
+        | "packing"
+        | "shipped"
+        | "delivered"
+        | "cancelled"
+      customerType?: "all" | "guest" | "registered"
+      shippingMethod?: string
+      view?:
+        | "all"
+        | "needs_payment_review"
+        | "awaiting_processing"
+        | "needs_serial_assignment"
+        | "ready_to_ship"
+        | "delivered"
+        | "exceptions"
+      sortBy?:
+        | "createdAt"
+        | "updatedAt"
+        | "latestActivityAt"
+        | "total"
+        | "customer"
+        | "paymentStatus"
+        | "fulfillmentStatus"
+        | "orderNumber"
+      sortOrder?: "asc" | "desc"
       status?:
         | "draft"
         | "pending_payment"

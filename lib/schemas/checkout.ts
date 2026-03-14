@@ -1,43 +1,49 @@
 import { z } from "zod"
 
-// ============================================
-// Validation Schemas
-// ============================================
+import type {
+  CheckoutPaymentMethod,
+  CheckoutPricing,
+  CheckoutShippingMethod,
+} from "@/lib/checkout/pricing"
 
-export const contactInfoSchema = z.object({
-  email: z.string().email("Valid email required"),
-  phone: z.string().optional(),
+export const checkoutContactSchema = z.object({
+  email: z.string().email("Enter a valid email address"),
+  phone: z
+    .string()
+    .trim()
+    .min(9, "Enter a valid Sri Lankan phone number")
+    .max(20, "Phone number is too long"),
 })
 
-export const shippingAddressSchema = z.object({
-  addressId: z.string().optional(), // Use existing address
-  recipientName: z.string().min(2, "Name is required"),
-  phone: z.string().min(10, "Phone number is required"),
-  addressLine1: z.string().min(5, "Address is required"),
-  addressLine2: z.string().optional(),
-  city: z.string().min(2, "City is required"),
-  state: z.string().optional(),
-  postalCode: z.string().min(3, "Postal code is required"),
-  country: z.string().min(2, "Country is required"),
-  instructions: z.string().optional(),
+export const checkoutAddressSchema = z.object({
+  addressId: z.string().uuid().optional(),
+  recipientName: z.string().trim().min(2, "Recipient name is required"),
+  phone: z
+    .string()
+    .trim()
+    .min(9, "Enter a valid Sri Lankan phone number")
+    .max(20, "Phone number is too long"),
+  addressLine1: z.string().trim().min(5, "Address is required"),
+  addressLine2: z.string().trim().optional(),
+  city: z.string().trim().min(2, "City is required"),
+  district: z.string().trim().min(2, "District is required"),
+  postalCode: z.string().trim().max(20).optional(),
+  country: z.string().trim().default("Sri Lanka"),
+  instructions: z.string().trim().max(500).optional(),
   saveAddress: z.boolean().optional(),
 })
 
-export const checkoutDataSchema = z.object({
-  contact: contactInfoSchema,
-  shipping: shippingAddressSchema,
+export const checkoutSessionInputSchema = z.object({
+  contact: checkoutContactSchema,
+  shippingAddress: checkoutAddressSchema,
   shippingMethod: z.enum(["standard", "express"]),
-  paymentMethod: z.enum(["card", "bank_transfer", "cod"]),
-  notes: z.string().optional(),
+  paymentMethod: z.enum(["card", "bank_transfer", "cash_on_delivery"]),
+  notes: z.string().trim().max(1000).optional(),
 })
 
-export type CheckoutData = z.infer<typeof checkoutDataSchema>
-export type ContactInfo = z.infer<typeof contactInfoSchema>
-export type ShippingAddress = z.infer<typeof shippingAddressSchema>
-
-// ============================================
-// Checkout Interfaces
-// ============================================
+export type CheckoutSessionInput = z.infer<typeof checkoutSessionInputSchema>
+export type CheckoutContactInput = z.infer<typeof checkoutContactSchema>
+export type CheckoutAddressInput = z.infer<typeof checkoutAddressSchema>
 
 export interface AddressForCheckout {
   id: string
@@ -47,49 +53,39 @@ export interface AddressForCheckout {
   addressLine1: string
   addressLine2: string | null
   city: string
-  state: string | null
-  postalCode: string
+  district: string | null
+  postalCode: string | null
   country: string
   isDefault: boolean
   label: string | null
+}
+
+export interface CheckoutCartLine {
+  id: string
+  quantity: number
+  variantId: string
+  variantName: string
+  variantSku: string
+  variantPrice: string
+  productId: string
+  productName: string
+  productSlug: string
+  productStatus: string
+  manageInventory: boolean
+  trackingMode: "quantity" | "serial" | null
+  receiptIdentifierTypes: Array<"serial" | "imei" | "imei2" | "barcode">
+  availableQuantity: number
 }
 
 export interface CartValidationResult {
   success: boolean
   cart?: {
     id: string
-    items: Array<{
-      id: string
-      quantity: number
-      variantId: string
-      variantName: string
-      variantSku: string
-      variantPrice: string
-      productId: string
-      productName: string
-      productSlug: string
-      productStatus: string
-      manageInventory: boolean
-      availableQuantity: number
-    }>
+    items: CheckoutCartLine[]
     subtotal: number
     itemCount: number
   }
   errors?: string[]
-}
-
-export interface OrderTotals {
-  subtotal: number
-  shipping: number
-  tax: number
-  total: number
-}
-
-export interface CreateOrderResult {
-  success: boolean
-  orderId?: string
-  orderNumber?: string
-  error?: string
 }
 
 export interface CheckoutSummary {
@@ -97,6 +93,7 @@ export interface CheckoutSummary {
     id: string
     name: string
     variant: string
+    sku: string
     price: number
     quantity: number
     image: string | null
@@ -105,25 +102,22 @@ export interface CheckoutSummary {
   itemCount: number
 }
 
-// ============================================
-// Calculate Order Totals (Pure Function)
-// ============================================
+export interface CheckoutPageData {
+  sessionId: string
+  isLoggedIn: boolean
+  userEmail: string
+  addresses: AddressForCheckout[]
+  summary: CheckoutSummary
+  pricing: CheckoutPricing
+  defaultInput: Partial<CheckoutSessionInput>
+}
 
-export function calculateOrderTotals(
-  subtotal: number,
-  shippingMethod: "standard" | "express",
-): OrderTotals {
-  // Free shipping over $100 for standard, express always $19.99
-  const shipping =
-    shippingMethod === "express" ? 19.99 : subtotal >= 100 ? 0 : 9.99
-
-  // Estimate tax at 8%
-  const tax = subtotal * 0.08
-
-  return {
-    subtotal,
-    shipping,
-    tax: Math.round(tax * 100) / 100,
-    total: Math.round((subtotal + shipping + tax) * 100) / 100,
-  }
+export interface SubmitCheckoutResult {
+  success: boolean
+  redirectUrl?: string
+  confirmationToken?: string
+  paymentUrl?: string
+  orderId?: string
+  orderNumber?: string
+  error?: string
 }

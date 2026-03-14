@@ -8,6 +8,13 @@
       "when": 1773479131073,
       "tag": "0000_cheerful_photon",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1773496889164,
+      "tag": "0001_crazy_ghost_rider",
+      "breakpoints": true
     }
   ]
 }

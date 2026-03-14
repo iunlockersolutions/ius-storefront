@@ -417,13 +417,11 @@ async function recomputeSerializedLevel(
       row.status === "returned"
     ) {
       onHandQuantity += 1
-      availableQuantity += 1
       continue
     }
 
     if (row.status === "reserved") {
       onHandQuantity += 1
-      reservedQuantity += 1
       continue
     }
 
@@ -432,6 +430,9 @@ async function recomputeSerializedLevel(
       allocatedQuantity += 1
     }
   }
+
+  reservedQuantity = Math.max(level.reservedQuantity, allocatedQuantity)
+  availableQuantity = Math.max(0, onHandQuantity - reservedQuantity)
 
   return updateLevelSnapshot(tx, level.id, {
     onHandQuantity,
@@ -526,8 +527,7 @@ async function applyAggregateQuantityTransaction(
     variantId: string
     type: AdminInventoryTransactionType
     deltaOnHand?: number
-    deltaAvailable?: number
-    deltaReserved?: number
+    deltaCommitted?: number
     deltaAllocated?: number
     referenceType?: string
     referenceId?: string
@@ -539,27 +539,30 @@ async function applyAggregateQuantityTransaction(
   const before = toSnapshot(level)
   const next = {
     onHandQuantity: before.onHandQuantity + (input.deltaOnHand ?? 0),
-    availableQuantity: before.availableQuantity + (input.deltaAvailable ?? 0),
-    reservedQuantity: before.reservedQuantity + (input.deltaReserved ?? 0),
+    reservedQuantity: before.reservedQuantity + (input.deltaCommitted ?? 0),
     allocatedQuantity: before.allocatedQuantity + (input.deltaAllocated ?? 0),
+    availableQuantity: before.availableQuantity,
     lowStockThreshold: before.lowStockThreshold,
   }
 
   if (
     next.onHandQuantity < 0 ||
-    next.availableQuantity < 0 ||
     next.reservedQuantity < 0 ||
     next.allocatedQuantity < 0
   ) {
     throw new Error("Inventory level cannot become negative")
   }
 
-  if (
-    next.availableQuantity !==
-    next.onHandQuantity - next.reservedQuantity - next.allocatedQuantity
-  ) {
-    throw new Error("Inventory level totals are inconsistent")
+  if (next.allocatedQuantity > next.reservedQuantity) {
+    throw new Error(
+      "Preparing quantity cannot exceed the quantity committed to open orders",
+    )
   }
+
+  next.availableQuantity = Math.max(
+    0,
+    next.onHandQuantity - next.reservedQuantity,
+  )
 
   const updatedLevel = await updateLevelSnapshot(tx, level.id, next)
   const after = toSnapshot(updatedLevel)
@@ -622,6 +625,10 @@ function buildInventoryListItem(
     variantSku: variant.variantSku,
     trackingMode: variant.trackingMode,
     manageInventory: variant.manageInventory,
+    onHandPhysical: onHandQuantity,
+    availableToSell: availableQuantity,
+    committedQuantity: reservedQuantity,
+    preparingQuantity: allocatedQuantity,
     onHandQuantity,
     availableQuantity,
     reservedQuantity,
@@ -767,6 +774,22 @@ export async function getInventoryStats(): Promise<AdminInventoryStats> {
     ).length,
     lowStockVariants: items.filter((item) => item.isLowStock).length,
     outOfStockVariants: items.filter((item) => item.isOutOfStock).length,
+    totalOnHandPhysical: items.reduce(
+      (sum, item) => sum + item.onHandPhysical,
+      0,
+    ),
+    totalAvailableToSell: items.reduce(
+      (sum, item) => sum + item.availableToSell,
+      0,
+    ),
+    totalCommitted: items.reduce(
+      (sum, item) => sum + item.committedQuantity,
+      0,
+    ),
+    totalPreparing: items.reduce(
+      (sum, item) => sum + item.preparingQuantity,
+      0,
+    ),
     totalOnHand: items.reduce((sum, item) => sum + item.onHandQuantity, 0),
     totalAvailable: items.reduce(
       (sum, item) => sum + item.availableQuantity,
@@ -830,6 +853,7 @@ export async function getLowStockAlerts(
       variantName: item.variantName,
       variantSku: item.variantSku,
       trackingMode: item.trackingMode,
+      availableToSell: item.availableToSell,
       availableQuantity: item.availableQuantity,
       lowStockThreshold: item.lowStockThreshold,
       isOutOfStock: item.isOutOfStock,
@@ -915,6 +939,10 @@ export async function getInventoryDetail(
     manageInventory: variant.manageInventory,
     receiptIdentifierTypes: variant.receiptIdentifierTypes,
     stats: {
+      onHandPhysical: listItem.onHandPhysical,
+      availableToSell: listItem.availableToSell,
+      committedQuantity: listItem.committedQuantity,
+      preparingQuantity: listItem.preparingQuantity,
       onHandQuantity: listItem.onHandQuantity,
       availableQuantity: listItem.availableQuantity,
       reservedQuantity: listItem.reservedQuantity,
@@ -1204,6 +1232,8 @@ export async function getProductReceiveStockContext(
         trackingMode: variant.trackingMode,
         manageInventory: variant.manageInventory,
         receiptIdentifierTypes: variant.receiptIdentifierTypes,
+        onHandPhysical: availability?.onHandPhysical ?? 0,
+        availableToSell: availability?.availableToSell ?? 0,
         onHandQuantity: availability?.onHandQuantity ?? 0,
         availableQuantity: availability?.availableQuantity ?? 0,
       }
@@ -1257,6 +1287,10 @@ export interface VariantInventoryAvailability {
   variantId: string
   manageInventory: boolean
   trackingMode: AdminInventoryTrackingMode
+  onHandPhysical: number | null
+  availableToSell: number | null
+  committedQuantity: number
+  preparingQuantity: number
   onHandQuantity: number | null
   availableQuantity: number | null
   reservedQuantity: number
@@ -1306,6 +1340,14 @@ export async function getVariantInventoryAvailabilityMap(variantIds: string[]) {
           variantId: variant.variantId,
           manageInventory: variant.manageInventory,
           trackingMode: variant.trackingMode,
+          onHandPhysical: variant.manageInventory
+            ? (summary?.onHandQuantity ?? 0)
+            : null,
+          availableToSell: variant.manageInventory
+            ? (summary?.availableQuantity ?? 0)
+            : null,
+          committedQuantity: summary?.reservedQuantity ?? 0,
+          preparingQuantity: summary?.allocatedQuantity ?? 0,
           onHandQuantity: variant.manageInventory
             ? (summary?.onHandQuantity ?? 0)
             : null,
@@ -1346,7 +1388,6 @@ export async function receiveInventory(
         variantId: variant.variantId,
         type: "receipt",
         deltaOnHand: input.quantity,
-        deltaAvailable: input.quantity,
         referenceType: "manual_receipt",
         notes: input.notes,
         performedBy,
@@ -1485,7 +1526,6 @@ export async function adjustStock(
         type:
           input.adjustment > 0 ? "adjustment_increase" : "adjustment_decrease",
         deltaOnHand: input.adjustment,
-        deltaAvailable: input.adjustment,
         referenceType: "manual_adjustment",
         notes: input.reason,
         performedBy,
@@ -1577,8 +1617,7 @@ export async function reserveInventory(
     return applyAggregateQuantityTransaction(tx, {
       variantId: variant.variantId,
       type: "reservation",
-      deltaAvailable: -input.quantity,
-      deltaReserved: input.quantity,
+      deltaCommitted: input.quantity,
       referenceType: input.referenceType,
       referenceId: input.referenceId,
       notes: input.notes,
@@ -1598,8 +1637,7 @@ export async function releaseReservedInventory(
     return applyAggregateQuantityTransaction(tx, {
       variantId: variant.variantId,
       type: "reservation_release",
-      deltaAvailable: input.quantity,
-      deltaReserved: -input.quantity,
+      deltaCommitted: -input.quantity,
       referenceType: input.referenceType,
       referenceId: input.referenceId,
       notes: input.notes,
@@ -1644,7 +1682,6 @@ export async function allocateInventory(
     return applyAggregateQuantityTransaction(tx, {
       variantId: variant.variantId,
       type: "allocation",
-      deltaReserved: -input.quantity,
       deltaAllocated: input.quantity,
       referenceType: input.referenceType,
       referenceId: input.referenceId,
@@ -1687,7 +1724,6 @@ export async function releaseAllocatedInventory(
     return applyAggregateQuantityTransaction(tx, {
       variantId: variant.variantId,
       type: "allocation_release",
-      deltaAvailable: input.quantity,
       deltaAllocated: -input.quantity,
       referenceType: input.referenceType,
       referenceId: input.referenceId,
@@ -1730,7 +1766,6 @@ export async function unallocateInventoryToReservation(
     return applyAggregateQuantityTransaction(tx, {
       variantId: variant.variantId,
       type: "allocation_release",
-      deltaReserved: input.quantity,
       deltaAllocated: -input.quantity,
       referenceType: input.referenceType,
       referenceId: input.referenceId,
@@ -1767,6 +1802,7 @@ export async function shipInventory(
       variantId: variant.variantId,
       type: "shipment",
       deltaOnHand: -input.quantity,
+      deltaCommitted: -input.quantity,
       deltaAllocated: -input.quantity,
       referenceType: input.referenceType,
       referenceId: input.referenceId,
@@ -1790,7 +1826,6 @@ export async function returnInventory(
         variantId: variant.variantId,
         type: "return",
         deltaOnHand: input.quantity,
-        deltaAvailable: input.quantity,
         referenceType: input.referenceType,
         referenceId: input.referenceId,
         notes: input.notes,
@@ -1866,7 +1901,6 @@ async function changeSerializedUnitAvailability(
         variantId: variant.variantId,
         type,
         deltaOnHand: -input.quantity,
-        deltaAvailable: -input.quantity,
         referenceType: input.referenceType,
         referenceId: input.referenceId,
         notes: input.notes,

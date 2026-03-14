@@ -2,67 +2,63 @@
 
 import Image from "next/image"
 
-import { Lock, Package, ShieldCheck } from "lucide-react"
-
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import type { CheckoutPricing } from "@/lib/checkout/pricing"
 import type { CheckoutSummary as CheckoutSummaryType } from "@/lib/schemas/checkout"
+import { formatCurrency } from "@/lib/utils"
 
 interface CheckoutSummaryProps {
   summary: CheckoutSummaryType
+  pricing: CheckoutPricing
+  shippingMethod: "standard" | "express"
+  paymentMethod: "card" | "bank_transfer" | "cash_on_delivery"
 }
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(amount)
-}
-
-export function CheckoutSummary({ summary }: CheckoutSummaryProps) {
+export function CheckoutSummary({
+  summary,
+  pricing,
+  shippingMethod,
+  paymentMethod,
+}: CheckoutSummaryProps) {
   return (
     <div className="space-y-4 lg:sticky lg:top-24">
-      <Card>
+      <Card className="border-border/60 shadow-sm">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5" />
-            Order Summary
-            <Badge variant="secondary" className="ml-auto">
+          <CardTitle className="flex items-center justify-between gap-4">
+            <span>Order summary</span>
+            <Badge variant="secondary">
               {summary.itemCount} {summary.itemCount === 1 ? "item" : "items"}
             </Badge>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Items */}
-          <div className="space-y-3 max-h-64 overflow-y-auto">
+          <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
             {summary.items.map((item) => (
               <div key={item.id} className="flex gap-3">
-                <div className="relative h-16 w-16 rounded-md overflow-hidden bg-muted flex-shrink-0">
+                <div className="relative h-16 w-16 overflow-hidden rounded-xl bg-muted">
                   {item.image ? (
                     <Image
                       src={item.image}
                       alt={item.name}
                       fill
+                      sizes="64px"
                       className="object-cover"
                     />
-                  ) : (
-                    <div className="h-full w-full flex items-center justify-center">
-                      <Package className="h-6 w-6 text-muted-foreground" />
-                    </div>
-                  )}
-                  <div className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                    {item.quantity}
-                  </div>
+                  ) : null}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{item.name}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{item.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {item.variant}
+                    {item.variant} · {item.sku}
                   </p>
-                  <p className="text-sm font-medium mt-1">
-                    {formatCurrency(item.price * item.quantity)}
-                  </p>
+                  <div className="mt-1 flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      Qty {item.quantity}
+                    </span>
+                    <span>{formatCurrency(item.price * item.quantity)}</span>
+                  </div>
                 </div>
               </div>
             ))}
@@ -70,51 +66,53 @@ export function CheckoutSummary({ summary }: CheckoutSummaryProps) {
 
           <Separator />
 
-          {/* Totals - Will be updated based on selections */}
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
               <span className="text-muted-foreground">Subtotal</span>
-              <span>{formatCurrency(summary.subtotal)}</span>
+              <span>{formatCurrency(pricing.subtotal)}</span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Shipping</span>
+            <div className="flex justify-between">
               <span className="text-muted-foreground">
-                Calculated at next step
+                Shipping (
+                {shippingMethod === "express" ? "Express" : "Standard"})
+              </span>
+              <span>
+                {pricing.shippingCost === 0
+                  ? "Free"
+                  : formatCurrency(pricing.shippingCost)}
               </span>
             </div>
-            <div className="flex justify-between text-sm">
+            {pricing.codFee > 0 ? (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">
+                  Cash on delivery fee
+                </span>
+                <span>{formatCurrency(pricing.codFee)}</span>
+              </div>
+            ) : null}
+            <div className="flex justify-between">
               <span className="text-muted-foreground">Tax</span>
-              <span className="text-muted-foreground">
-                Calculated at next step
-              </span>
+              <span>{formatCurrency(pricing.taxAmount)}</span>
             </div>
           </div>
 
           <Separator />
 
-          <div className="flex justify-between font-medium text-lg">
+          <div className="flex justify-between text-lg font-semibold">
             <span>Total</span>
-            <span>{formatCurrency(summary.subtotal)}</span>
+            <span>{formatCurrency(pricing.total)}</span>
           </div>
 
-          <p className="text-xs text-muted-foreground text-center">
-            Final total will be shown before placing order
-          </p>
-        </CardContent>
-      </Card>
-
-      {/* Trust Badges */}
-      <Card>
-        <CardContent className="py-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex items-center gap-2 text-sm">
-              <Lock className="h-4 w-4 text-green-600" />
-              <span>Secure Checkout</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm">
-              <ShieldCheck className="h-4 w-4 text-green-600" />
-              <span>Buyer Protection</span>
-            </div>
+          <div className="rounded-xl bg-muted/60 p-3 text-xs text-muted-foreground">
+            <p>
+              Payment method:{" "}
+              {paymentMethod === "card"
+                ? "Card"
+                : paymentMethod === "bank_transfer"
+                  ? "Bank transfer"
+                  : "Cash on delivery"}
+            </p>
+            <p className="mt-1">All prices are charged in Sri Lankan Rupees.</p>
           </div>
         </CardContent>
       </Card>

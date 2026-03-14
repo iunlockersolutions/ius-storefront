@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query"
 
+import type { AdminOrderListItem } from "@/lib/types/admin-order"
 import { queryKeys } from "@/lib/utils/query-keys"
 
 type OrderStatus =
@@ -15,25 +16,8 @@ type OrderStatus =
   | "cancelled"
   | "refunded"
 
-interface Order {
-  id: string
-  orderNumber: string
-  status: OrderStatus
-  subtotal: string
-  tax: string
-  shippingCost: string
-  discount: string
-  total: string
-  createdAt: string | Date
-  customer: {
-    id: string | null
-    name: string | null
-    email: string | null
-  } | null
-}
-
 interface OrdersResponse {
-  orders: Order[]
+  orders: AdminOrderListItem[]
   pagination: {
     page: number
     limit: number
@@ -47,6 +31,41 @@ interface OrdersParams {
   limit?: number
   search?: string
   status?: OrderStatus
+  paymentStatus?:
+    | "unpaid"
+    | "pending_verification"
+    | "authorized"
+    | "paid"
+    | "failed"
+    | "refunded"
+    | "cancelled"
+  fulfillmentStatus?:
+    | "confirmed"
+    | "processing"
+    | "packing"
+    | "shipped"
+    | "delivered"
+    | "cancelled"
+  customerType?: "all" | "guest" | "registered"
+  shippingMethod?: string
+  view?:
+    | "all"
+    | "needs_payment_review"
+    | "awaiting_processing"
+    | "needs_serial_assignment"
+    | "ready_to_ship"
+    | "delivered"
+    | "exceptions"
+  sortBy?:
+    | "createdAt"
+    | "updatedAt"
+    | "latestActivityAt"
+    | "total"
+    | "customer"
+    | "paymentStatus"
+    | "fulfillmentStatus"
+    | "orderNumber"
+  sortOrder?: "asc" | "desc"
 }
 
 function buildUrl(params?: OrdersParams) {
@@ -56,6 +75,27 @@ function buildUrl(params?: OrdersParams) {
   if (params?.limit) searchParams.set("limit", String(params.limit))
   if (params?.search) searchParams.set("search", params.search)
   if (params?.status) searchParams.set("status", params.status)
+  if (params?.paymentStatus) {
+    searchParams.set("paymentStatus", params.paymentStatus)
+  }
+  if (params?.fulfillmentStatus) {
+    searchParams.set("fulfillmentStatus", params.fulfillmentStatus)
+  }
+  if (params?.customerType && params.customerType !== "all") {
+    searchParams.set("customerType", params.customerType)
+  }
+  if (params?.shippingMethod) {
+    searchParams.set("shippingMethod", params.shippingMethod)
+  }
+  if (params?.view && params.view !== "all") {
+    searchParams.set("view", params.view)
+  }
+  if (params?.sortBy && params.sortBy !== "createdAt") {
+    searchParams.set("sortBy", params.sortBy)
+  }
+  if (params?.sortOrder && params.sortOrder !== "desc") {
+    searchParams.set("sortOrder", params.sortOrder)
+  }
 
   const query = searchParams.toString()
   return query ? `/api/admin/orders?${query}` : "/api/admin/orders"
