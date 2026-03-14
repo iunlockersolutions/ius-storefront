@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { getGuestOrderByAccessToken } from "@/lib/actions/customer-orders"
+import { getBankTransferDetails } from "@/lib/payments/bank-transfer-details"
 import { formatCurrency } from "@/lib/utils"
 
 import { BankTransferUploadForm } from "../../../../orders/[id]/bank-transfer/upload-form"
@@ -21,20 +22,19 @@ interface GuestBankTransferPageProps {
   params: Promise<{ token: string }>
 }
 
-const bankDetails = {
-  bankName: "Commercial Bank of Ceylon",
-  accountName: "IUS Shop Pvt Ltd",
-  accountNumber: "1234567890",
-  branchCode: "001",
-  branchName: "Colombo Main",
-  swiftCode: "CCEYLKLX",
+export const metadata = {
+  title: "Guest Bank Transfer | IUS Shop",
+  description: "Complete your bank transfer securely for a guest order.",
 }
 
 export default async function GuestBankTransferPage({
   params,
 }: GuestBankTransferPageProps) {
   const { token } = await params
-  const order = await getGuestOrderByAccessToken(token)
+  const [order, bankDetails] = await Promise.all([
+    getGuestOrderByAccessToken(token),
+    getBankTransferDetails(),
+  ])
 
   if (!order) {
     notFound()
@@ -125,14 +125,6 @@ export default async function GuestBankTransferPage({
               <p className="font-mono font-medium">
                 {bankDetails.accountNumber}
               </p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Branch Code</p>
-              <p className="font-medium">{bankDetails.branchCode}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">SWIFT Code</p>
-              <p className="font-mono font-medium">{bankDetails.swiftCode}</p>
             </div>
           </div>
 

@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   CreditCard,
   Home,
+  LogIn,
   Mail,
   MapPin,
   Package,
@@ -36,6 +37,8 @@ export function OrderConfirmation({
   const bankTransferHref = isGuestOrder
     ? `/guest/orders/${token}/bank-transfer`
     : `/orders/${order.id}/bank-transfer`
+  const shouldShowBankTransfer = order.paymentMethod === "bank_transfer"
+  const shippingRegion = order.shippingAddress?.state || ""
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-3xl">
@@ -86,7 +89,8 @@ export function OrderConfirmation({
                   </p>
                 )}
                 <p className="text-muted-foreground">
-                  {order.shippingAddress.city}, {order.shippingAddress.state}{" "}
+                  {order.shippingAddress.city}
+                  {shippingRegion ? `, ${shippingRegion}` : ""}{" "}
                   {order.shippingAddress.postalCode}
                 </p>
                 <p className="text-muted-foreground">
@@ -205,11 +209,26 @@ export function OrderConfirmation({
               <div>
                 <p className="font-medium">Confirmation Email</p>
                 <p className="text-sm text-muted-foreground">
-                  You&apos;ll receive an order confirmation email with your
-                  order details.
+                  We&apos;ve sent your order confirmation email. A paid
+                  invoice/receipt email will follow as soon as payment is
+                  completed.
                 </p>
               </div>
             </div>
+            {shouldShowBankTransfer ? (
+              <div className="flex gap-3">
+                <div className="shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <CreditCard className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <p className="font-medium">Complete your bank transfer</p>
+                  <p className="text-sm text-muted-foreground">
+                    Use the secure payment instructions page to transfer the
+                    exact amount and upload proof of payment for review.
+                  </p>
+                </div>
+              </div>
+            ) : null}
             <div className="flex gap-3">
               <div className="shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                 <Package className="h-4 w-4 text-primary" />
@@ -237,6 +256,32 @@ export function OrderConfirmation({
           </div>
         </CardContent>
       </Card>
+
+      {isGuestOrder ? (
+        <Card className="mb-6 border-border/60">
+          <CardHeader>
+            <CardTitle className="text-sm font-medium">
+              Save this order to a new account
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted-foreground">
+              Create an account with{" "}
+              <span className="font-medium text-foreground">
+                {order.customerEmail}
+              </span>{" "}
+              and we&apos;ll connect eligible guest orders to your order
+              history.
+            </p>
+            <Button asChild variant="outline">
+              <Link href="/auth/register?callbackUrl=/orders">
+                <LogIn className="mr-2 h-4 w-4" />
+                Create account
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <div className="flex flex-col sm:flex-row gap-4">
         <Button asChild className="flex-1">

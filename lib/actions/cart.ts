@@ -128,6 +128,7 @@ export async function getCart() {
     inventory: availabilityByVariant.get(item.variant.id)
       ? {
           availableQuantity:
+            availabilityByVariant.get(item.variant.id)?.availableToSell ??
             availabilityByVariant.get(item.variant.id)?.availableQuantity ??
             null,
           lowStockThreshold:
@@ -196,7 +197,8 @@ export async function addToCart(variantId: string, quantity: number = 1) {
 
     const availability = await getVariantInventoryAvailabilityMap([variantId])
     const inventory = availability.get(variantId)
-    const availableStock = inventory?.availableQuantity ?? 0
+    const availableStock =
+      inventory?.availableToSell ?? inventory?.availableQuantity ?? 0
 
     // Check existing cart item
     const [existingItem] = await db
@@ -275,7 +277,8 @@ export async function updateCartItemQuantity(itemId: string, quantity: number) {
         item.variantId,
       ])
       const inventory = availability.get(item.variantId)
-      const availableStock = inventory?.availableQuantity ?? 0
+      const availableStock =
+        inventory?.availableToSell ?? inventory?.availableQuantity ?? 0
       const manageInventory = inventory?.manageInventory ?? false
 
       if (manageInventory && quantity > availableStock) {

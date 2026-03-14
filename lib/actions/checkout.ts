@@ -7,6 +7,7 @@ import crypto from "crypto"
 import { and, eq } from "drizzle-orm"
 import { nanoid } from "nanoid"
 
+import { getCart, getOrCreateCart } from "@/lib/actions/cart"
 import {
   getVariantInventoryAvailabilityMap,
   reserveInventory,
@@ -37,14 +38,17 @@ import {
   orderStatusHistory,
   siteSettings,
 } from "@/lib/db/schema"
+import { sendPlacedOrderEmails } from "@/lib/email/customer-order-email-service"
 import {
   getPrimaryProductImageMap,
   getVariantSpecificProductImageMap,
 } from "@/lib/media/service"
+import { resolveBankTransferDetails } from "@/lib/payments/bank-transfer-details"
 import {
   type AddressForCheckout,
   type CartValidationResult,
   type CheckoutPageData,
+  checkoutSessionDraftSchema,
   type CheckoutSessionInput,
   checkoutSessionInputSchema,
   type CheckoutSummary,
@@ -70,11 +74,89 @@ function toMoneyString(amount: number) {
   return amount.toFixed(2)
 }
 
+function normalizeDraftContact(
+  contact?: {
+    email?: string
+    phone?: string
+  } | null,
+) {
+  if (!contact?.email || !contact.phone) {
+    return null
+  }
+
+  return {
+    email: contact.email,
+    phone: contact.phone,
+  }
+}
+
+function normalizeDraftAddress(
+  address?: {
+    recipientName?: string
+    phone?: string
+    addressLine1?: string
+    addressLine2?: string
+    city?: string
+    district?: string
+    postalCode?: string
+    country?: string
+    instructions?: string
+  } | null,
+) {
+  if (
+    !address?.recipientName ||
+    !address.phone ||
+    !address.addressLine1 ||
+    !address.city ||
+    !address.district
+  ) {
+    return null
+  }
+
+  return {
+    recipientName: address.recipientName,
+    phone: address.phone,
+    addressLine1: address.addressLine1,
+    addressLine2: address.addressLine2,
+    city: address.city,
+    district: address.district,
+    postalCode: address.postalCode,
+    country: address.country || "Sri Lanka",
+    instructions: address.instructions,
+  }
+}
+
 async function getSettingsMap() {
   const settings = await db.select().from(siteSettings)
   return Object.fromEntries(
     settings.map((setting) => [setting.key, setting.value]),
   )
+}
+
+export async function getCartCheckoutPreviewPricing() {
+  const settings = await getSettingsMap()
+  const cart = await getCheckoutCart()
+
+  if (!cart.cart) {
+    return null
+  }
+
+  const validation = await validateCartForCheckout()
+  if (!validation.success || !validation.cart) {
+    return null
+  }
+
+  return calculateCheckoutPricing(
+    validation.cart.subtotal,
+    "standard",
+    "card",
+    resolveCheckoutPricingConfig(settings),
+  )
+}
+
+export async function getConfiguredBankTransferDetails() {
+  const settings = await getSettingsMap()
+  return resolveBankTransferDetails(settings)
 }
 
 async function getCheckoutActor() {
@@ -91,18 +173,7 @@ async function getCheckoutActor() {
 
 async function getCheckoutCart() {
   const actor = await getCheckoutActor()
-
-  let cart = null
-
-  if (actor.userId) {
-    cart = await db.query.carts.findFirst({
-      where: eq(carts.userId, actor.userId),
-    })
-  } else if (actor.cartSessionId) {
-    cart = await db.query.carts.findFirst({
-      where: eq(carts.sessionId, actor.cartSessionId),
-    })
-  }
+  const cart = await getOrCreateCart()
 
   return {
     ...actor,
@@ -178,7 +249,7 @@ export async function validateCartForCheckout(): Promise<CartValidationResult> {
     const availability = availabilityByVariant.get(item.variant.id)
     const manageInventory = availability?.manageInventory ?? false
     const availableQuantity = manageInventory
-      ? (availability?.availableQuantity ?? 0)
+      ? (availability?.availableToSell ?? availability?.availableQuantity ?? 0)
       : Number.MAX_SAFE_INTEGER
 
     if (item.variant.product.status !== "active") {
@@ -309,6 +380,12 @@ async function upsertCheckoutSession(
   const defaultAddress =
     addresses.find((address) => address.isDefault) ?? addresses[0]
   const nextInput: Partial<CheckoutSessionInput> = {
+    accountIntent:
+      (existingSession?.accountIntent as
+        | "guest"
+        | "signin"
+        | "create_account"
+        | null) ?? (actor.userId ? "signin" : "guest"),
     contact: existingSession?.contact
       ? {
           email: existingSession.contact.email,
@@ -359,6 +436,21 @@ async function upsertCheckoutSession(
           },
     shippingMethod:
       existingSession?.shippingMethod === "express" ? "express" : "standard",
+    billingSameAsShipping: existingSession?.billingSameAsShipping ?? true,
+    billingAddress: existingSession?.billingAddress
+      ? {
+          recipientName: existingSession.billingAddress.recipientName,
+          phone: existingSession.billingAddress.phone,
+          addressLine1: existingSession.billingAddress.addressLine1,
+          addressLine2: existingSession.billingAddress.addressLine2 || "",
+          city: existingSession.billingAddress.city,
+          district: existingSession.billingAddress.district || "",
+          postalCode: existingSession.billingAddress.postalCode || "",
+          country: existingSession.billingAddress.country,
+          instructions: existingSession.billingAddress.instructions || "",
+          saveAddress: false,
+        }
+      : undefined,
     paymentMethod:
       existingSession?.paymentMethod === "bank_transfer" ||
       existingSession?.paymentMethod === "cash_on_delivery"
@@ -368,7 +460,7 @@ async function upsertCheckoutSession(
     ...input,
   }
 
-  const validatedInput = checkoutSessionInputSchema.partial().parse(nextInput)
+  const validatedInput = checkoutSessionDraftSchema.parse(nextInput)
   const pricing = pricingOverride
     ? pricingOverride
     : calculateCheckoutPricing(
@@ -381,21 +473,27 @@ async function upsertCheckoutSession(
         resolveCheckoutPricingConfig(settings),
       )
 
+  const contactValue = normalizeDraftContact(validatedInput.contact)
+  const shippingAddressValue = normalizeDraftAddress(
+    validatedInput.shippingAddress,
+  )
+  const billingAddressValue =
+    validatedInput.billingSameAsShipping || !validatedInput.billingAddress
+      ? null
+      : normalizeDraftAddress(validatedInput.billingAddress)
+
   const sessionValues = {
-    contact:
-      validatedInput.contact &&
-      validatedInput.contact.email &&
-      validatedInput.contact.phone
-        ? validatedInput.contact
-        : null,
-    shippingAddress:
-      validatedInput.shippingAddress?.recipientName &&
-      validatedInput.shippingAddress.phone &&
-      validatedInput.shippingAddress.addressLine1 &&
-      validatedInput.shippingAddress.city &&
-      validatedInput.shippingAddress.district
-        ? validatedInput.shippingAddress
-        : null,
+    contact: contactValue,
+    accountIntent:
+      validatedInput.accountIntent === "signin" ||
+      validatedInput.accountIntent === "create_account"
+        ? validatedInput.accountIntent
+        : actor.userId
+          ? "signin"
+          : "guest",
+    shippingAddress: shippingAddressValue,
+    billingSameAsShipping: validatedInput.billingSameAsShipping ?? true,
+    billingAddress: billingAddressValue,
     shippingMethod:
       (validatedInput.shippingMethod as CheckoutShippingMethod | undefined) ??
       "standard",
@@ -503,8 +601,76 @@ export async function getCheckoutPageData(): Promise<CheckoutPageData | null> {
       pricing: data.pricing,
       defaultInput: data.defaultInput,
     }
-  } catch {
-    return null
+  } catch (error) {
+    console.error("Failed to prebuild checkout session, using fallback:", error)
+
+    const [summary, cart, addresses, session, settings] = await Promise.all([
+      getCheckoutSummary(),
+      getCart(),
+      getUserAddresses(),
+      getServerSession(),
+      getSettingsMap(),
+    ])
+
+    if (!summary || cart.items.length === 0) {
+      return null
+    }
+
+    const pricing = calculateCheckoutPricing(
+      cart.subtotal,
+      "standard",
+      "card",
+      resolveCheckoutPricingConfig(settings),
+    )
+
+    const defaultAddress =
+      addresses.find((address) => address.isDefault) ?? addresses[0]
+
+    return {
+      sessionId: "",
+      isLoggedIn: Boolean(session?.user?.id),
+      userEmail: session?.user?.email ?? "",
+      addresses,
+      summary,
+      pricing,
+      defaultInput: {
+        accountIntent: session?.user?.id ? "signin" : "guest",
+        contact: {
+          email: session?.user?.email ?? "",
+          phone: defaultAddress?.phone ?? "",
+        },
+        shippingAddress: defaultAddress
+          ? {
+              addressId: defaultAddress.id,
+              recipientName: defaultAddress.recipientName,
+              phone: defaultAddress.phone,
+              addressLine1: defaultAddress.addressLine1,
+              addressLine2: defaultAddress.addressLine2 ?? "",
+              city: defaultAddress.city,
+              district: defaultAddress.district ?? "",
+              postalCode: defaultAddress.postalCode ?? "",
+              country: defaultAddress.country,
+              instructions: "",
+              saveAddress: false,
+            }
+          : {
+              recipientName: "",
+              phone: "",
+              addressLine1: "",
+              addressLine2: "",
+              city: "",
+              district: "",
+              postalCode: "",
+              country: "Sri Lanka",
+              instructions: "",
+              saveAddress: false,
+            },
+        billingSameAsShipping: true,
+        shippingMethod: "standard",
+        paymentMethod: "card",
+        notes: "",
+      },
+    }
   }
 }
 
@@ -585,6 +751,27 @@ async function createOrderFromCheckoutSession(
 ) {
   const orderPrefix = settings.order_prefix || "IUS"
   const orderNumber = `${orderPrefix}-${Date.now().toString(36).toUpperCase()}-${nanoid(5).toUpperCase()}`
+  const billingAddress = input.billingSameAsShipping
+    ? {
+        recipientName: input.shippingAddress.recipientName,
+        phone: input.shippingAddress.phone,
+        addressLine1: input.shippingAddress.addressLine1,
+        addressLine2: input.shippingAddress.addressLine2,
+        city: input.shippingAddress.city,
+        state: input.shippingAddress.district,
+        postalCode: input.shippingAddress.postalCode || "",
+        country: input.shippingAddress.country,
+      }
+    : {
+        recipientName: input.billingAddress?.recipientName || "",
+        phone: input.billingAddress?.phone || "",
+        addressLine1: input.billingAddress?.addressLine1 || "",
+        addressLine2: input.billingAddress?.addressLine2,
+        city: input.billingAddress?.city || "",
+        state: input.billingAddress?.district,
+        postalCode: input.billingAddress?.postalCode || "",
+        country: input.billingAddress?.country || "Sri Lanka",
+      }
 
   const legacyStatus =
     input.paymentMethod === "cash_on_delivery"
@@ -638,16 +825,7 @@ async function createOrderFromCheckoutSession(
         country: input.shippingAddress.country,
         instructions: input.shippingAddress.instructions,
       },
-      billingAddress: {
-        recipientName: input.shippingAddress.recipientName,
-        phone: input.shippingAddress.phone,
-        addressLine1: input.shippingAddress.addressLine1,
-        addressLine2: input.shippingAddress.addressLine2,
-        city: input.shippingAddress.city,
-        state: input.shippingAddress.district,
-        postalCode: input.shippingAddress.postalCode || "",
-        country: input.shippingAddress.country,
-      },
+      billingAddress,
       notes: input.notes || null,
     })
     .returning()
@@ -815,12 +993,7 @@ export async function submitCheckoutSession(
     if (validatedInput.data.paymentMethod === "card") {
       const paymentResult = await initiateCardPayment({
         orderId: created.order.id,
-        returnUrl: buildAbsoluteUrl(
-          `/checkout/complete?orderId=${created.order.id}&token=${created.confirmationToken}`,
-        ),
-        cancelUrl: buildAbsoluteUrl(
-          `/checkout/complete?orderId=${created.order.id}&token=${created.confirmationToken}&cancelled=1`,
-        ),
+        accessToken: created.confirmationToken,
       })
 
       if (!paymentResult.success || !paymentResult.paymentUrl) {
@@ -837,6 +1010,7 @@ export async function submitCheckoutSession(
 
       revalidatePath("/cart")
       revalidatePath("/checkout")
+      void sendPlacedOrderEmails(created.order.id)
 
       return {
         success: true,
@@ -872,6 +1046,7 @@ export async function submitCheckoutSession(
     revalidatePath("/checkout")
     revalidatePath("/orders")
     revalidatePath("/ops/orders")
+    void sendPlacedOrderEmails(created.order.id)
 
     const postSubmitRedirect =
       validatedInput.data.paymentMethod === "bank_transfer"

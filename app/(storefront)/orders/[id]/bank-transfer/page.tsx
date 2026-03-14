@@ -6,10 +6,10 @@ import {
   CheckCircle2,
   ChevronLeft,
   Clock,
-  Copy,
   Upload,
 } from "lucide-react"
 
+import { CopyTextButton } from "@/components/storefront/copy-text-button"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -21,6 +21,7 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { getCustomerOrder } from "@/lib/actions/customer-orders"
 import { getServerSession } from "@/lib/auth/rbac"
+import { getBankTransferDetails } from "@/lib/payments/bank-transfer-details"
 import { formatCurrency } from "@/lib/utils"
 
 import { BankTransferUploadForm } from "./upload-form"
@@ -34,16 +35,6 @@ export const metadata = {
   description: "Complete your bank transfer payment",
 }
 
-// Bank details - these would typically come from settings
-const bankDetails = {
-  bankName: "Commercial Bank of Ceylon",
-  accountName: "IUS Shop Pvt Ltd",
-  accountNumber: "1234567890",
-  branchCode: "001",
-  branchName: "Colombo Main",
-  swiftCode: "CCEYLKLX",
-}
-
 export default async function BankTransferPage({
   params,
 }: BankTransferPageProps) {
@@ -53,7 +44,10 @@ export default async function BankTransferPage({
   }
 
   const { id } = await params
-  const order = await getCustomerOrder(id)
+  const [order, bankDetails] = await Promise.all([
+    getCustomerOrder(id),
+    getBankTransferDetails(),
+  ])
 
   if (!order) {
     notFound()
@@ -151,25 +145,8 @@ export default async function BankTransferPage({
                 <p className="font-mono font-medium">
                   {bankDetails.accountNumber}
                 </p>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={() =>
-                    navigator.clipboard.writeText(bankDetails.accountNumber)
-                  }
-                >
-                  <Copy className="h-3 w-3" />
-                </Button>
+                <CopyTextButton value={bankDetails.accountNumber} />
               </div>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Branch Code</p>
-              <p className="font-medium">{bankDetails.branchCode}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">SWIFT Code</p>
-              <p className="font-mono font-medium">{bankDetails.swiftCode}</p>
             </div>
           </div>
 

@@ -12,6 +12,7 @@ interface CheckoutCompletePageProps {
     orderId?: string
     token?: string
     cancelled?: string
+    failed?: string
   }>
 }
 
@@ -29,23 +30,36 @@ export default async function CheckoutCompletePage({
     notFound()
   }
 
-  if (params.cancelled === "1") {
+  if (params.cancelled === "1" || params.failed === "1") {
     return (
       <div className="container mx-auto max-w-2xl px-4 py-12">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-amber-500" />
-              Payment cancelled
+              <AlertCircle
+                className={`h-5 w-5 ${
+                  params.cancelled === "1"
+                    ? "text-amber-500"
+                    : "text-destructive"
+                }`}
+              />
+              {params.cancelled === "1"
+                ? "Payment cancelled"
+                : "Payment failed"}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-muted-foreground">
-              Your card payment was cancelled. You can return to checkout and
-              try again.
+              {params.cancelled === "1"
+                ? "Your card payment was cancelled. You can return to checkout and try again."
+                : "Your card payment was not completed. We restored your cart so you can review it and try again."}
             </p>
             <Button asChild>
-              <Link href="/checkout">Return to checkout</Link>
+              <Link href="/cart">
+                {params.cancelled === "1"
+                  ? "Return to checkout"
+                  : "Return to cart"}
+              </Link>
             </Button>
           </CardContent>
         </Card>
@@ -112,7 +126,7 @@ export default async function CheckoutCompletePage({
               </Button>
             ) : null}
             <Button asChild variant="outline">
-              <Link href="/checkout">Back to checkout</Link>
+              <Link href="/cart">Back to cart</Link>
             </Button>
           </div>
         </CardContent>

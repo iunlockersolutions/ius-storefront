@@ -38,7 +38,6 @@ async function CheckoutContent() {
           isLoggedIn={checkoutData.isLoggedIn}
           userEmail={checkoutData.userEmail}
           summary={checkoutData.summary}
-          initialPricing={checkoutData.pricing}
           defaultInput={checkoutData.defaultInput}
         />
       </div>

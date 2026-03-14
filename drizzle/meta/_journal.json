@@ -5,15 +5,22 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1773479131073,
-      "tag": "0000_cheerful_photon",
+      "when": 1773507134406,
+      "tag": "0000_greedy_doomsday",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1773496889164,
-      "tag": "0001_crazy_ghost_rider",
+      "when": 1773536400000,
+      "tag": "0001_customer_checkout_extensions",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1773511819257,
+      "tag": "0002_tricky_jackal",
       "breakpoints": true
     }
   ]

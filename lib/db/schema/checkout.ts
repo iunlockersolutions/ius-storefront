@@ -1,5 +1,6 @@
 import { relations } from "drizzle-orm"
 import {
+  boolean,
   index,
   jsonb,
   pgTable,
@@ -28,7 +29,22 @@ export const checkoutSessions = pgTable(
       email: string
       phone: string
     }>(),
+    accountIntent: text("account_intent"),
     shippingAddress: jsonb("shipping_address").$type<{
+      recipientName: string
+      phone: string
+      addressLine1: string
+      addressLine2?: string
+      city: string
+      district?: string
+      postalCode?: string
+      country: string
+      instructions?: string
+    }>(),
+    billingSameAsShipping: boolean("billing_same_as_shipping")
+      .notNull()
+      .default(true),
+    billingAddress: jsonb("billing_address").$type<{
       recipientName: string
       phone: string
       addressLine1: string

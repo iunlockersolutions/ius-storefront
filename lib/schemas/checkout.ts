@@ -33,13 +33,100 @@ export const checkoutAddressSchema = z.object({
   saveAddress: z.boolean().optional(),
 })
 
-export const checkoutSessionInputSchema = z.object({
+function normalizeDraftString(value: unknown) {
+  if (typeof value !== "string") {
+    return value
+  }
+
+  const trimmed = value.trim()
+  return trimmed === "" ? undefined : trimmed
+}
+
+const draftEmailSchema = z.preprocess(
+  normalizeDraftString,
+  z.string().email("Enter a valid email address").optional(),
+)
+
+const draftShortTextSchema = z.preprocess(
+  normalizeDraftString,
+  z.string().optional(),
+)
+
+const draftPhoneSchema = z.preprocess(
+  normalizeDraftString,
+  z.string().max(20, "Phone number is too long").optional(),
+)
+
+const draftUuidSchema = z.preprocess(
+  normalizeDraftString,
+  z.string().uuid().optional(),
+)
+
+export const checkoutContactDraftSchema = z.object({
+  email: draftEmailSchema,
+  phone: draftPhoneSchema,
+})
+
+export const checkoutAddressDraftSchema = z.object({
+  addressId: draftUuidSchema,
+  recipientName: draftShortTextSchema,
+  phone: draftPhoneSchema,
+  addressLine1: draftShortTextSchema,
+  addressLine2: draftShortTextSchema,
+  city: draftShortTextSchema,
+  district: draftShortTextSchema,
+  postalCode: draftShortTextSchema,
+  country: draftShortTextSchema,
+  instructions: draftShortTextSchema,
+  saveAddress: z.boolean().optional(),
+})
+
+export const checkoutSessionInputBaseSchema = z.object({
+  accountIntent: z.enum(["guest", "signin", "create_account"]).default("guest"),
   contact: checkoutContactSchema,
   shippingAddress: checkoutAddressSchema,
+  billingSameAsShipping: z.boolean().default(true),
+  billingAddress: checkoutAddressSchema.optional(),
   shippingMethod: z.enum(["standard", "express"]),
   paymentMethod: z.enum(["card", "bank_transfer", "cash_on_delivery"]),
   notes: z.string().trim().max(1000).optional(),
 })
+
+export const checkoutSessionDraftSchema = z.object({
+  accountIntent: z.enum(["guest", "signin", "create_account"]).optional(),
+  contact: checkoutContactDraftSchema.optional(),
+  shippingAddress: checkoutAddressDraftSchema.optional(),
+  billingSameAsShipping: z.boolean().optional(),
+  billingAddress: checkoutAddressDraftSchema.optional(),
+  shippingMethod: z.enum(["standard", "express"]).optional(),
+  paymentMethod: z
+    .enum(["card", "bank_transfer", "cash_on_delivery"])
+    .optional(),
+  notes: z.string().trim().max(1000).optional(),
+})
+
+export const checkoutSessionInputSchema =
+  checkoutSessionInputBaseSchema.superRefine((value, ctx) => {
+    if (!value.billingSameAsShipping && !value.billingAddress) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["billingAddress"],
+        message: "Enter a billing address or use the shipping address",
+      })
+    }
+
+    if (
+      !value.billingSameAsShipping &&
+      value.billingAddress &&
+      value.billingAddress.recipientName.trim().length < 2
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["billingAddress", "recipientName"],
+        message: "Recipient name is required",
+      })
+    }
+  })
 
 export type CheckoutSessionInput = z.infer<typeof checkoutSessionInputSchema>
 export type CheckoutContactInput = z.infer<typeof checkoutContactSchema>

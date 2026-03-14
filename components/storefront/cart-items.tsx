@@ -35,6 +35,7 @@ import {
   removeFromCart,
   updateCartItemQuantity,
 } from "@/lib/actions/cart"
+import { formatCurrency } from "@/lib/utils"
 
 interface CartItem {
   id: string
@@ -62,13 +63,6 @@ interface CartItem {
 
 interface CartItemsProps {
   items: CartItem[]
-}
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(amount)
 }
 
 function CartItemRow({ item }: { item: CartItem }) {

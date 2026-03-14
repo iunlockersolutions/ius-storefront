@@ -2,8 +2,15 @@
 
 import Link from "next/link"
 
-import { CreditCard, ShieldCheck, Truck } from "lucide-react"
+import {
+  AlertTriangle,
+  CreditCard,
+  LogIn,
+  ShieldCheck,
+  Truck,
+} from "lucide-react"
 
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -13,24 +20,23 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import type { CheckoutPricing } from "@/lib/checkout/pricing"
+import { formatCurrency } from "@/lib/utils"
+
+const EMPTY_ERRORS: string[] = []
 
 interface CartSummaryProps {
-  subtotal: number
+  pricing: CheckoutPricing
   itemCount: number
+  errors?: string[]
 }
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(amount)
-}
-
-export function CartSummary({ subtotal, itemCount }: CartSummaryProps) {
-  // These would typically come from settings or calculated based on location
-  const shipping = subtotal >= 100 ? 0 : 9.99
-  const tax = subtotal * 0.08 // 8% tax estimate
-  const total = subtotal + shipping + tax
+export function CartSummary({
+  pricing,
+  itemCount,
+  errors = EMPTY_ERRORS,
+}: CartSummaryProps) {
+  const canCheckout = errors.length === 0
 
   return (
     <div className="sticky top-4 space-y-4">
@@ -39,24 +45,42 @@ export function CartSummary({ subtotal, itemCount }: CartSummaryProps) {
           <CardTitle>Order Summary</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {!canCheckout ? (
+            <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="mt-0.5 h-4 w-4 text-destructive" />
+                <div className="space-y-2 text-sm">
+                  <p className="font-medium text-destructive">
+                    Review your cart before checkout
+                  </p>
+                  <ul className="space-y-1 text-muted-foreground">
+                    {errors.map((error) => (
+                      <li key={error}>{error}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">
                 Subtotal ({itemCount} {itemCount === 1 ? "item" : "items"})
               </span>
-              <span>{formatCurrency(subtotal)}</span>
+              <span>{formatCurrency(pricing.subtotal)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Shipping</span>
-              {shipping === 0 ? (
-                <span className="text-green-600 font-medium">FREE</span>
-              ) : (
-                <span>{formatCurrency(shipping)}</span>
-              )}
+              <span className="text-muted-foreground">Standard shipping</span>
+              <span>
+                {pricing.shippingCost === 0
+                  ? "Free"
+                  : formatCurrency(pricing.shippingCost)}
+              </span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Estimated Tax</span>
-              <span>{formatCurrency(tax)}</span>
+              <span className="text-muted-foreground">Tax</span>
+              <span>{formatCurrency(pricing.taxAmount)}</span>
             </div>
           </div>
 
@@ -64,47 +88,63 @@ export function CartSummary({ subtotal, itemCount }: CartSummaryProps) {
 
           <div className="flex justify-between font-semibold text-lg">
             <span>Total</span>
-            <span>{formatCurrency(total)}</span>
+            <span>{formatCurrency(pricing.total)}</span>
           </div>
-
-          {shipping > 0 && (
-            <p className="text-xs text-muted-foreground text-center">
-              Add {formatCurrency(100 - subtotal)} more for free shipping!
-            </p>
-          )}
         </CardContent>
         <CardFooter className="flex-col gap-3">
-          <Button asChild className="w-full" size="lg">
-            <Link href="/checkout">
+          {canCheckout ? (
+            <Button asChild className="w-full" size="lg">
+              <Link href="/checkout">
+                <CreditCard className="mr-2 h-4 w-4" />
+                Proceed to Checkout
+              </Link>
+            </Button>
+          ) : (
+            <Button className="w-full" size="lg" disabled>
               <CreditCard className="mr-2 h-4 w-4" />
               Proceed to Checkout
-            </Link>
-          </Button>
+            </Button>
+          )}
           <Button variant="outline" asChild className="w-full">
             <Link href="/products">Continue Shopping</Link>
           </Button>
         </CardFooter>
       </Card>
 
-      {/* Trust badges */}
       <Card>
-        <CardContent className="p-4 space-y-3">
-          <div className="flex items-center gap-3 text-sm">
-            <ShieldCheck className="h-5 w-5 text-green-600 flex-shrink-0" />
-            <div>
-              <p className="font-medium">Secure Checkout</p>
-              <p className="text-xs text-muted-foreground">
-                Your data is protected
-              </p>
-            </div>
+        <CardContent className="space-y-4 p-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">Checkout options</p>
+            <Badge variant="secondary">Guest friendly</Badge>
           </div>
-          <div className="flex items-center gap-3 text-sm">
-            <Truck className="h-5 w-5 text-blue-600 flex-shrink-0" />
-            <div>
-              <p className="font-medium">Free Shipping</p>
-              <p className="text-xs text-muted-foreground">
-                On orders over $100
-              </p>
+          <div className="grid gap-3 text-sm">
+            <div className="flex items-center gap-3">
+              <ShieldCheck className="h-5 w-5 text-emerald-600" />
+              <div>
+                <p className="font-medium">Secure checkout</p>
+                <p className="text-xs text-muted-foreground">
+                  Card, bank transfer, and cash on delivery in LKR.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Truck className="h-5 w-5 text-sky-600" />
+              <div>
+                <p className="font-medium">Delivery options</p>
+                <p className="text-xs text-muted-foreground">
+                  Standard and express delivery with live pricing.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <LogIn className="h-5 w-5 text-violet-600" />
+              <div>
+                <p className="font-medium">Guest or signed in</p>
+                <p className="text-xs text-muted-foreground">
+                  Sign in for saved addresses and order history, or check out as
+                  a guest.
+                </p>
+              </div>
             </div>
           </div>
         </CardContent>

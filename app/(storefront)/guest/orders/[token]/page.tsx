@@ -28,6 +28,11 @@ interface GuestOrderDetailPageProps {
   params: Promise<{ token: string }>
 }
 
+export const metadata = {
+  title: "Guest Order Tracking | IUS Shop",
+  description: "Track your guest order with secure access.",
+}
+
 function getStatusConfig(status: string) {
   const configs: Record<
     string,

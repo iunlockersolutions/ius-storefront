@@ -1,6 +1,6 @@
 {
-  "id": "23d4c2aa-003b-4aab-a1d5-3b5746d0eff4",
-  "prevId": "468369ff-e0fb-4ccc-af2f-a33bb04105b2",
+  "id": "1fe29ec1-be73-4c68-ac69-3077fc652048",
+  "prevId": "cac38da1-60bb-467a-a5f4-8b670d8c9070",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -3593,8 +3593,27 @@
           "primaryKey": false,
           "notNull": false
         },
+        "account_intent": {
+          "name": "account_intent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "shipping_address": {
           "name": "shipping_address",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "billing_same_as_shipping": {
+          "name": "billing_same_as_shipping",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "billing_address": {
+          "name": "billing_address",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false

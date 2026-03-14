@@ -8,6 +8,10 @@ import { CartSummary } from "@/components/storefront/cart-summary"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getCart } from "@/lib/actions/cart"
+import {
+  getCartCheckoutPreviewPricing,
+  validateCartForCheckout,
+} from "@/lib/actions/checkout"
 
 export const metadata = {
   title: "Shopping Cart | IUS Shop",
@@ -15,7 +19,11 @@ export const metadata = {
 }
 
 async function CartContent() {
-  const cart = await getCart()
+  const [cart, pricing, validation] = await Promise.all([
+    getCart(),
+    getCartCheckoutPreviewPricing(),
+    validateCartForCheckout(),
+  ])
 
   if (cart.items.length === 0) {
     return (
@@ -41,7 +49,13 @@ async function CartContent() {
         <CartItems items={cart.items} />
       </div>
       <div className="lg:col-span-1">
-        <CartSummary subtotal={cart.subtotal} itemCount={cart.itemCount} />
+        {pricing ? (
+          <CartSummary
+            pricing={pricing}
+            itemCount={cart.itemCount}
+            errors={validation.errors}
+          />
+        ) : null}
       </div>
     </div>
   )
@@ -65,9 +79,11 @@ export default function CartPage() {
         fallback={
           <div className="grid gap-8 lg:grid-cols-3">
             <div className="lg:col-span-2 space-y-4">
-              {[1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-32 w-full" />
-              ))}
+              {["cart-skeleton-1", "cart-skeleton-2", "cart-skeleton-3"].map(
+                (key) => (
+                  <Skeleton key={key} className="h-32 w-full" />
+                ),
+              )}
             </div>
             <div className="lg:col-span-1">
               <Skeleton className="h-64 w-full" />

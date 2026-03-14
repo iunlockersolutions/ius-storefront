@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 
+import crypto from "crypto"
 import { and, count, desc, eq, ilike, or } from "drizzle-orm"
 import { nanoid } from "nanoid"
 
@@ -11,25 +12,24 @@ import {
   bankTransferProofs,
   cartItems,
   checkoutSessions,
+  guestOrderAccessTokens,
   orderItems,
   orders,
   orderStatusHistory,
   payments,
 } from "@/lib/db/schema"
+import { sendPaidOrderInvoiceEmail } from "@/lib/email/customer-order-email-service"
 import {
   ensureOrderInventoryReservationsTx,
   releaseOrderInventoryReservationsTx,
 } from "@/lib/orders/inventory-reservations"
 
-// ============================================
-// DirectPay IPG Configuration
-// ============================================
+function hashToken(token: string) {
+  return crypto.createHash("sha256").update(token).digest("hex")
+}
 
-const DIRECTPAY_CONFIG = {
-  baseUrl: process.env.DIRECTPAY_API_URL || "http://localhost:3001",
-  merchantId: process.env.DIRECTPAY_MERCHANT_ID || "MERCHANT_TEST",
-  apiKey: process.env.DIRECTPAY_API_KEY || "test_api_key",
-  secretKey: process.env.DIRECTPAY_SECRET_KEY || "test_secret_key",
+function getSiteUrl() {
+  return process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
 }
 
 async function restoreCartFromOrderTx(
@@ -108,14 +108,10 @@ async function clearCartForOrderTx(
 
 interface InitiatePaymentInput {
   orderId: string
-  returnUrl: string
-  cancelUrl: string
+  accessToken: string
 }
 
 export async function initiateCardPayment(input: InitiatePaymentInput) {
-  const session = await getServerSession()
-
-  // Get order details
   const order = await db.query.orders.findFirst({
     where: eq(orders.id, input.orderId),
   })
@@ -124,12 +120,10 @@ export async function initiateCardPayment(input: InitiatePaymentInput) {
     return { success: false, error: "Order not found" }
   }
 
-  // Check if order is in correct status for payment
   if (order.status !== "draft" && order.status !== "pending_payment") {
     return { success: false, error: "Order cannot be paid in current status" }
   }
 
-  // Generate idempotency key
   const idempotencyKey = `pay_${order.id}_${Date.now()}`
 
   try {
@@ -141,7 +135,6 @@ export async function initiateCardPayment(input: InitiatePaymentInput) {
       )
     })
 
-    // Create payment record
     const [payment] = await db
       .insert(payments)
       .values({
@@ -154,56 +147,19 @@ export async function initiateCardPayment(input: InitiatePaymentInput) {
       })
       .returning()
 
-    // Initiate payment with DirectPay
-    const response = await fetch(
-      `${DIRECTPAY_CONFIG.baseUrl}/api/v1/payment/initiate`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-Key": DIRECTPAY_CONFIG.apiKey,
-        },
-        body: JSON.stringify({
-          merchantId: DIRECTPAY_CONFIG.merchantId,
-          amount: parseFloat(order.total),
-          currency: "LKR",
-          orderId: order.orderNumber,
-          description: `Order ${order.orderNumber}`,
-          customerEmail: order.customerEmail,
-          customerPhone: order.customerPhone || "",
-          customerName: order.customerName || "",
-          returnUrl: input.returnUrl,
-          cancelUrl: input.cancelUrl,
-          notifyUrl: `${process.env.NEXT_PUBLIC_SITE_URL}/api/payment/webhook`,
-        }),
-      },
-    )
+    const paymentUrl = `${getSiteUrl()}/checkout/payment/mock?paymentId=${payment.id}&token=${input.accessToken}`
 
-    const data = await response.json()
-
-    if (!data.success) {
-      // Update payment as failed
-      await db
-        .update(payments)
-        .set({ status: "failed", failureReason: data.error })
-        .where(eq(payments.id, payment.id))
-
-      return {
-        success: false,
-        error: data.error || "Failed to initiate payment",
-      }
-    }
-
-    // Update payment with session ID
     await db
       .update(payments)
       .set({
-        externalId: data.sessionId,
-        metadata: JSON.stringify({ paymentUrl: data.paymentUrl }),
+        externalId: `mock_${payment.id}`,
+        metadata: JSON.stringify({
+          provider: "mock_card",
+          paymentUrl,
+        }),
       })
       .where(eq(payments.id, payment.id))
 
-    // Update order status
     await db
       .update(orders)
       .set({
@@ -216,8 +172,8 @@ export async function initiateCardPayment(input: InitiatePaymentInput) {
 
     return {
       success: true,
-      paymentUrl: data.paymentUrl,
-      sessionId: data.sessionId,
+      paymentUrl,
+      sessionId: payment.id,
     }
   } catch (error) {
     console.error("Payment initiation failed:", error)
@@ -231,7 +187,6 @@ export async function initiateCardPayment(input: InitiatePaymentInput) {
 
 export async function verifyPaymentStatus(sessionId: string) {
   try {
-    // Find payment by session ID
     const payment = await db.query.payments.findFirst({
       where: eq(payments.externalId, sessionId),
     })
@@ -240,65 +195,19 @@ export async function verifyPaymentStatus(sessionId: string) {
       return { success: false, error: "Payment not found" }
     }
 
-    // Check with DirectPay
-    const response = await fetch(
-      `${DIRECTPAY_CONFIG.baseUrl}/api/v1/payment/verify`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-Key": DIRECTPAY_CONFIG.apiKey,
-        },
-        body: JSON.stringify({ sessionId }),
-      },
-    )
-
-    const data = await response.json()
-
-    if (!data.success) {
-      return { success: false, error: data.error }
-    }
-
-    // Update payment based on status
-    const updateData: Partial<typeof payments.$inferInsert> = {
-      externalStatus: data.status,
-      updatedAt: new Date(),
-    }
-
-    if (data.status === "completed") {
-      updateData.status = "completed"
-      updateData.processedAt = data.paidAt ? new Date(data.paidAt) : new Date()
-      updateData.metadata = JSON.stringify({
-        transactionId: data.transactionId,
-        cardLast4: data.cardLast4,
-        cardBrand: data.cardBrand,
-      })
-    } else if (data.status === "failed") {
-      updateData.status = "failed"
-      updateData.failureReason = "Payment declined"
-    } else if (data.status === "cancelled") {
-      updateData.status = "failed"
-      updateData.failureReason = "Payment cancelled by user"
-    }
-
-    await db.update(payments).set(updateData).where(eq(payments.id, payment.id))
-
-    if (data.status === "completed") {
-      await processSuccessfulPayment(payment.orderId)
-    } else if (data.status === "failed") {
-      await processFailedPayment(payment.orderId, "Payment declined")
-    } else if (data.status === "cancelled") {
-      await processFailedPayment(payment.orderId, "Payment cancelled by user")
-    }
-
     revalidatePath(`/orders/${payment.orderId}`)
     revalidatePath("/ops/orders")
     revalidatePath("/ops/payments")
 
     return {
       success: true,
-      status: data.status,
-      transactionId: data.transactionId,
+      status:
+        payment.status === "completed"
+          ? "completed"
+          : payment.status === "failed"
+            ? "failed"
+            : "pending",
+      transactionId: payment.externalId,
     }
   } catch (error) {
     console.error("Payment verification failed:", error)
@@ -314,29 +223,16 @@ async function processSuccessfulPayment(orderId: string) {
   const session = await getServerSession()
 
   await db.transaction(async (tx) => {
-    // Update order status to paid
-    await tx
-      .update(orders)
-      .set({
-        status: "paid",
-        paymentStatus: "paid",
-        fulfillmentStatus: "confirmed",
-        confirmedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(orders.id, orderId))
-
-    // Add status history
-    await tx.insert(orderStatusHistory).values({
+    await processSuccessfulPaymentInTx(
+      tx,
       orderId,
-      fromStatus: "pending_payment",
-      toStatus: "paid",
-      notes: "Payment completed",
-      changedBy: session?.user?.id || null,
-    })
-
+      session?.user?.id || null,
+      "Payment completed",
+    )
     await clearCartForOrderTx(tx, orderId)
   })
+
+  void sendPaidOrderInvoiceEmail(orderId)
 }
 
 async function processFailedPayment(orderId: string, notes: string) {
@@ -585,6 +481,170 @@ export async function uploadBankTransferProof(
   return { success: true }
 }
 
+export async function getMockCardPaymentContext(
+  paymentId: string,
+  accessToken: string,
+) {
+  const tokenRecord = await db.query.guestOrderAccessTokens.findFirst({
+    where: eq(guestOrderAccessTokens.tokenHash, hashToken(accessToken)),
+  })
+
+  if (!tokenRecord || tokenRecord.expiresAt <= new Date()) {
+    return null
+  }
+
+  const payment = await db.query.payments.findFirst({
+    where: and(eq(payments.id, paymentId), eq(payments.method, "card")),
+  })
+
+  if (!payment || payment.orderId !== tokenRecord.orderId) {
+    return null
+  }
+
+  const order = await db.query.orders.findFirst({
+    where: eq(orders.id, payment.orderId),
+  })
+
+  if (!order) {
+    return null
+  }
+
+  const items = await db
+    .select({
+      id: orderItems.id,
+      productName: orderItems.productName,
+      variantName: orderItems.variantName,
+      quantity: orderItems.quantity,
+      subtotal: orderItems.subtotal,
+    })
+    .from(orderItems)
+    .where(eq(orderItems.orderId, order.id))
+
+  return {
+    paymentId: payment.id,
+    status: payment.status,
+    orderId: order.id,
+    orderNumber: order.orderNumber,
+    customerEmail: order.customerEmail,
+    customerName: order.customerName,
+    total: order.total,
+    subtotal: order.subtotal,
+    shippingCost: order.shippingCost,
+    taxAmount: order.taxAmount,
+    discountAmount: order.discountAmount,
+    token: accessToken,
+    items,
+  }
+}
+
+interface SubmitMockCardPaymentInput {
+  paymentId: string
+  accessToken: string
+  cardholderName: string
+  cardNumber: string
+  expiry: string
+  cvc: string
+  outcome: "success" | "failed"
+}
+
+export async function submitMockCardPayment(input: SubmitMockCardPaymentInput) {
+  const paymentContext = await getMockCardPaymentContext(
+    input.paymentId,
+    input.accessToken,
+  )
+
+  if (!paymentContext) {
+    return { success: false as const, error: "Payment session not found" }
+  }
+
+  if (paymentContext.status === "completed") {
+    return {
+      success: true as const,
+      redirectUrl: `/checkout/success?token=${input.accessToken}`,
+    }
+  }
+
+  if (paymentContext.status === "failed" || input.outcome === "failed") {
+    await processFailedPayment(
+      paymentContext.orderId,
+      input.outcome === "failed"
+        ? "Mock card payment declined"
+        : "Payment already failed",
+    )
+
+    return {
+      success: true as const,
+      redirectUrl: `/checkout/complete?orderId=${paymentContext.orderId}&token=${input.accessToken}&failed=1`,
+    }
+  }
+
+  const normalizedNumber = input.cardNumber.replace(/\s+/g, "")
+  if (
+    input.cardholderName.trim().length < 2 ||
+    normalizedNumber.length < 12 ||
+    input.expiry.trim().length < 4 ||
+    input.cvc.trim().length < 3
+  ) {
+    return { success: false as const, error: "Enter valid mock card details" }
+  }
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(payments)
+      .set({
+        status: "completed",
+        processedAt: new Date(),
+        updatedAt: new Date(),
+        externalStatus: "completed",
+        metadata: JSON.stringify({
+          provider: "mock_card",
+          cardholderName: input.cardholderName.trim(),
+          cardLast4: normalizedNumber.slice(-4),
+        }),
+      })
+      .where(eq(payments.id, input.paymentId))
+
+    await processSuccessfulPaymentInTx(
+      tx,
+      paymentContext.orderId,
+      null,
+      "Mock card payment completed",
+    )
+
+    await clearCartForOrderTx(tx, paymentContext.orderId)
+  })
+
+  void sendPaidOrderInvoiceEmail(paymentContext.orderId)
+
+  return {
+    success: true as const,
+    redirectUrl: `/checkout/success?token=${input.accessToken}`,
+  }
+}
+
+export async function cancelMockCardPayment(
+  paymentId: string,
+  accessToken: string,
+) {
+  const paymentContext = await getMockCardPaymentContext(paymentId, accessToken)
+
+  if (!paymentContext) {
+    return { success: false as const, error: "Payment session not found" }
+  }
+
+  if (paymentContext.status !== "completed") {
+    await processFailedPayment(
+      paymentContext.orderId,
+      "Payment cancelled by customer on mock card page",
+    )
+  }
+
+  return {
+    success: true as const,
+    redirectUrl: `/checkout/complete?orderId=${paymentContext.orderId}&token=${accessToken}&cancelled=1`,
+  }
+}
+
 export async function verifyCardPaymentForOrder(orderId: string) {
   const payment = await db.query.payments.findFirst({
     where: and(eq(payments.orderId, orderId), eq(payments.method, "card")),
@@ -599,26 +659,6 @@ export async function verifyCardPaymentForOrder(orderId: string) {
   }
 
   if (payment.status === "failed") {
-    return { success: true as const, status: "failed" as const }
-  }
-
-  if (!payment.externalId) {
-    return { success: true as const, status: "pending" as const }
-  }
-
-  const result = await verifyPaymentStatus(payment.externalId)
-  if (!result.success) {
-    return {
-      success: false as const,
-      error: result.error || "Failed to verify payment",
-    }
-  }
-
-  if (result.status === "completed") {
-    return { success: true as const, status: "completed" as const }
-  }
-
-  if (result.status === "failed" || result.status === "cancelled") {
     return { success: true as const, status: "failed" as const }
   }
 
@@ -797,6 +837,7 @@ export async function verifyBankTransfer(
           tx,
           payment.orderId,
           session?.user?.id || null,
+          "Bank transfer verified",
         )
       } else {
         // Reject the payment
@@ -847,6 +888,11 @@ export async function verifyBankTransfer(
     revalidatePath("/ops/payments")
     revalidatePath("/ops/orders")
     revalidatePath(`/ops/orders/${payment.orderId}`)
+    revalidatePath(`/orders/${payment.orderId}`)
+
+    if (approved) {
+      void sendPaidOrderInvoiceEmail(payment.orderId)
+    }
 
     return { success: true }
   } catch (error) {
@@ -860,6 +906,7 @@ async function processSuccessfulPaymentInTx(
   tx: any,
   orderId: string,
   userId: string | null,
+  notes: string,
 ) {
   await tx
     .update(orders)
@@ -876,7 +923,7 @@ async function processSuccessfulPaymentInTx(
     orderId,
     fromStatus: "pending_payment",
     toStatus: "paid",
-    notes: "Bank transfer verified",
+    notes,
     changedBy: userId,
   })
 }
