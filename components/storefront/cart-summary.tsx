@@ -20,9 +20,9 @@ interface CartSummaryProps {
 }
 
 function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("en-LK", {
     style: "currency",
-    currency: "USD",
+    currency: "LKR",
   }).format(amount)
 }
 
@@ -103,7 +103,7 @@ export function CartSummary({ subtotal, itemCount }: CartSummaryProps) {
             <div>
               <p className="font-medium">Free Shipping</p>
               <p className="text-xs text-muted-foreground">
-                On orders over $100
+                On orders over LKR 100
               </p>
             </div>
           </div>

@@ -113,7 +113,7 @@ export function calculateOrderTotals(
   subtotal: number,
   shippingMethod: "standard" | "express",
 ): OrderTotals {
-  // Free shipping over $100 for standard, express always $19.99
+  // Free shipping over LKR 100 for standard, express always LKR 19.99
   const shipping =
     shippingMethod === "express" ? 19.99 : subtotal >= 100 ? 0 : 9.99
 

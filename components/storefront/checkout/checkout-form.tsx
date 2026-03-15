@@ -565,7 +565,7 @@ export function CheckoutForm({
                             </p>
                           </div>
                         </div>
-                        <p className="font-medium">Free over $100</p>
+                        <p className="font-medium">Free over LKR 100</p>
                       </div>
                     </button>
                     <button
@@ -588,7 +588,7 @@ export function CheckoutForm({
                             </p>
                           </div>
                         </div>
-                        <p className="font-medium">$19.99</p>
+                        <p className="font-medium">LKR 19.99</p>
                       </div>
                     </button>
                   </>

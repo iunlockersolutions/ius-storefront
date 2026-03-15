@@ -578,7 +578,7 @@ CREATE TABLE "payments" (
 	"method" "payment_method" NOT NULL,
 	"status" "payment_status" DEFAULT 'pending' NOT NULL,
 	"amount" numeric(10, 2) NOT NULL,
-	"currency" text DEFAULT 'USD' NOT NULL,
+	"currency" text DEFAULT 'LKR' NOT NULL,
 	"external_id" text,
 	"external_status" text,
 	"idempotency_key" text,

@@ -648,16 +648,16 @@ async function getOrderForEmail(
     orderNumber: order.orderNumber,
     customerName: order.customerName || "Customer",
     customerEmail: order.customerEmail,
-    total: new Intl.NumberFormat("en-US", {
+    total: new Intl.NumberFormat("en-LK", {
       style: "currency",
-      currency: "USD",
+      currency: "LKR",
     }).format(parseFloat(order.total)),
     items: items.map((item) => ({
       name: item.productName,
       quantity: item.quantity,
-      price: new Intl.NumberFormat("en-US", {
+      price: new Intl.NumberFormat("en-LK", {
         style: "currency",
-        currency: "USD",
+        currency: "LKR",
       }).format(parseFloat(item.unitPrice)),
     })),
     shippingAddress: order.shippingAddress as OrderEmailData["shippingAddress"],

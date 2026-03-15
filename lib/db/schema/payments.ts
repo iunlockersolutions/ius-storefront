@@ -26,7 +26,7 @@ export const payments = pgTable(
     method: paymentMethodEnum("method").notNull(),
     status: paymentStatusEnum("status").notNull().default("pending"),
     amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-    currency: text("currency").notNull().default("USD"),
+    currency: text("currency").notNull().default("LKR"),
 
     // External payment provider references
     externalId: text("external_id"), // Stripe payment intent ID, etc.
