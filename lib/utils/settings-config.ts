@@ -65,13 +65,13 @@ export function getSettingCategories(): SettingCategory[] {
           label: "Default Currency",
           type: "select",
           default: "LKR",
-          options: ["LKR", "USD", "EUR", "GBP"],
+          options: ["LKR"],
         },
         {
           key: "currency_symbol",
           label: "Currency Symbol",
           type: "text",
-          default: "Rs.",
+          default: "LKR",
         },
         {
           key: "currency_position",

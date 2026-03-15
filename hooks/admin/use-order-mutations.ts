@@ -242,3 +242,84 @@ export function useCompleteOrderPackingMutation(orderId: string) {
     },
   })
 }
+
+export function useCancelOrderMutation(orderId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (payload: {
+      reason: string
+      idempotencyKey?: string
+    }) => {
+      const response = await fetch(`/api/admin/orders/${orderId}/cancel`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null)
+        const message =
+          errorBody?.error?.message ||
+          errorBody?.error ||
+          "Failed to cancel order"
+        throw new Error(message)
+      }
+
+      return response.json()
+    },
+    onSuccess: async () => {
+      await invalidateMutationCaches(queryClient, "order.updateStatus", {
+        orderId,
+      })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.admin.inventoryRoot(),
+      })
+    },
+  })
+}
+
+export function useRefundOrderMutation(orderId: string) {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (payload: {
+      reason: string
+      idempotencyKey?: string
+      lineDispositions: Array<{
+        orderItemId: string
+        disposition: "restock" | "damaged" | "lost" | "no-return"
+        quantity?: number
+      }>
+    }) => {
+      const response = await fetch(`/api/admin/orders/${orderId}/refund`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null)
+        const message =
+          errorBody?.error?.message ||
+          errorBody?.error ||
+          "Failed to refund order"
+        throw new Error(message)
+      }
+
+      return response.json()
+    },
+    onSuccess: async () => {
+      await invalidateMutationCaches(queryClient, "order.updateStatus", {
+        orderId,
+      })
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.admin.inventoryRoot(),
+      })
+    },
+  })
+}
