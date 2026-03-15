@@ -1,5 +1,5 @@
 {
-  "id": "468369ff-e0fb-4ccc-af2f-a33bb04105b2",
+  "id": "a54ff137-55e6-461b-8573-02584b241ef4",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -5170,6 +5170,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "hold_expires_at": {
+          "name": "hold_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bank_transfer_reference": {
+          "name": "bank_transfer_reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "notes": {
           "name": "notes",
           "type": "text",
@@ -5248,6 +5260,36 @@
           "columns": [
             {
               "expression": "customer_email",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "orders_hold_expires_at_idx": {
+          "name": "orders_hold_expires_at_idx",
+          "columns": [
+            {
+              "expression": "hold_expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "orders_bank_transfer_reference_idx": {
+          "name": "orders_bank_transfer_reference_idx",
+          "columns": [
+            {
+              "expression": "bank_transfer_reference",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

@@ -39,6 +39,14 @@ const serverEnvSchema = z.object({
   GITHUB_CLIENT_SECRET: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().optional(),
+  CRON_SECRET: z.string().min(16).optional(),
+  ORDER_HOLD_CRON_SECRET: z.string().min(16).optional(),
+  ORDER_HOLD_TIMEOUT_MINUTES: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(24 * 60)
+    .default(60),
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),

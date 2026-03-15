@@ -46,6 +46,8 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import {
+  useCancelOrderMutation,
+  useRefundOrderMutation,
   useUpdateOrderNotesMutation,
   useUpdateOrderStatusMutation,
 } from "@/hooks/admin/use-order-mutations"
@@ -192,16 +194,56 @@ export function OrderDetail({ order, onRefetch }: OrderDetailProps) {
   const [selectedStatus, setSelectedStatus] = useState<string>("")
   const [statusNote, setStatusNote] = useState("")
   const [adminNotes, setAdminNotes] = useState(order.adminNotes || "")
+  const [cancelReason, setCancelReason] = useState("")
+  const [refundReason, setRefundReason] = useState("")
+  const [refundDispositions, setRefundDispositions] = useState<
+    Record<string, "restock" | "damaged" | "lost" | "no-return">
+  >(() => {
+    const initial: Record<
+      string,
+      "restock" | "damaged" | "lost" | "no-return"
+    > = {}
+
+    for (const item of order.items) {
+      if (item.packing.manageInventory) {
+        initial[item.id] = "restock"
+      }
+    }
+
+    return initial
+  })
   const [error, setError] = useState<string | null>(null)
   const updateOrderStatusMutation = useUpdateOrderStatusMutation(order.id)
   const updateOrderNotesMutation = useUpdateOrderNotesMutation(order.id)
+  const cancelOrderMutation = useCancelOrderMutation(order.id)
+  const refundOrderMutation = useRefundOrderMutation(order.id)
 
   const validTransitions = getValidTransitions(order.status).filter(
-    (status) => status !== "packing" && status !== "shipped",
+    (status) =>
+      status !== "packing" &&
+      status !== "shipped" &&
+      status !== "cancelled" &&
+      status !== "refunded",
+  )
+  const canCancel = [
+    "draft",
+    "pending_payment",
+    "paid",
+    "processing",
+    "packing",
+  ].includes(order.status)
+  const canRefund = order.status === "delivered"
+  const refundableItems = order.items.filter(
+    (item) => item.packing.manageInventory,
   )
 
   const handleStatusUpdate = async () => {
     if (!selectedStatus) return
+    if (!statusNote.trim()) {
+      setError("Status update note is required for audit")
+      return
+    }
+
     setError(null)
 
     startTransition(async () => {
@@ -217,7 +259,7 @@ export function OrderDetail({ order, onRefetch }: OrderDetailProps) {
             | "delivered"
             | "cancelled"
             | "refunded",
-          notes: statusNote || undefined,
+          notes: statusNote,
         })
         setSelectedStatus("")
         setStatusNote("")
@@ -243,6 +285,64 @@ export function OrderDetail({ order, onRefetch }: OrderDetailProps) {
           mutationError instanceof Error
             ? mutationError.message
             : "Failed to update notes",
+        )
+      }
+    })
+  }
+
+  const handleCancelOrder = async () => {
+    if (!cancelReason.trim()) {
+      setError("Cancellation reason is required")
+      return
+    }
+
+    setError(null)
+
+    startTransition(async () => {
+      try {
+        await cancelOrderMutation.mutateAsync({
+          reason: cancelReason,
+          idempotencyKey: crypto.randomUUID(),
+        })
+        setCancelReason("")
+        await onRefetch()
+      } catch (mutationError) {
+        setError(
+          mutationError instanceof Error
+            ? mutationError.message
+            : "Failed to cancel order",
+        )
+      }
+    })
+  }
+
+  const handleRefundOrder = async () => {
+    if (!refundReason.trim()) {
+      setError("Refund reason is required")
+      return
+    }
+
+    setError(null)
+
+    const lineDispositions = refundableItems.map((item) => ({
+      orderItemId: item.id,
+      disposition: refundDispositions[item.id] || "no-return",
+    }))
+
+    startTransition(async () => {
+      try {
+        await refundOrderMutation.mutateAsync({
+          reason: refundReason,
+          idempotencyKey: crypto.randomUUID(),
+          lineDispositions,
+        })
+        setRefundReason("")
+        await onRefetch()
+      } catch (mutationError) {
+        setError(
+          mutationError instanceof Error
+            ? mutationError.message
+            : "Failed to refund order",
         )
       }
     })
@@ -496,53 +596,19 @@ export function OrderDetail({ order, onRefetch }: OrderDetailProps) {
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Note (optional)</Label>
+                    <Label>Note (required)</Label>
                     <Textarea
                       value={statusNote}
                       onChange={(e) => setStatusNote(e.target.value)}
-                      placeholder="Add a note about this status change..."
+                      placeholder="Add a required audit note for this status change..."
                       rows={2}
                     />
                   </div>
 
-                  {selectedStatus === "cancelled" && (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          variant="destructive"
-                          className="w-full"
-                          disabled={isPending}
-                        >
-                          Cancel Order
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>
-                            Cancel this order?
-                          </AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This action will cancel the order. The customer will
-                            be notified. This cannot be undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Keep Order</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={handleStatusUpdate}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          >
-                            Yes, Cancel Order
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  )}
-
-                  {selectedStatus && selectedStatus !== "cancelled" && (
+                  {selectedStatus && (
                     <Button
                       onClick={handleStatusUpdate}
-                      disabled={isPending}
+                      disabled={isPending || !statusNote.trim()}
                       className="w-full"
                     >
                       {isPending ? "Updating..." : "Update Status"}
@@ -556,6 +622,151 @@ export function OrderDetail({ order, onRefetch }: OrderDetailProps) {
               )}
             </CardContent>
           </Card>
+
+          {/* Cancel Order */}
+          {canCancel && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Cancel Order</CardTitle>
+                <CardDescription>
+                  Cancel pre-fulfillment orders and release held inventory.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Cancellation Reason (required)</Label>
+                  <Textarea
+                    value={cancelReason}
+                    onChange={(e) => setCancelReason(e.target.value)}
+                    placeholder="Explain why this order is being cancelled"
+                    rows={3}
+                  />
+                </div>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="destructive"
+                      className="w-full"
+                      disabled={isPending || !cancelReason.trim()}
+                    >
+                      Cancel Order
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Cancel this order?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will release reservations and mark the order as
+                        cancelled. This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Keep Order</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleCancelOrder}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        Confirm Cancellation
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Refund Order */}
+          {canRefund && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Refund Order</CardTitle>
+                <CardDescription>
+                  Record refund and line-level inventory disposition.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {refundableItems.length > 0 ? (
+                  <div className="space-y-3">
+                    {refundableItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="rounded-md border p-3 space-y-2"
+                      >
+                        <p className="text-sm font-medium">
+                          {item.productName} ({item.variantName})
+                        </p>
+                        <Select
+                          value={refundDispositions[item.id] || "restock"}
+                          onValueChange={(value) =>
+                            setRefundDispositions((current) => ({
+                              ...current,
+                              [item.id]: value as
+                                | "restock"
+                                | "damaged"
+                                | "lost"
+                                | "no-return",
+                            }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select disposition" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="restock">Restock</SelectItem>
+                            <SelectItem value="damaged">Damaged</SelectItem>
+                            <SelectItem value="lost">Lost</SelectItem>
+                            <SelectItem value="no-return">No Return</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No inventory-managed lines detected. Refund can still be
+                    processed with no-return dispositions.
+                  </p>
+                )}
+
+                <div className="space-y-2">
+                  <Label>Refund Reason (required)</Label>
+                  <Textarea
+                    value={refundReason}
+                    onChange={(e) => setRefundReason(e.target.value)}
+                    placeholder="Explain why this order is being refunded"
+                    rows={3}
+                  />
+                </div>
+
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      disabled={isPending || !refundReason.trim()}
+                    >
+                      Mark as Refunded
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Complete refund?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will apply line-level disposition inventory changes
+                        and move the order to refunded.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Go Back</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleRefundOrder}>
+                        Confirm Refund
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Admin Notes */}
           <Card>

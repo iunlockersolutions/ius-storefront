@@ -2,14 +2,14 @@ export interface SettingDefinition {
   key: string
   label: string
   type:
-  | "text"
-  | "textarea"
-  | "number"
-  | "email"
-  | "tel"
-  | "url"
-  | "select"
-  | "boolean"
+    | "text"
+    | "textarea"
+    | "number"
+    | "email"
+    | "tel"
+    | "url"
+    | "select"
+    | "boolean"
   default: string
   options?: string[]
 }

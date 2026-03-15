@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
 import {
   Check,
+  CheckSquare,
   ChevronRight,
   CreditCard,
   Landmark,
@@ -14,9 +15,7 @@ import {
   Mail,
   MapPin,
   Package,
-  Phone,
   Truck,
-  User,
   Zap,
 } from "lucide-react"
 import { toast } from "sonner"
@@ -36,12 +35,7 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { createOrder } from "@/lib/actions/checkout"
-import {
-  calculateOrderTotals,
-  type CheckoutData,
-  contactInfoSchema,
-  shippingAddressSchema,
-} from "@/lib/schemas/checkout"
+import { type CheckoutData } from "@/lib/schemas/checkout"
 import { cn } from "@/lib/utils"
 
 interface CustomerAddress {
@@ -69,18 +63,31 @@ interface CheckoutFormProps {
 const checkoutFormSchema = z.object({
   // Contact
   email: z.string().email("Valid email required"),
-  phone: z.string().min(10, "Phone number is required"),
+  contactPhone: z.string().optional(),
   // Shipping
-  selectedAddressId: z.string().optional(),
-  recipientName: z.string().min(2, "Name is required"),
-  addressLine1: z.string().min(5, "Address is required"),
-  addressLine2: z.string().optional(),
-  city: z.string().min(2, "City is required"),
-  state: z.string().optional(),
-  postalCode: z.string().min(3, "Postal code is required"),
-  country: z.string().min(2, "Country is required"),
-  instructions: z.string().optional(),
-  saveAddress: z.boolean().optional(),
+  selectedShippingAddressId: z.string().optional(),
+  shippingRecipientName: z.string().min(2, "Name is required"),
+  shippingPhone: z.string().min(10, "Phone number is required"),
+  shippingAddressLine1: z.string().min(5, "Address is required"),
+  shippingAddressLine2: z.string().optional(),
+  shippingCity: z.string().min(2, "City is required"),
+  shippingState: z.string().optional(),
+  shippingPostalCode: z.string().min(3, "Postal code is required"),
+  shippingCountry: z.string().min(2, "Country is required"),
+  shippingInstructions: z.string().optional(),
+  saveShippingAddress: z.boolean().optional(),
+  // Billing
+  useShippingAsBilling: z.boolean().default(true),
+  selectedBillingAddressId: z.string().optional(),
+  billingRecipientName: z.string().optional(),
+  billingPhone: z.string().optional(),
+  billingAddressLine1: z.string().optional(),
+  billingAddressLine2: z.string().optional(),
+  billingCity: z.string().optional(),
+  billingState: z.string().optional(),
+  billingPostalCode: z.string().optional(),
+  billingCountry: z.string().optional(),
+  saveBillingAddress: z.boolean().optional(),
   // Shipping method
   shippingMethod: z.enum(["standard", "express"]),
   // Payment
@@ -106,9 +113,23 @@ export function CheckoutForm({
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [currentStep, setCurrentStep] = useState(1)
-  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(
-    addresses.find((a) => a.isDefault)?.id || null,
+  const [selectedShippingAddressId, setSelectedShippingAddressId] = useState<
+    string | null
+  >(null)
+  const [selectedBillingAddressId, setSelectedBillingAddressId] = useState<
+    string | null
+  >(null)
+
+  const shippingAddresses = addresses.filter(
+    (address) => address.type === "shipping" || address.type === "both",
   )
+  const billingAddresses = addresses.filter(
+    (address) => address.type === "billing" || address.type === "both",
+  )
+  const fallbackShippingAddresses =
+    shippingAddresses.length > 0 ? shippingAddresses : addresses
+  const fallbackBillingAddresses =
+    billingAddresses.length > 0 ? billingAddresses : addresses
 
   const {
     register,
@@ -122,46 +143,70 @@ export function CheckoutForm({
     resolver: zodResolver(checkoutFormSchema),
     defaultValues: {
       email: userEmail,
+      contactPhone: "",
       shippingMethod: "standard",
       paymentMethod: "card",
-      country: "US",
-      saveAddress: false,
+      shippingCountry: "US",
+      billingCountry: "US",
+      useShippingAsBilling: true,
+      saveShippingAddress: false,
+      saveBillingAddress: false,
     },
   })
 
   const shippingMethod = watch("shippingMethod")
   const paymentMethod = watch("paymentMethod")
+  const useShippingAsBilling = watch("useShippingAsBilling")
 
   // Pre-fill form with default address on mount
   useEffect(() => {
-    const defaultAddress = addresses.find((a) => a.isDefault)
-    if (defaultAddress) {
-      setValue("selectedAddressId", defaultAddress.id)
-      setValue("recipientName", defaultAddress.recipientName)
-      setValue("phone", defaultAddress.phone)
-      setValue("addressLine1", defaultAddress.addressLine1)
-      setValue("addressLine2", defaultAddress.addressLine2 || "")
-      setValue("city", defaultAddress.city)
-      setValue("state", defaultAddress.state || "")
-      setValue("postalCode", defaultAddress.postalCode)
-      setValue("country", defaultAddress.country)
+    const defaultShippingAddress =
+      fallbackShippingAddresses.find((a) => a.isDefault) ??
+      fallbackShippingAddresses[0]
+    const defaultBillingAddress =
+      fallbackBillingAddresses.find((a) => a.isDefault) ??
+      fallbackBillingAddresses[0]
+
+    if (defaultShippingAddress) {
+      handleShippingAddressSelect(defaultShippingAddress.id)
     }
+
+    if (defaultBillingAddress) {
+      handleBillingAddressSelect(defaultBillingAddress.id)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addresses, setValue])
 
   // Handle address selection
-  const handleAddressSelect = (addressId: string) => {
-    setSelectedAddressId(addressId)
-    const address = addresses.find((a) => a.id === addressId)
+  const handleShippingAddressSelect = (addressId: string) => {
+    setSelectedShippingAddressId(addressId)
+    const address = fallbackShippingAddresses.find((a) => a.id === addressId)
     if (address) {
-      setValue("selectedAddressId", addressId)
-      setValue("recipientName", address.recipientName)
-      setValue("phone", address.phone)
-      setValue("addressLine1", address.addressLine1)
-      setValue("addressLine2", address.addressLine2 || "")
-      setValue("city", address.city)
-      setValue("state", address.state || "")
-      setValue("postalCode", address.postalCode)
-      setValue("country", address.country)
+      setValue("selectedShippingAddressId", addressId)
+      setValue("shippingRecipientName", address.recipientName)
+      setValue("shippingPhone", address.phone)
+      setValue("shippingAddressLine1", address.addressLine1)
+      setValue("shippingAddressLine2", address.addressLine2 || "")
+      setValue("shippingCity", address.city)
+      setValue("shippingState", address.state || "")
+      setValue("shippingPostalCode", address.postalCode)
+      setValue("shippingCountry", address.country)
+    }
+  }
+
+  const handleBillingAddressSelect = (addressId: string) => {
+    setSelectedBillingAddressId(addressId)
+    const address = fallbackBillingAddresses.find((a) => a.id === addressId)
+    if (address) {
+      setValue("selectedBillingAddressId", addressId)
+      setValue("billingRecipientName", address.recipientName)
+      setValue("billingPhone", address.phone)
+      setValue("billingAddressLine1", address.addressLine1)
+      setValue("billingAddressLine2", address.addressLine2 || "")
+      setValue("billingCity", address.city)
+      setValue("billingState", address.state || "")
+      setValue("billingPostalCode", address.postalCode)
+      setValue("billingCountry", address.country)
     }
   }
 
@@ -171,13 +216,30 @@ export function CheckoutForm({
       case 1:
         return await trigger(["email"])
       case 2:
+        if (useShippingAsBilling) {
+          return await trigger([
+            "shippingRecipientName",
+            "shippingPhone",
+            "shippingAddressLine1",
+            "shippingCity",
+            "shippingPostalCode",
+            "shippingCountry",
+          ])
+        }
+
         return await trigger([
-          "recipientName",
-          "phone",
-          "addressLine1",
-          "city",
-          "postalCode",
-          "country",
+          "shippingRecipientName",
+          "shippingPhone",
+          "shippingAddressLine1",
+          "shippingCity",
+          "shippingPostalCode",
+          "shippingCountry",
+          "billingRecipientName",
+          "billingPhone",
+          "billingAddressLine1",
+          "billingCity",
+          "billingPostalCode",
+          "billingCountry",
         ])
       case 3:
         return await trigger(["shippingMethod", "paymentMethod"])
@@ -200,24 +262,52 @@ export function CheckoutForm({
   }
 
   const onSubmit = async (data: CheckoutFormData) => {
+    const resolvedBilling = data.useShippingAsBilling
+      ? {
+          addressId: data.selectedShippingAddressId,
+          recipientName: data.shippingRecipientName,
+          phone: data.shippingPhone,
+          addressLine1: data.shippingAddressLine1,
+          addressLine2: data.shippingAddressLine2,
+          city: data.shippingCity,
+          state: data.shippingState,
+          postalCode: data.shippingPostalCode,
+          country: data.shippingCountry,
+          saveAddress: data.saveShippingAddress,
+        }
+      : {
+          addressId: data.selectedBillingAddressId,
+          recipientName: data.billingRecipientName || "",
+          phone: data.billingPhone || "",
+          addressLine1: data.billingAddressLine1 || "",
+          addressLine2: data.billingAddressLine2,
+          city: data.billingCity || "",
+          state: data.billingState,
+          postalCode: data.billingPostalCode || "",
+          country: data.billingCountry || "",
+          saveAddress: data.saveBillingAddress,
+        }
+
     const checkoutData: CheckoutData = {
       contact: {
         email: data.email,
-        phone: data.phone,
+        phone: data.contactPhone,
       },
       shipping: {
-        addressId: data.selectedAddressId,
-        recipientName: data.recipientName,
-        phone: data.phone,
-        addressLine1: data.addressLine1,
-        addressLine2: data.addressLine2,
-        city: data.city,
-        state: data.state,
-        postalCode: data.postalCode,
-        country: data.country,
-        instructions: data.instructions,
-        saveAddress: data.saveAddress,
+        addressId: data.selectedShippingAddressId,
+        recipientName: data.shippingRecipientName,
+        phone: data.shippingPhone,
+        addressLine1: data.shippingAddressLine1,
+        addressLine2: data.shippingAddressLine2,
+        city: data.shippingCity,
+        state: data.shippingState,
+        postalCode: data.shippingPostalCode,
+        country: data.shippingCountry,
+        instructions: data.shippingInstructions,
+        saveAddress: data.saveShippingAddress,
       },
+      billing: resolvedBilling,
+      useShippingAsBilling: data.useShippingAsBilling,
       shippingMethod: data.shippingMethod,
       paymentMethod: data.paymentMethod,
       notes: data.notes,
@@ -227,13 +317,18 @@ export function CheckoutForm({
       const result = await createOrder(checkoutData)
 
       if (result.success) {
-        // Dispatch cart update event to reset badge
-        window.dispatchEvent(new Event("cart-updated"))
+        if (!result.orderId) {
+          toast.error("Order was created but confirmation link is missing")
+          return
+        }
 
         toast.success("Order placed successfully!", {
           description: `Order #${result.orderNumber}`,
         })
-        router.push(`/checkout/success?orderId=${result.orderId}`)
+
+        // Use hard navigation to avoid intermittent app-router race conditions
+        // where checkout re-renders with an empty cart before success navigation settles.
+        window.location.assign(`/checkout/success?orderId=${result.orderId}`)
       } else {
         toast.error(result.error || "Failed to place order")
       }
@@ -320,15 +415,17 @@ export function CheckoutForm({
               )}
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number (Optional)</Label>
+              <Label htmlFor="contactPhone">Phone Number (Optional)</Label>
               <Input
-                id="phone"
+                id="contactPhone"
                 type="tel"
                 placeholder="+1 (555) 123-4567"
-                {...register("phone")}
+                {...register("contactPhone")}
               />
-              {errors.phone && (
-                <p className="text-sm text-red-500">{errors.phone.message}</p>
+              {errors.contactPhone && (
+                <p className="text-sm text-red-500">
+                  {errors.contactPhone.message}
+                </p>
               )}
             </div>
           </CardContent>
@@ -350,14 +447,14 @@ export function CheckoutForm({
               <div className="space-y-2">
                 <Label>Saved Addresses</Label>
                 <div className="grid gap-3">
-                  {addresses.map((address) => (
+                  {fallbackShippingAddresses.map((address) => (
                     <button
                       key={address.id}
                       type="button"
-                      onClick={() => handleAddressSelect(address.id)}
+                      onClick={() => handleShippingAddressSelect(address.id)}
                       className={cn(
                         "p-4 rounded-lg border text-left transition-colors",
-                        selectedAddressId === address.id
+                        selectedShippingAddressId === address.id
                           ? "border-primary bg-primary/5"
                           : "border-border hover:border-primary/50",
                       )}
@@ -374,6 +471,9 @@ export function CheckoutForm({
                             {address.city}, {address.state} {address.postalCode}
                           </p>
                         </div>
+                        <Badge variant="secondary" className="capitalize">
+                          {address.type}
+                        </Badge>
                         {address.isDefault && (
                           <Badge variant="outline">Default</Badge>
                         )}
@@ -383,19 +483,19 @@ export function CheckoutForm({
                   <button
                     type="button"
                     onClick={() => {
-                      setSelectedAddressId(null)
-                      setValue("selectedAddressId", "")
-                      setValue("recipientName", "")
-                      setValue("phone", "")
-                      setValue("addressLine1", "")
-                      setValue("addressLine2", "")
-                      setValue("city", "")
-                      setValue("state", "")
-                      setValue("postalCode", "")
+                      setSelectedShippingAddressId(null)
+                      setValue("selectedShippingAddressId", "")
+                      setValue("shippingRecipientName", "")
+                      setValue("shippingPhone", "")
+                      setValue("shippingAddressLine1", "")
+                      setValue("shippingAddressLine2", "")
+                      setValue("shippingCity", "")
+                      setValue("shippingState", "")
+                      setValue("shippingPostalCode", "")
                     }}
                     className={cn(
                       "p-4 rounded-lg border border-dashed text-center transition-colors",
-                      !selectedAddressId
+                      !selectedShippingAddressId
                         ? "border-primary bg-primary/5"
                         : "border-border hover:border-primary/50",
                     )}
@@ -407,84 +507,95 @@ export function CheckoutForm({
             )}
 
             {/* Address Form */}
-            {(!addresses.length || !selectedAddressId) && (
+            {(!fallbackShippingAddresses.length ||
+              !selectedShippingAddressId) && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="recipientName">Full Name *</Label>
-                  <Input id="recipientName" {...register("recipientName")} />
-                  {errors.recipientName && (
-                    <p className="text-sm text-red-500">
-                      {errors.recipientName.message}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number *</Label>
-                  <Input id="phone" type="tel" {...register("phone")} />
-                  {errors.phone && (
-                    <p className="text-sm text-red-500">
-                      {errors.phone.message}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="addressLine1">Address *</Label>
+                  <Label htmlFor="shippingRecipientName">Full Name *</Label>
                   <Input
-                    id="addressLine1"
-                    placeholder="Street address"
-                    {...register("addressLine1")}
+                    id="shippingRecipientName"
+                    {...register("shippingRecipientName")}
                   />
-                  {errors.addressLine1 && (
+                  {errors.shippingRecipientName && (
                     <p className="text-sm text-red-500">
-                      {errors.addressLine1.message}
+                      {errors.shippingRecipientName.message}
                     </p>
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="addressLine2">
+                  <Label htmlFor="shippingPhone">Phone Number *</Label>
+                  <Input
+                    id="shippingPhone"
+                    type="tel"
+                    {...register("shippingPhone")}
+                  />
+                  {errors.shippingPhone && (
+                    <p className="text-sm text-red-500">
+                      {errors.shippingPhone.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="shippingAddressLine1">Address *</Label>
+                  <Input
+                    id="shippingAddressLine1"
+                    placeholder="Street address"
+                    {...register("shippingAddressLine1")}
+                  />
+                  {errors.shippingAddressLine1 && (
+                    <p className="text-sm text-red-500">
+                      {errors.shippingAddressLine1.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="shippingAddressLine2">
                     Apartment, suite, etc. (Optional)
                   </Label>
                   <Input
-                    id="addressLine2"
+                    id="shippingAddressLine2"
                     placeholder="Apt, suite, unit, building, floor, etc."
-                    {...register("addressLine2")}
+                    {...register("shippingAddressLine2")}
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="city">City *</Label>
-                    <Input id="city" {...register("city")} />
-                    {errors.city && (
+                    <Label htmlFor="shippingCity">City *</Label>
+                    <Input id="shippingCity" {...register("shippingCity")} />
+                    {errors.shippingCity && (
                       <p className="text-sm text-red-500">
-                        {errors.city.message}
+                        {errors.shippingCity.message}
                       </p>
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="state">State/Province</Label>
-                    <Input id="state" {...register("state")} />
+                    <Label htmlFor="shippingState">State/Province</Label>
+                    <Input id="shippingState" {...register("shippingState")} />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="postalCode">Postal Code *</Label>
-                    <Input id="postalCode" {...register("postalCode")} />
-                    {errors.postalCode && (
+                    <Label htmlFor="shippingPostalCode">Postal Code *</Label>
+                    <Input
+                      id="shippingPostalCode"
+                      {...register("shippingPostalCode")}
+                    />
+                    {errors.shippingPostalCode && (
                       <p className="text-sm text-red-500">
-                        {errors.postalCode.message}
+                        {errors.shippingPostalCode.message}
                       </p>
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="country">Country *</Label>
+                    <Label htmlFor="shippingCountry">Country *</Label>
                     <Controller
                       control={control}
-                      name="country"
+                      name="shippingCountry"
                       render={({ field }) => (
                         <Select
                           value={field.value}
@@ -502,12 +613,23 @@ export function CheckoutForm({
                         </Select>
                       )}
                     />
-                    {errors.country && (
+                    {errors.shippingCountry && (
                       <p className="text-sm text-red-500">
-                        {errors.country.message}
+                        {errors.shippingCountry.message}
                       </p>
                     )}
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="shippingInstructions">
+                    Delivery Instructions (Optional)
+                  </Label>
+                  <Textarea
+                    id="shippingInstructions"
+                    placeholder="Gate code, landmark, delivery notes..."
+                    {...register("shippingInstructions")}
+                  />
                 </div>
 
                 {isLoggedIn && (
@@ -515,15 +637,247 @@ export function CheckoutForm({
                     <input
                       type="checkbox"
                       className="rounded border-gray-300"
-                      {...register("saveAddress")}
+                      {...register("saveShippingAddress")}
                     />
                     <span className="text-sm">
-                      Save this address for future orders
+                      Save this shipping address for future orders
                     </span>
                   </label>
                 )}
               </>
             )}
+
+            <div className="border-t pt-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium flex items-center gap-2">
+                  <CheckSquare className="h-4 w-4" />
+                  Billing Address
+                </h3>
+                <label className="flex items-center gap-2 cursor-pointer text-sm">
+                  <input
+                    type="checkbox"
+                    className="rounded border-gray-300"
+                    checked={useShippingAsBilling}
+                    onChange={(event) =>
+                      setValue("useShippingAsBilling", event.target.checked)
+                    }
+                  />
+                  Same as shipping
+                </label>
+              </div>
+
+              {!useShippingAsBilling && (
+                <>
+                  {fallbackBillingAddresses.length > 0 && (
+                    <div className="space-y-2">
+                      <Label>Saved Billing Addresses</Label>
+                      <div className="grid gap-3">
+                        {fallbackBillingAddresses.map((address) => (
+                          <button
+                            key={address.id}
+                            type="button"
+                            onClick={() =>
+                              handleBillingAddressSelect(address.id)
+                            }
+                            className={cn(
+                              "p-4 rounded-lg border text-left transition-colors",
+                              selectedBillingAddressId === address.id
+                                ? "border-primary bg-primary/5"
+                                : "border-border hover:border-primary/50",
+                            )}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <p className="font-medium">
+                                  {address.recipientName}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  {address.addressLine1}
+                                  {address.addressLine2 &&
+                                    `, ${address.addressLine2}`}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  {address.city}, {address.state}{" "}
+                                  {address.postalCode}
+                                </p>
+                              </div>
+                              <Badge variant="secondary" className="capitalize">
+                                {address.type}
+                              </Badge>
+                            </div>
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedBillingAddressId(null)
+                            setValue("selectedBillingAddressId", "")
+                            setValue("billingRecipientName", "")
+                            setValue("billingPhone", "")
+                            setValue("billingAddressLine1", "")
+                            setValue("billingAddressLine2", "")
+                            setValue("billingCity", "")
+                            setValue("billingState", "")
+                            setValue("billingPostalCode", "")
+                          }}
+                          className={cn(
+                            "p-4 rounded-lg border border-dashed text-center transition-colors",
+                            !selectedBillingAddressId
+                              ? "border-primary bg-primary/5"
+                              : "border-border hover:border-primary/50",
+                          )}
+                        >
+                          <p className="font-medium">
+                            + Add New Billing Address
+                          </p>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {(!fallbackBillingAddresses.length ||
+                    !selectedBillingAddressId) && (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="billingRecipientName">
+                          Full Name *
+                        </Label>
+                        <Input
+                          id="billingRecipientName"
+                          {...register("billingRecipientName")}
+                        />
+                        {errors.billingRecipientName && (
+                          <p className="text-sm text-red-500">
+                            {errors.billingRecipientName.message}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="billingPhone">Phone Number *</Label>
+                        <Input
+                          id="billingPhone"
+                          type="tel"
+                          {...register("billingPhone")}
+                        />
+                        {errors.billingPhone && (
+                          <p className="text-sm text-red-500">
+                            {errors.billingPhone.message}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="billingAddressLine1">Address *</Label>
+                        <Input
+                          id="billingAddressLine1"
+                          {...register("billingAddressLine1")}
+                        />
+                        {errors.billingAddressLine1 && (
+                          <p className="text-sm text-red-500">
+                            {errors.billingAddressLine1.message}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="billingAddressLine2">
+                          Apartment, suite, etc. (Optional)
+                        </Label>
+                        <Input
+                          id="billingAddressLine2"
+                          {...register("billingAddressLine2")}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="billingCity">City *</Label>
+                          <Input
+                            id="billingCity"
+                            {...register("billingCity")}
+                          />
+                          {errors.billingCity && (
+                            <p className="text-sm text-red-500">
+                              {errors.billingCity.message}
+                            </p>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="billingState">State/Province</Label>
+                          <Input
+                            id="billingState"
+                            {...register("billingState")}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="billingPostalCode">
+                            Postal Code *
+                          </Label>
+                          <Input
+                            id="billingPostalCode"
+                            {...register("billingPostalCode")}
+                          />
+                          {errors.billingPostalCode && (
+                            <p className="text-sm text-red-500">
+                              {errors.billingPostalCode.message}
+                            </p>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="billingCountry">Country *</Label>
+                          <Controller
+                            control={control}
+                            name="billingCountry"
+                            render={({ field }) => (
+                              <Select
+                                value={field.value}
+                                onValueChange={field.onChange}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select country" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="US">
+                                    United States
+                                  </SelectItem>
+                                  <SelectItem value="CA">Canada</SelectItem>
+                                  <SelectItem value="GB">
+                                    United Kingdom
+                                  </SelectItem>
+                                  <SelectItem value="AU">Australia</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            )}
+                          />
+                          {errors.billingCountry && (
+                            <p className="text-sm text-red-500">
+                              {errors.billingCountry.message}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {isLoggedIn && (
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300"
+                            {...register("saveBillingAddress")}
+                          />
+                          <span className="text-sm">
+                            Save this billing address for future orders
+                          </span>
+                        </label>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}
@@ -706,8 +1060,8 @@ export function CheckoutForm({
                 </Button>
               </div>
               <p className="text-muted-foreground">{watch("email")}</p>
-              {watch("phone") && (
-                <p className="text-muted-foreground">{watch("phone")}</p>
+              {watch("contactPhone") && (
+                <p className="text-muted-foreground">{watch("contactPhone")}</p>
               )}
             </div>
 
@@ -726,15 +1080,55 @@ export function CheckoutForm({
                   Edit
                 </Button>
               </div>
-              <p className="text-muted-foreground">{watch("recipientName")}</p>
-              <p className="text-muted-foreground">{watch("phone")}</p>
               <p className="text-muted-foreground">
-                {watch("addressLine1")}
-                {watch("addressLine2") && `, ${watch("addressLine2")}`}
+                {watch("shippingRecipientName")}
+              </p>
+              <p className="text-muted-foreground">{watch("shippingPhone")}</p>
+              <p className="text-muted-foreground">
+                {watch("shippingAddressLine1")}
+                {watch("shippingAddressLine2") &&
+                  `, ${watch("shippingAddressLine2")}`}
               </p>
               <p className="text-muted-foreground">
-                {watch("city")}, {watch("state")} {watch("postalCode")}
+                {watch("shippingCity")}, {watch("shippingState")}{" "}
+                {watch("shippingPostalCode")}
               </p>
+              <p className="text-muted-foreground">
+                {watch("shippingCountry")}
+              </p>
+            </div>
+
+            <div className="border-t pt-4">
+              <h3 className="font-medium flex items-center gap-2 mb-2">
+                <CheckSquare className="h-4 w-4" />
+                Billing Address
+              </h3>
+              {watch("useShippingAsBilling") ? (
+                <p className="text-muted-foreground">
+                  Same as shipping address
+                </p>
+              ) : (
+                <>
+                  <p className="text-muted-foreground">
+                    {watch("billingRecipientName")}
+                  </p>
+                  <p className="text-muted-foreground">
+                    {watch("billingPhone")}
+                  </p>
+                  <p className="text-muted-foreground">
+                    {watch("billingAddressLine1")}
+                    {watch("billingAddressLine2") &&
+                      `, ${watch("billingAddressLine2")}`}
+                  </p>
+                  <p className="text-muted-foreground">
+                    {watch("billingCity")}, {watch("billingState")}{" "}
+                    {watch("billingPostalCode")}
+                  </p>
+                  <p className="text-muted-foreground">
+                    {watch("billingCountry")}
+                  </p>
+                </>
+              )}
             </div>
 
             <div className="border-t pt-4">

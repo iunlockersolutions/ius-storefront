@@ -23,9 +23,24 @@ export const shippingAddressSchema = z.object({
   saveAddress: z.boolean().optional(),
 })
 
+export const billingAddressSchema = z.object({
+  addressId: z.string().optional(),
+  recipientName: z.string().min(2, "Name is required"),
+  phone: z.string().min(10, "Phone number is required"),
+  addressLine1: z.string().min(5, "Address is required"),
+  addressLine2: z.string().optional(),
+  city: z.string().min(2, "City is required"),
+  state: z.string().optional(),
+  postalCode: z.string().min(3, "Postal code is required"),
+  country: z.string().min(2, "Country is required"),
+  saveAddress: z.boolean().optional(),
+})
+
 export const checkoutDataSchema = z.object({
   contact: contactInfoSchema,
   shipping: shippingAddressSchema,
+  billing: billingAddressSchema,
+  useShippingAsBilling: z.boolean().default(true),
   shippingMethod: z.enum(["standard", "express"]),
   paymentMethod: z.enum(["card", "bank_transfer", "cod"]),
   notes: z.string().optional(),
@@ -34,6 +49,7 @@ export const checkoutDataSchema = z.object({
 export type CheckoutData = z.infer<typeof checkoutDataSchema>
 export type ContactInfo = z.infer<typeof contactInfoSchema>
 export type ShippingAddress = z.infer<typeof shippingAddressSchema>
+export type BillingAddress = z.infer<typeof billingAddressSchema>
 
 // ============================================
 // Checkout Interfaces

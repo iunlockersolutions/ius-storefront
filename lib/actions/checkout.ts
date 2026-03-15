@@ -20,7 +20,9 @@ import {
   orderItems,
   orders,
   orderStatusHistory,
+  payments,
 } from "@/lib/db/schema"
+import { serverEnv } from "@/lib/env"
 import {
   getPrimaryProductImageMap,
   getVariantSpecificProductImageMap,
@@ -35,7 +37,16 @@ import {
   type CreateOrderResult,
 } from "@/lib/schemas/checkout"
 
-const CART_SESSION_COOKIE = "cart_session"
+const CART_SESSION_COOKIE = "cart_session_id"
+
+function getOrderHoldExpiresAt() {
+  return new Date(Date.now() + serverEnv.ORDER_HOLD_TIMEOUT_MINUTES * 60_000)
+}
+
+function generateBankTransferReference(orderNumber: string) {
+  const compactOrderNumber = orderNumber.replace(/[^A-Za-z0-9]/g, "")
+  return `BT-${compactOrderNumber.slice(-8).toUpperCase()}-${nanoid(4).toUpperCase()}`
+}
 
 // ============================================
 // Get User Addresses
@@ -85,7 +96,7 @@ export async function getUserAddresses(): Promise<AddressForCheckout[]> {
 export async function validateCartForCheckout(): Promise<CartValidationResult> {
   const session = await getServerSession()
   const cookieStore = await cookies()
-  const guestCartId = cookieStore.get(CART_SESSION_COOKIE)?.value
+  const guestCartSessionId = cookieStore.get(CART_SESSION_COOKIE)?.value
 
   // Find cart
   let cart
@@ -93,9 +104,9 @@ export async function validateCartForCheckout(): Promise<CartValidationResult> {
     cart = await db.query.carts.findFirst({
       where: eq(carts.userId, session.user.id),
     })
-  } else if (guestCartId) {
+  } else if (guestCartSessionId) {
     cart = await db.query.carts.findFirst({
-      where: eq(carts.id, guestCartId),
+      where: eq(carts.sessionId, guestCartSessionId),
     })
   }
 
@@ -130,7 +141,7 @@ export async function validateCartForCheckout(): Promise<CartValidationResult> {
     const availability = availabilityByVariant.get(item.variant.id)
     const managesInventory = availability?.manageInventory ?? false
     const availableQuantity = managesInventory
-      ? (availability?.availableQuantity ?? 0)
+      ? (availability?.sellableQuantity ?? 0)
       : Number.MAX_SAFE_INTEGER
 
     // Check if product is still active
@@ -224,7 +235,6 @@ export async function createOrder(
   // Generate order number
   const orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}-${nanoid(4).toUpperCase()}`
 
-  // Prepare shipping address JSONB
   const shippingAddress = {
     recipientName: checkoutData.shipping.recipientName,
     phone: checkoutData.shipping.phone,
@@ -237,6 +247,28 @@ export async function createOrder(
     instructions: checkoutData.shipping.instructions,
   }
 
+  const billingAddress = checkoutData.useShippingAsBilling
+    ? {
+        recipientName: shippingAddress.recipientName,
+        phone: shippingAddress.phone,
+        addressLine1: shippingAddress.addressLine1,
+        addressLine2: shippingAddress.addressLine2,
+        city: shippingAddress.city,
+        state: shippingAddress.state,
+        postalCode: shippingAddress.postalCode,
+        country: shippingAddress.country,
+      }
+    : {
+        recipientName: checkoutData.billing.recipientName,
+        phone: checkoutData.billing.phone,
+        addressLine1: checkoutData.billing.addressLine1,
+        addressLine2: checkoutData.billing.addressLine2,
+        city: checkoutData.billing.city,
+        state: checkoutData.billing.state,
+        postalCode: checkoutData.billing.postalCode,
+        country: checkoutData.billing.country,
+      }
+
   try {
     // Create order in transaction
     const result = await db.transaction(async (tx) => {
@@ -248,7 +280,7 @@ export async function createOrder(
           userId: session?.user?.id || null,
           customerEmail: checkoutData.contact.email,
           customerPhone: checkoutData.contact.phone || null,
-          customerName: checkoutData.shipping.recipientName,
+          customerName: shippingAddress.recipientName,
           status: "draft", // Initial status
           subtotal: cart.subtotal.toFixed(2),
           shippingCost: totals.shipping.toFixed(2),
@@ -256,7 +288,8 @@ export async function createOrder(
           discountAmount: "0.00",
           total: totals.total.toFixed(2),
           shippingAddress,
-          billingAddress: shippingAddress, // Same for billing for now
+          billingAddress,
+          holdExpiresAt: getOrderHoldExpiresAt(),
           notes: checkoutData.notes || null,
         })
         .returning()
@@ -298,15 +331,103 @@ export async function createOrder(
         changedBy: session?.user?.id || null,
       })
 
-      // 5. Delete cart items (effectively marks cart as converted)
+      // 5. Apply payment-method specific transition and payment record
+      if (checkoutData.paymentMethod === "card") {
+        await tx.insert(payments).values({
+          orderId: order.id,
+          method: "card",
+          status: "completed",
+          amount: order.total,
+          currency: "LKR",
+          idempotencyKey: `card_${order.id}_${Date.now()}`,
+          metadata: JSON.stringify({
+            mode: "immediate_success",
+          }),
+          processedAt: new Date(),
+        })
+
+        await tx
+          .update(orders)
+          .set({
+            status: "paid",
+            holdExpiresAt: null,
+            updatedAt: new Date(),
+          })
+          .where(eq(orders.id, order.id))
+
+        await tx.insert(orderStatusHistory).values({
+          orderId: order.id,
+          fromStatus: "draft",
+          toStatus: "paid",
+          notes: "Card payment completed",
+          changedBy: session?.user?.id || null,
+        })
+      } else if (checkoutData.paymentMethod === "bank_transfer") {
+        const bankTransferReference = generateBankTransferReference(
+          order.orderNumber,
+        )
+
+        await tx.insert(payments).values({
+          orderId: order.id,
+          method: "bank_transfer",
+          status: "pending",
+          amount: order.total,
+          currency: "LKR",
+          idempotencyKey: `bt_${order.id}_${Date.now()}`,
+          metadata: JSON.stringify({
+            bankTransferReference,
+          }),
+        })
+
+        await tx
+          .update(orders)
+          .set({
+            status: "pending_payment",
+            bankTransferReference,
+            updatedAt: new Date(),
+          })
+          .where(eq(orders.id, order.id))
+
+        await tx.insert(orderStatusHistory).values({
+          orderId: order.id,
+          fromStatus: "draft",
+          toStatus: "pending_payment",
+          notes: `Bank transfer initiated. Reference: ${bankTransferReference}`,
+          changedBy: session?.user?.id || null,
+        })
+      } else {
+        await tx.insert(payments).values({
+          orderId: order.id,
+          method: "cash_on_delivery",
+          status: "pending",
+          amount: order.total,
+          currency: "LKR",
+          idempotencyKey: `cod_${order.id}_${Date.now()}`,
+        })
+
+        await tx
+          .update(orders)
+          .set({
+            status: "processing",
+            holdExpiresAt: null,
+            updatedAt: new Date(),
+          })
+          .where(eq(orders.id, order.id))
+
+        await tx.insert(orderStatusHistory).values({
+          orderId: order.id,
+          fromStatus: "draft",
+          toStatus: "processing",
+          notes: "Cash on Delivery order moved to processing",
+          changedBy: session?.user?.id || null,
+        })
+      }
+
+      // 6. Delete cart items (effectively marks cart as converted)
       await tx.delete(cartItems).where(eq(cartItems.cartId, cart.id))
 
-      // 6. Save address if requested and user is logged in
-      if (
-        session?.user?.id &&
-        checkoutData.shipping.saveAddress &&
-        !checkoutData.shipping.addressId
-      ) {
+      // 7. Save address if requested and user is logged in
+      if (session?.user?.id) {
         // Get or create customer profile
         let profile = await tx.query.customerProfiles.findFirst({
           where: eq(customerProfiles.userId, session.user.id),
@@ -323,10 +444,18 @@ export async function createOrder(
           profile = newProfile
         }
 
-        if (profile) {
+        if (
+          profile &&
+          checkoutData.shipping.saveAddress &&
+          !checkoutData.shipping.addressId
+        ) {
+          const shippingType = checkoutData.useShippingAsBilling
+            ? "both"
+            : "shipping"
+
           await tx.insert(customerAddresses).values({
             customerId: profile.id,
-            type: "shipping",
+            type: shippingType,
             recipientName: checkoutData.shipping.recipientName,
             phone: checkoutData.shipping.phone,
             addressLine1: checkoutData.shipping.addressLine1,
@@ -336,6 +465,27 @@ export async function createOrder(
             postalCode: checkoutData.shipping.postalCode,
             country: checkoutData.shipping.country,
             instructions: checkoutData.shipping.instructions || null,
+            isDefault: false,
+          })
+        }
+
+        if (
+          profile &&
+          !checkoutData.useShippingAsBilling &&
+          checkoutData.billing.saveAddress &&
+          !checkoutData.billing.addressId
+        ) {
+          await tx.insert(customerAddresses).values({
+            customerId: profile.id,
+            type: "billing",
+            recipientName: checkoutData.billing.recipientName,
+            phone: checkoutData.billing.phone,
+            addressLine1: checkoutData.billing.addressLine1,
+            addressLine2: checkoutData.billing.addressLine2 || null,
+            city: checkoutData.billing.city,
+            state: checkoutData.billing.state || null,
+            postalCode: checkoutData.billing.postalCode,
+            country: checkoutData.billing.country,
             isDefault: false,
           })
         }
@@ -369,7 +519,7 @@ export async function createOrder(
 export async function getCheckoutSummary(): Promise<CheckoutSummary | null> {
   const session = await getServerSession()
   const cookieStore = await cookies()
-  const guestCartId = cookieStore.get(CART_SESSION_COOKIE)?.value
+  const guestCartSessionId = cookieStore.get(CART_SESSION_COOKIE)?.value
 
   // Find cart
   let cart
@@ -377,9 +527,9 @@ export async function getCheckoutSummary(): Promise<CheckoutSummary | null> {
     cart = await db.query.carts.findFirst({
       where: eq(carts.userId, session.user.id),
     })
-  } else if (guestCartId) {
+  } else if (guestCartSessionId) {
     cart = await db.query.carts.findFirst({
-      where: eq(carts.id, guestCartId),
+      where: eq(carts.sessionId, guestCartSessionId),
     })
   }
 

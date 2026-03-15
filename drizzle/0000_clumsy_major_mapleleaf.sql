@@ -537,6 +537,8 @@ CREATE TABLE "orders" (
 	"customer_email" text NOT NULL,
 	"customer_phone" text,
 	"customer_name" text,
+	"hold_expires_at" timestamp with time zone,
+	"bank_transfer_reference" text,
 	"notes" text,
 	"admin_notes" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -782,6 +784,8 @@ CREATE INDEX "orders_order_number_idx" ON "orders" USING btree ("order_number");
 CREATE INDEX "orders_user_id_idx" ON "orders" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "orders_status_idx" ON "orders" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "orders_customer_email_idx" ON "orders" USING btree ("customer_email");--> statement-breakpoint
+CREATE INDEX "orders_hold_expires_at_idx" ON "orders" USING btree ("hold_expires_at");--> statement-breakpoint
+CREATE INDEX "orders_bank_transfer_reference_idx" ON "orders" USING btree ("bank_transfer_reference");--> statement-breakpoint
 CREATE INDEX "orders_created_at_idx" ON "orders" USING btree ("created_at");--> statement-breakpoint
 CREATE INDEX "shipments_order_id_idx" ON "shipments" USING btree ("order_id");--> statement-breakpoint
 CREATE INDEX "shipments_tracking_number_idx" ON "shipments" USING btree ("tracking_number");--> statement-breakpoint
