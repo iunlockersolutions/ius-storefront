@@ -79,9 +79,8 @@ Given current implementation goals, this project now optimizes for the new model
 
 ## Operations Checklist (Cron Hold Expiry)
 
-- Vercel cron is configured in `vercel.json` to call:
-   - `/api/internal/orders/release-expired-holds?limit=250`
-   - schedule: every 5 minutes.
+- Scheduled triggering is currently disabled in this repo.
+- See [docs/plans/deferred-hold-expiry-cron.md](docs/plans/deferred-hold-expiry-cron.md) for enablement steps when plan limits allow it.
 - Set one of these production environment variables in Vercel:
    - `CRON_SECRET` (recommended, native Vercel convention)
    - `ORDER_HOLD_CRON_SECRET` (project-specific override)
