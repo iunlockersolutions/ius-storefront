@@ -558,7 +558,13 @@ export async function getOrCreateCheckoutSession() {
 }
 
 export async function updateCheckoutSession(input: CheckoutSessionInput) {
-  const validatedInput = checkoutSessionInputSchema.parse(input)
+  const normalizedInput = input.billingSameAsShipping
+    ? {
+        ...input,
+        billingAddress: undefined,
+      }
+    : input
+  const validatedInput = checkoutSessionInputSchema.parse(normalizedInput)
   const data = await upsertCheckoutSession(validatedInput)
 
   return {
@@ -932,6 +938,21 @@ async function cancelSubmittedOrder(orderId: string, reason: string) {
   })
 }
 
+async function sendPlacedOrderEmailsSafely(orderId: string) {
+  try {
+    const sent = await sendPlacedOrderEmails(orderId)
+
+    if (!sent) {
+      console.error("Order confirmation email was not sent", { orderId })
+    }
+  } catch (error) {
+    console.error("Failed to send order confirmation email", {
+      orderId,
+      error,
+    })
+  }
+}
+
 export async function submitCheckoutSession(
   sessionId: string,
 ): Promise<SubmitCheckoutResult> {
@@ -1010,7 +1031,7 @@ export async function submitCheckoutSession(
 
       revalidatePath("/cart")
       revalidatePath("/checkout")
-      void sendPlacedOrderEmails(created.order.id)
+      await sendPlacedOrderEmailsSafely(created.order.id)
 
       return {
         success: true,
@@ -1046,7 +1067,7 @@ export async function submitCheckoutSession(
     revalidatePath("/checkout")
     revalidatePath("/orders")
     revalidatePath("/ops/orders")
-    void sendPlacedOrderEmails(created.order.id)
+    await sendPlacedOrderEmailsSafely(created.order.id)
 
     const postSubmitRedirect =
       validatedInput.data.paymentMethod === "bank_transfer"

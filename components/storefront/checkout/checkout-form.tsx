@@ -76,6 +76,7 @@ export function CheckoutForm({
     formState: { errors },
   } = useForm<CheckoutSessionInput>({
     resolver: zodResolver(checkoutSessionInputSchema),
+    shouldUnregister: true,
     defaultValues: {
       accountIntent:
         defaultInput.accountIntent || (isLoggedIn ? "signin" : "guest"),
@@ -100,18 +101,21 @@ export function CheckoutForm({
         saveAddress: defaultInput.shippingAddress?.saveAddress || false,
       },
       billingSameAsShipping: defaultInput.billingSameAsShipping ?? true,
-      billingAddress: {
-        recipientName: defaultInput.billingAddress?.recipientName || "",
-        phone: defaultInput.billingAddress?.phone || "",
-        addressLine1: defaultInput.billingAddress?.addressLine1 || "",
-        addressLine2: defaultInput.billingAddress?.addressLine2 || "",
-        city: defaultInput.billingAddress?.city || "",
-        district: defaultInput.billingAddress?.district || "",
-        postalCode: defaultInput.billingAddress?.postalCode || "",
-        country: defaultInput.billingAddress?.country || "Sri Lanka",
-        instructions: defaultInput.billingAddress?.instructions || "",
-        saveAddress: false,
-      },
+      billingAddress:
+        defaultInput.billingSameAsShipping === false
+          ? {
+              recipientName: defaultInput.billingAddress?.recipientName || "",
+              phone: defaultInput.billingAddress?.phone || "",
+              addressLine1: defaultInput.billingAddress?.addressLine1 || "",
+              addressLine2: defaultInput.billingAddress?.addressLine2 || "",
+              city: defaultInput.billingAddress?.city || "",
+              district: defaultInput.billingAddress?.district || "",
+              postalCode: defaultInput.billingAddress?.postalCode || "",
+              country: defaultInput.billingAddress?.country || "Sri Lanka",
+              instructions: defaultInput.billingAddress?.instructions || "",
+              saveAddress: false,
+            }
+          : undefined,
       shippingMethod: defaultInput.shippingMethod || "standard",
       paymentMethod: defaultInput.paymentMethod || "card",
       notes: defaultInput.notes || "",
@@ -158,31 +162,54 @@ export function CheckoutForm({
 
   const onSubmit = (data: CheckoutSessionInput) => {
     startTransition(async () => {
-      const updateResult = await updateCheckoutSession(data)
+      try {
+        const normalizedData = data.billingSameAsShipping
+          ? {
+              ...data,
+              billingAddress: undefined,
+            }
+          : data
 
-      if (!updateResult.success) {
-        toast.error("Unable to update checkout details")
-        return
+        const updateResult = await updateCheckoutSession(normalizedData)
+
+        if (!updateResult.success) {
+          toast.error("Unable to update checkout details")
+          return
+        }
+
+        const result = await submitCheckoutSession(
+          updateResult.sessionId || sessionId,
+        )
+
+        if (!result.success || !result.redirectUrl) {
+          toast.error(result.error || "Unable to complete checkout")
+          return
+        }
+
+        window.dispatchEvent(new Event("cart-updated"))
+        router.push(result.redirectUrl)
+        router.refresh()
+      } catch (error) {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Unable to complete checkout",
+        )
       }
-
-      const result = await submitCheckoutSession(
-        updateResult.sessionId || sessionId,
-      )
-
-      if (!result.success || !result.redirectUrl) {
-        toast.error(result.error || "Unable to complete checkout")
-        return
-      }
-
-      window.dispatchEvent(new Event("cart-updated"))
-      router.push(result.redirectUrl)
-      router.refresh()
     })
   }
 
   return (
     <form
-      onSubmit={handleSubmit(onSubmit)}
+      onSubmit={handleSubmit(onSubmit, (formErrors) => {
+        const firstError = Object.values(formErrors)[0]
+
+        toast.error(
+          typeof firstError?.message === "string"
+            ? firstError.message
+            : "Please complete the required checkout fields",
+        )
+      })}
       className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_380px]"
     >
       <div className="space-y-6">
@@ -418,9 +445,15 @@ export function CheckoutForm({
               <Checkbox
                 id="billing-same-as-shipping"
                 checked={billingSameAsShipping}
-                onCheckedChange={(checked) =>
-                  setValue("billingSameAsShipping", checked === true)
-                }
+                onCheckedChange={(checked) => {
+                  const sameAsShipping = checked === true
+
+                  setValue("billingSameAsShipping", sameAsShipping)
+
+                  if (sameAsShipping) {
+                    setValue("billingAddress", undefined)
+                  }
+                }}
               />
               <Label htmlFor="billing-same-as-shipping">
                 Billing address is the same as shipping
