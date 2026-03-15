@@ -36,7 +36,8 @@
 
 ## Phase F: Reliability and Rollout
 
-- [x] Add scheduled trigger (Vercel cron/job) for expired order hold release endpoint.
+- [ ] Re-enable scheduled trigger (Vercel cron/job) when hosting plan supports it.
+- [x] Keep manual hold-expiry release path available until scheduler is re-enabled.
 - [x] Add idempotency keys and retry-safe mutation semantics.
 - [x] Add migration/backfill for in-flight orders and reservations.
 - [x] Add integration tests for payment + inventory lifecycle.
