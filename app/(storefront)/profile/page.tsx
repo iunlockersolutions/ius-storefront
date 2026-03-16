@@ -3,7 +3,7 @@ import { redirect } from "next/navigation"
 
 import { ChevronRight, Heart, MapPin, Package, Star } from "lucide-react"
 
-import { SecuritySection } from "@/components/storefront/profile/security-section"
+import { SecuritySection } from "@/app/(storefront)/profile/_components/security-section"
 import {
   Card,
   CardContent,

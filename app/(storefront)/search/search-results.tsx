@@ -2,9 +2,10 @@ import Link from "next/link"
 
 import { ChevronLeft, ChevronRight, SearchX } from "lucide-react"
 
-import { ProductCard } from "@/components/storefront/product-card"
 import { Button } from "@/components/ui/button"
 import { searchProducts } from "@/lib/actions/search"
+
+import { ProductCard } from "../_components/product-card"
 
 interface SearchResultsProps {
   query: string

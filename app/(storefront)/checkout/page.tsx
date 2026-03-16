@@ -1,8 +1,8 @@
 import { Suspense } from "react"
 import Link from "next/link"
 
-import { CheckoutForm } from "@/components/storefront/checkout/checkout-form"
-import { CheckoutSummary } from "@/components/storefront/checkout/checkout-summary"
+import { CheckoutForm } from "@/app/(storefront)/checkout/_components/checkout-form"
+import { CheckoutSummary } from "@/app/(storefront)/checkout/_components/checkout-summary"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getCheckoutSummary, getUserAddresses } from "@/lib/actions/checkout"

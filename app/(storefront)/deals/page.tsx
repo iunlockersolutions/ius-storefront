@@ -1,7 +1,8 @@
 import { Percent, Tag } from "lucide-react"
 
-import { ProductCard } from "@/components/storefront/product-card"
 import { getDealProducts } from "@/lib/actions/storefront"
+
+import { ProductCard } from "../_components/product-card"
 
 export const metadata = {
   title: "Deals & Offers",

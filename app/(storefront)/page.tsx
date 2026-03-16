@@ -1,8 +1,3 @@
-import { DealsSection } from "@/components/storefront/home/deals-section"
-import { FeaturedCategories } from "@/components/storefront/home/featured-categories"
-import { HeroSection } from "@/components/storefront/home/hero-section"
-import { NewsletterSection } from "@/components/storefront/home/newsletter-section"
-import { ProductGridSection } from "@/components/storefront/home/product-grid-section"
 import {
   getBestSellers,
   getDealProducts,
@@ -11,17 +6,15 @@ import {
   getNewArrivals,
 } from "@/lib/actions/storefront"
 
-// Enable Incremental Static Regeneration (ISR)
-// Regenerate page every 30 minutes or on-demand via revalidateTag
+import { DealsSection } from "./_components/deals-section"
+import { FeaturedCategories } from "./_components/featured-categories"
+import { HeroSection } from "./_components/hero-section"
+import { NewsletterSection } from "./_components/newsletter-section"
+import { ProductGridSection } from "./_components/product-grid-section"
+
 export const revalidate = 1800
 
-/**
- * Storefront Home Page
- *
- * The main landing page for customers with featured content.
- */
 export default async function HomePage() {
-  // Fetch all data in parallel
   const [featuredProducts, newArrivals, bestSellers, categories, deals] =
     await Promise.all([
       getFeaturedProducts(8),
@@ -33,7 +26,6 @@ export default async function HomePage() {
 
   return (
     <div className="flex flex-col">
-      {/* Hero Section */}
       <HeroSection
         title="Welcome to IUS Shop"
         subtitle="Your trusted destination for mobile phones, accessories, and electronics. Quality products at competitive prices."
@@ -43,10 +35,8 @@ export default async function HomePage() {
         secondaryCtaLink="/categories"
       />
 
-      {/* Featured Categories */}
       <FeaturedCategories categories={categories} />
 
-      {/* Featured Products */}
       <ProductGridSection
         title="Featured Products"
         subtitle="Handpicked selection of our best products"
@@ -55,10 +45,8 @@ export default async function HomePage() {
         viewAllText="View All Featured"
       />
 
-      {/* Deals Section */}
       {deals.length > 0 && <DealsSection products={deals} />}
 
-      {/* New Arrivals */}
       <ProductGridSection
         title="New Arrivals"
         subtitle="Check out our latest additions"
@@ -68,7 +56,6 @@ export default async function HomePage() {
         className="bg-muted/30"
       />
 
-      {/* Best Sellers */}
       <ProductGridSection
         title="Best Sellers"
         subtitle="Customer favorites and top-rated products"
@@ -77,7 +64,6 @@ export default async function HomePage() {
         viewAllText="View All Best Sellers"
       />
 
-      {/* Newsletter */}
       <NewsletterSection />
     </div>
   )

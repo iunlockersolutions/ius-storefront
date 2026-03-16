@@ -3,8 +3,8 @@ import Link from "next/link"
 
 import { ArrowLeft, ShoppingBag } from "lucide-react"
 
-import { CartItems } from "@/components/storefront/cart-items"
-import { CartSummary } from "@/components/storefront/cart-summary"
+import { CartItems } from "@/app/(storefront)/cart/_components/cart-items"
+import { CartSummary } from "@/app/(storefront)/cart/_components/cart-summary"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getCart } from "@/lib/actions/cart"

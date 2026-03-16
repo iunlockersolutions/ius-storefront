@@ -8,11 +8,11 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
 import { z } from "zod"
 
-import { PasskeySignInButton } from "@/components/auth/passkey-signin-button"
+import { PasskeySignInButton } from "@/app/auth/_components/passkey-signin-button"
 import {
   AuthDivider,
   SocialLoginButtons,
-} from "@/components/auth/social-login-buttons"
+} from "@/app/auth/_components/social-login-buttons"
 import { Button } from "@/components/ui/button"
 import {
   Card,

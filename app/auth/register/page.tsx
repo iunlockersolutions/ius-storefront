@@ -12,7 +12,7 @@ import { z } from "zod"
 import {
   AuthDivider,
   SocialLoginButtons,
-} from "@/components/auth/social-login-buttons"
+} from "@/app/auth/_components/social-login-buttons"
 import { Button } from "@/components/ui/button"
 import {
   Card,

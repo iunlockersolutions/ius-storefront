@@ -2,7 +2,7 @@ import Link from "next/link"
 
 import { ArrowRight } from "lucide-react"
 
-import { ProductCard } from "@/components/storefront/product-card"
+import { ProductCard } from "@/app/(storefront)/_components/product-card"
 
 interface Product {
   id: string

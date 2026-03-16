@@ -3,8 +3,8 @@ import { notFound } from "next/navigation"
 
 import { Skeleton } from "@/components/ui/skeleton"
 
-import { getCheckoutSuccessOrder } from "./_actions/get-order-confirmation"
-import { OrderConfirmation } from "./_components/order-confirmation"
+import { getCheckoutSuccessOrder } from "../_actions/get-order-confirmation"
+import { OrderConfirmation } from "../_components/order-confirmation"
 
 export const metadata = {
   title: "Order Confirmed | IUS Shop",
