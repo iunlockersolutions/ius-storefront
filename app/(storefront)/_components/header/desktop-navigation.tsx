@@ -26,7 +26,7 @@ const topLevelLinks = [
   { href: "/deals", label: "Deals" },
 ]
 
-export function StorefrontDesktopNavigation({
+export function DesktopNavigation({
   navigation,
 }: StorefrontDesktopNavigationProps) {
   const pathname = usePathname()
@@ -73,7 +73,7 @@ export function StorefrontDesktopNavigation({
               Products
             </NavigationMenuTrigger>
             <NavigationMenuContent className="left-0 top-full mt-3">
-              <div className="w-[1040px] overflow-hidden rounded-xl border bg-background shadow-lg">
+              <div className="w-260 overflow-hidden rounded-xl border bg-background shadow-lg">
                 <div className="grid grid-cols-[260px_240px_minmax(0,1fr)]">
                   <div className="border-r bg-muted/20">
                     <div className="border-b px-4 py-3">
@@ -82,7 +82,7 @@ export function StorefrontDesktopNavigation({
                       </p>
                     </div>
 
-                    <div className="max-h-[460px] overflow-y-auto">
+                    <div className="max-h-115 overflow-y-auto">
                       {navigation.productCategories.map((category) => (
                         <button
                           key={category.id}
@@ -171,7 +171,7 @@ export function StorefrontDesktopNavigation({
                         </div>
                       </div>
 
-                      <div className="min-h-[460px] px-6 py-5">
+                      <div className="min-h-115 px-6 py-5">
                         <div className="mb-4 flex items-center justify-between gap-4 border-b pb-4">
                           <div className="min-w-0">
                             <p className="truncate text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
@@ -214,7 +214,7 @@ export function StorefrontDesktopNavigation({
                       </div>
                     </>
                   ) : (
-                    <div className="col-span-2 flex min-h-[460px] items-center justify-center text-sm text-muted-foreground">
+                    <div className="col-span-2 flex min-h-115 items-center justify-center text-sm text-muted-foreground">
                       No active categories available.
                     </div>
                   )}

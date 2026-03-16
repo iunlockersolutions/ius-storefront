@@ -35,12 +35,14 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { routes } from "@/configs/routes"
+import { clearAuthCookies } from "@/lib/actions/admin-auth"
+import { authClient } from "@/lib/auth-client"
 import { type StorefrontNavigationData } from "@/lib/storefront/navigation"
 
 interface MobileNavProps {
   isAuthenticated?: boolean
   navigation: StorefrontNavigationData
-  onSignOut: () => Promise<void>
   userEmail?: string
   userName?: string | null
 }
@@ -59,10 +61,9 @@ const accountLinks = [
   { href: "/profile", label: "Profile", icon: User },
 ]
 
-export function MobileNav({
+export function MobileNavigation({
   isAuthenticated = false,
   navigation,
-  onSignOut,
   userEmail,
   userName,
 }: MobileNavProps) {
@@ -105,6 +106,13 @@ export function MobileNav({
   const handleProtectedNavigation = (href: string) => {
     closeNav()
     router.push(href)
+  }
+
+  const handleSignOut = async () => {
+    await clearAuthCookies()
+    await authClient.signOut()
+    router.push(routes.storefront.root)
+    router.refresh()
   }
 
   return (
@@ -406,7 +414,7 @@ export function MobileNav({
                     type="button"
                     onClick={async () => {
                       closeNav()
-                      await onSignOut()
+                      await handleSignOut()
                     }}
                     className="flex w-full items-center justify-between px-4 py-3 text-sm text-destructive transition-colors hover:bg-destructive/10"
                   >

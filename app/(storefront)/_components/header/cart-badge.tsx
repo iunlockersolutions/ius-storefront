@@ -8,12 +8,6 @@ import { ShoppingCart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { getCartCount } from "@/lib/actions/cart"
 
-/**
- * Cart Badge Component
- *
- * Displays cart icon with item count badge.
- * Fetches count on mount and listens for cart updates.
- */
 export function CartBadge() {
   const [count, setCount] = useState(0)
 
@@ -25,8 +19,6 @@ export function CartBadge() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchCount()
-
-    // Listen for cart updates
     const handleCartUpdate = () => {
       fetchCount()
     }

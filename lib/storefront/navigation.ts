@@ -46,6 +46,9 @@ export type StorefrontNavigationData = {
   }>
 }
 
+/*
+@depricated 
+*/
 export const getStorefrontNavigationData = unstable_cache(
   async (): Promise<StorefrontNavigationData> => {
     const categoryPriorityGroup = sql<number>`case when ${categories.productMenuPriority} > 0 then 0 else 1 end`
