@@ -14,13 +14,11 @@ import { MobileNavigation } from "./mobile-navigation"
 import ProfileMenu from "./profile-menu"
 import TopBar from "./top-bar"
 
-type StorefrontHeaderProps = {
+type HeaderProps = {
   isAuthenticated?: boolean
 }
 
-async function StorefrontHeader({
-  isAuthenticated = false,
-}: StorefrontHeaderProps) {
+async function Header({ isAuthenticated = false }: HeaderProps) {
   const navigation = await getStorefrontNavigationData()
   const session = await getServerSession()
   const user = session?.user
@@ -101,4 +99,4 @@ async function StorefrontHeader({
   )
 }
 
-export default StorefrontHeader
+export default Header

@@ -2,7 +2,7 @@ import { StorefrontFooter } from "@/components/storefront/footer"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { getServerSession } from "@/lib/auth/rbac"
 
-import StorefrontHeader from "./_components/header/storefront-header"
+import Header from "./_components/header"
 
 export default async function StorefrontLayout({
   children,
@@ -14,7 +14,7 @@ export default async function StorefrontLayout({
 
   return (
     <SidebarProvider mobileBreakpoint={1024} unstyled>
-      <StorefrontHeader isAuthenticated={isAuthenticated} />
+      <Header isAuthenticated={isAuthenticated} />
       <main className="flex-1">{children}</main>
       <StorefrontFooter />
     </SidebarProvider>
