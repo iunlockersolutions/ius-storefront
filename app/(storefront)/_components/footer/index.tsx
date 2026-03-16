@@ -1,11 +1,6 @@
 import Link from "next/link"
 
-/**
- * Storefront Footer
- *
- * Footer for the storefront with links and information.
- */
-export function StorefrontFooter() {
+export function Footer() {
   return (
     <footer className="border-t bg-neutral-50 dark:bg-neutral-900">
       <div className="container mx-auto px-4 py-12">
