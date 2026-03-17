@@ -4,11 +4,11 @@ import type { ReactNode } from "react"
 
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 
-import AppHeader from "./app-header"
-import AppSidebar from "./app-sidebar"
+import { OpsHeader } from "./ops-header"
 import { OpsRightRailProvider } from "./ops-right-rail-provider"
 import { OpsRightRailSheet, OpsRightSidebar } from "./ops-right-sidebar"
 import OpsRouteGuard from "./ops-route-guard"
+import { OpsSidebar } from "./ops-sidebar"
 
 interface OpsShellProps {
   children: ReactNode
@@ -29,10 +29,10 @@ export default function OpsShell({
   return (
     <SidebarProvider>
       <OpsRightRailProvider>
-        <AppSidebar />
+        <OpsSidebar />
         <SidebarInset className="max-h-svh min-h-svh overflow-hidden bg-white">
           <OpsRouteGuard mustChangePassword={mustChangePassword}>
-            <AppHeader user={user} />
+            <OpsHeader user={user} />
             <div className="flex-1 overflow-y-auto overscroll-none bg-white">
               <div className="mx-auto min-h-full w-full px-4 py-6 lg:px-6">
                 {children}

@@ -4,25 +4,17 @@ import { routes } from "@/configs/routes"
 
 function TopBar() {
   return (
-    <div className="border-b bg-muted/30">
-      <div className="container mx-auto flex items-center justify-between px-4 py-2 text-xs text-muted-foreground">
-        <p className="truncate pr-4">
-          New arrivals across phones, audio, and power accessories.
+    <div className="border-b bg-primary">
+      <div className="container mx-auto flex gap-2 items-center px-4 py-2 text-xs text-muted-foreground">
+        <p className="truncate text-white">
+          For administrative tasks, please visit the
         </p>
-        <div className="ml-auto flex shrink-0 items-center gap-4">
-          <Link
-            href={routes.storefront.deals.root}
-            className="transition-colors hover:text-foreground"
-          >
-            Shop deals
-          </Link>
-          <Link
-            href={routes.storefront.categories.root}
-            className="hidden transition-colors hover:text-foreground sm:block"
-          >
-            Browse categories
-          </Link>
-        </div>
+        <Link
+          href={routes.ops.root}
+          className="transition-colors cursor-pointer text-white font-medium"
+        >
+          Admin Panel
+        </Link>
       </div>
     </div>
   )

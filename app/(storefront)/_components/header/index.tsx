@@ -26,6 +26,7 @@ async function Header({ isAuthenticated = false }: HeaderProps) {
         name: session.user.name,
         email: session.user.email,
         image: session.user.image,
+        role: session.user.role,
       }
     : undefined
 
@@ -33,7 +34,7 @@ async function Header({ isAuthenticated = false }: HeaderProps) {
     <>
       <>
         <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80">
-          <TopBar />
+          {user?.role === "admin" ? <TopBar /> : null}
           <div className="container mx-auto flex h-16 items-center gap-4 px-4">
             <Link
               href={routes.storefront.root}
@@ -73,7 +74,7 @@ async function Header({ isAuthenticated = false }: HeaderProps) {
                   className="hidden sm:inline-flex"
                 >
                   <Link href={routes.auth.login}>
-                    Latest deals
+                    Sign in
                     <ArrowRight className="size-4" />
                   </Link>
                 </Button>
