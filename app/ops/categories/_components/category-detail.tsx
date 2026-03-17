@@ -10,7 +10,6 @@ import { ExternalLink, Loader2, Pencil, Plus, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { z } from "zod"
 
-import { CategorySectionSheet } from "@/components/admin/categories/category-section-sheet"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,13 +42,15 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
-import type { AdminCategory } from "@/services/queries/use-admin-categories-query"
+import { formatDate, slugify } from "@/lib/utils"
+import { normalizeEntityName } from "@/lib/utils/catalog"
 import {
   useDeleteCategoryMutation,
   useUpdateCategoryMutation,
 } from "@/services/mutations/use-category-mutations"
-import { formatDate, slugify } from "@/lib/utils"
-import { normalizeEntityName } from "@/lib/utils/catalog"
+import type { AdminCategory } from "@/services/queries/use-admin-categories-query"
+
+import { CategorySectionSheet } from "./category-section-sheet"
 
 interface ParentOption {
   id: string

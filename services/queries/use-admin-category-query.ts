@@ -2,8 +2,8 @@
 
 import { useQuery } from "@tanstack/react-query"
 
-import type { AdminCategory } from "@/services/queries/use-admin-categories-query"
 import { queryKeys } from "@/lib/utils/query-keys"
+import type { AdminCategory } from "@/services/queries/use-admin-categories-query"
 
 export function useAdminCategoryQuery(categoryId: string) {
   return useQuery({

@@ -73,7 +73,7 @@ async function seed() {
     }
 
     console.log(
-      `  âš ï¸  Default password: ${adminPassword} (CHANGE IN PRODUCTION)`,
+      `  âšï¸  Default password: ${adminPassword} (CHANGE IN PRODUCTION)`,
     )
     console.log("\nâœ… Bootstrap seed completed successfully!")
   } catch (error) {

@@ -68,7 +68,9 @@ export function ReviewStats({ stats }: ReviewStatsProps) {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">
-            {stats.averageRating ? Number(stats.averageRating).toFixed(1) : "â€”"}
+            {stats.averageRating
+              ? Number(stats.averageRating).toFixed(1)
+              : "â€”"}
           </div>
           <p className="text-xs text-muted-foreground">From approved reviews</p>
         </CardContent>

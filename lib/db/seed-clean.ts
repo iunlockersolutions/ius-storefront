@@ -72,7 +72,9 @@ async function cleanSeed() {
 
     console.log("ðŸ—‘ï¸  Deleting product media...")
     const deletedProductMedia = await db.delete(productMedia).returning()
-    console.log(`  âœ… Deleted ${deletedProductMedia.length} product media rows`)
+    console.log(
+      `  âœ… Deleted ${deletedProductMedia.length} product media rows`,
+    )
 
     console.log("ðŸ—‘ï¸  Deleting media derivatives...")
     const deletedMediaDerivatives = await db
