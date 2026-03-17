@@ -3,173 +3,142 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
-import {
-  BarChart3,
-  Boxes,
-  CreditCard,
-  LayoutDashboard,
-  MessageSquare,
-  Package,
-  Settings,
-  Shield,
-  ShoppingCart,
-  Store,
-  Tags,
-  UserCog,
-  Users,
-} from "lucide-react"
+import { ArrowLeft } from "lucide-react"
 
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarRail,
+  SidebarSeparator,
+  useSidebar,
+} from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
 
-/**
- * Admin Sidebar Navigation
- */
+import {
+  isOpsNavItemActive,
+  opsNavGroups,
+  type OpsNavItem,
+} from "./ops-navigation"
 
-const navigation = [
-  {
-    name: "Dashboard",
-    href: "/ops",
-    icon: LayoutDashboard,
-  },
-  {
-    name: "Products",
-    href: "/ops/products",
-    icon: Package,
-  },
-  {
-    name: "Brands",
-    href: "/ops/brands",
-    icon: Store,
-  },
-  {
-    name: "Categories",
-    href: "/ops/categories",
-    icon: Tags,
-  },
-  {
-    name: "Inventory",
-    href: "/ops/inventory",
-    icon: Boxes,
-  },
-  {
-    name: "Orders",
-    href: "/ops/orders",
-    icon: ShoppingCart,
-  },
-  {
-    name: "Payments",
-    href: "/ops/payments",
-    icon: CreditCard,
-  },
-  {
-    name: "Customers",
-    href: "/ops/customers",
-    icon: Users,
-  },
-  {
-    name: "Reviews",
-    href: "/ops/reviews",
-    icon: MessageSquare,
-  },
-  {
-    name: "Reports",
-    href: "/ops/reports",
-    icon: BarChart3,
-  },
-  {
-    name: "Settings",
-    href: "/ops/settings",
-    icon: Settings,
-  },
-]
-
-const staffNavigation = [
-  {
-    name: "Staff Users",
-    href: "/ops/users",
-    icon: UserCog,
-  },
-  {
-    name: "Roles & Permissions",
-    href: "/ops/users/roles",
-    icon: Shield,
-  },
-]
-
-export function OpsSidebar() {
-  const pathname = usePathname()
+function NavLink({ item, pathname }: { item: OpsNavItem; pathname: string }) {
+  const { isMobile, setOpenMobile } = useSidebar()
+  const isActive = isOpsNavItemActive(item, pathname)
 
   return (
-    <aside className="flex w-64 flex-col border-r bg-white dark:bg-neutral-950">
-      {/* Logo */}
-      <div className="flex h-16 items-center border-b px-6">
-        <Link href="/ops" className="flex items-center space-x-2">
-          <span className="text-xl font-bold">IUS Admin</span>
-        </Link>
-      </div>
-
-      {/* Navigation */}
-      <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
-        {navigation.map((item) => {
-          const isActive =
-            pathname === item.href ||
-            (item.href !== "/ops" && pathname.startsWith(item.href))
-
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                isActive
-                  ? "bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100"
-                  : "text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100",
-              )}
-            >
-              <item.icon className="h-5 w-5" />
-              {item.name}
-            </Link>
-          )
-        })}
-
-        {/* Staff Management Section */}
-        <div className="pt-4 mt-4 border-t">
-          <p className="px-3 mb-2 text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-            Staff Management
-          </p>
-          {staffNavigation.map((item) => {
-            const isActive =
-              pathname === item.href ||
-              (item.href !== "/ops/users" && pathname.startsWith(item.href))
-
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100"
-                    : "text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-neutral-100",
-                )}
-              >
-                <item.icon className="h-5 w-5" />
-                {item.name}
-              </Link>
-            )
-          })}
-        </div>
-      </nav>
-
-      {/* Back to Store */}
-      <div className="border-t p-4">
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        asChild
+        tooltip={item.title}
+        isActive={isActive}
+        className={cn(
+          "text-sidebar-foreground/80 hover:text-sidebar-foreground",
+          isActive && "bg-sidebar-accent text-sidebar-foreground",
+        )}
+      >
         <Link
-          href="/"
-          className="flex items-center gap-2 text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+          href={item.href}
+          onClick={() => {
+            if (isMobile) {
+              setOpenMobile(false)
+            }
+          }}
         >
-          ← Back to Store
+          <item.icon />
+          <span>{item.title}</span>
         </Link>
-      </div>
-    </aside>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
   )
 }
+
+function OpsSidebar() {
+  const pathname = usePathname()
+  const { isMobile, setOpenMobile } = useSidebar()
+
+  return (
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border/70">
+      <SidebarHeader className="gap-3 border-b border-sidebar-border/70 px-3 py-3">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              size="lg"
+              tooltip="IUS Ops"
+              className="h-12 rounded-xl"
+            >
+              <Link
+                href="/ops"
+                onClick={() => {
+                  if (isMobile) {
+                    setOpenMobile(false)
+                  }
+                }}
+              >
+                <div className="bg-primary text-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg text-sm font-semibold">
+                  I
+                </div>
+                <div className="grid min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
+                  <span className="truncate font-semibold text-sidebar-foreground">
+                    IUS Ops
+                  </span>
+                  <span className="truncate text-xs text-sidebar-foreground/65">
+                    Storefront admin
+                  </span>
+                </div>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarHeader>
+      <SidebarContent>
+        {opsNavGroups.map((group, index) => (
+          <div key={group.title}>
+            {index > 0 ? <SidebarSeparator /> : null}
+            <SidebarGroup className="px-3 py-3">
+              <SidebarGroupLabel className="px-2 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-sidebar-foreground/50">
+                {group.title}
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {group.items.map((item) => (
+                    <NavLink key={item.href} item={item} pathname={pathname} />
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </div>
+        ))}
+      </SidebarContent>
+      <SidebarFooter className="border-t border-sidebar-border/70 px-3 py-3">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild tooltip="Back to Store">
+              <Link
+                href="/"
+                onClick={() => {
+                  if (isMobile) {
+                    setOpenMobile(false)
+                  }
+                }}
+              >
+                <ArrowLeft />
+                <span>Back to Store</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
+      <SidebarRail />
+    </Sidebar>
+  )
+}
+
+export default OpsSidebar

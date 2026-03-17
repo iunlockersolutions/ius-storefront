@@ -4,11 +4,11 @@ import type { ReactNode } from "react"
 
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 
-import { OpsHeader } from "./ops-header"
+import OpsHeader from "./ops-header"
 import { OpsRightRailProvider } from "./ops-right-rail-provider"
 import { OpsRightRailSheet, OpsRightSidebar } from "./ops-right-sidebar"
 import OpsRouteGuard from "./ops-route-guard"
-import { OpsSidebar } from "./ops-sidebar"
+import OpsSidebar from "./ops-sidebar"
 
 interface OpsShellProps {
   children: ReactNode
