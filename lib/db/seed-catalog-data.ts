@@ -1,4 +1,4 @@
-import { drizzle } from "drizzle-orm/postgres-js"
+﻿import { drizzle } from "drizzle-orm/postgres-js"
 import postgres from "postgres"
 
 import { getDefaultSerialReceiptIdentifierTypes } from "@/lib/inventory/identifier-template"
@@ -822,12 +822,12 @@ async function clearCatalogData(db: ReturnType<typeof drizzle>) {
 export async function seedCatalogData(logLabel: string) {
   const { client, db } = createClient()
 
-  console.log(`🌱 Starting ${logLabel}...\n`)
+  console.log(`ðŸŒ± Starting ${logLabel}...\n`)
 
   try {
     await clearCatalogData(db)
 
-    console.log("🏷️  Seeding top-level categories...")
+    console.log("ðŸ·ï¸  Seeding top-level categories...")
     const categoryMap = new Map<string, string>()
     for (const category of seedCategories) {
       const [created] = await db
@@ -846,7 +846,7 @@ export async function seedCatalogData(logLabel: string) {
       categoryMap.set(category.slug, created.id)
     }
 
-    console.log("🏢 Seeding brands and category assignments...")
+    console.log("ðŸ¢ Seeding brands and category assignments...")
     const brandMap = new Map<string, string>()
     for (const brand of seedBrands) {
       const [createdBrand] = await db
@@ -883,7 +883,7 @@ export async function seedCatalogData(logLabel: string) {
     }
 
     console.log(
-      "🧩 Seeding models, products, options, variants, and inventory...",
+      "ðŸ§© Seeding models, products, options, variants, and inventory...",
     )
     for (const model of seedModels) {
       const brandId = brandMap.get(model.brandSlug)
@@ -1121,9 +1121,9 @@ export async function seedCatalogData(logLabel: string) {
       }
     }
 
-    console.log("\n✅ Catalog seed completed successfully!")
+    console.log("\nâœ… Catalog seed completed successfully!")
   } catch (error) {
-    console.error(`\n❌ ${logLabel} failed:`, error)
+    console.error(`\nâŒ ${logLabel} failed:`, error)
     process.exitCode = 1
   } finally {
     await client.end()

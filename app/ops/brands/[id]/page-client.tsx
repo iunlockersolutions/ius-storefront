@@ -1,14 +1,14 @@
 "use client"
 
-import { BrandDetail } from "@/components/admin/brands/brand-detail"
+import { BrandDetail } from "@/app/ops/brands/_components/brand-detail"
 import {
   AdminQueryEmptyState,
   AdminQueryErrorState,
   AdminQueryLoadingState,
   getQueryErrorMessage,
 } from "@/components/admin/query-state"
-import { useAdminBrandQuery } from "@/hooks/admin/use-admin-brand-query"
-import { useAdminCategoriesQuery } from "@/hooks/admin/use-admin-categories-query"
+import { useAdminBrandQuery } from "@/services/queries/use-admin-brand-query"
+import { useAdminCategoriesQuery } from "@/services/queries/use-admin-categories-query"
 
 interface EditBrandPageClientProps {
   brandId: string

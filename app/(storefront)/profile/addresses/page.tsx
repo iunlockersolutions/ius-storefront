@@ -1,9 +1,9 @@
-import Link from "next/link"
+﻿import Link from "next/link"
 import { redirect } from "next/navigation"
 
 import { ChevronLeft, Plus } from "lucide-react"
 
-import { GroupedAddressList } from "@/components/storefront/profile/address-list"
+import { GroupedAddressList } from "@/app/(storefront)/profile/_components/address-list"
 import { Button } from "@/components/ui/button"
 import { getMaxAddressesPerUser, getUserAddresses } from "@/lib/actions/profile"
 import { getServerSession } from "@/lib/auth/rbac"

@@ -1,7 +1,8 @@
-import { NewProductForm } from "@/components/admin/products/new-product-form"
-import { getBrands } from "@/lib/actions/brand"
+﻿import { getBrands } from "@/lib/actions/brand"
 import { getCategoriesFlat } from "@/lib/actions/category"
 import { getModels } from "@/lib/actions/model"
+
+import { NewProductForm } from "../_components/new-product-form"
 
 export const metadata = {
   title: "New Product | Ops Dashboard",

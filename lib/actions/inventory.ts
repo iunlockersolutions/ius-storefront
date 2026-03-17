@@ -1,4 +1,4 @@
-"use server"
+﻿"use server"
 
 import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm"
 import { z } from "zod"
@@ -1259,9 +1259,28 @@ export interface VariantInventoryAvailability {
   trackingMode: AdminInventoryTrackingMode
   onHandQuantity: number | null
   availableQuantity: number | null
+  sellableQuantity: number | null
   reservedQuantity: number
   allocatedQuantity: number
   lowStockThreshold: number | null
+}
+
+function getSellableQuantity(input: {
+  manageInventory: boolean
+  onHandQuantity?: number
+  reservedQuantity?: number
+  allocatedQuantity?: number
+}) {
+  if (!input.manageInventory) {
+    return null
+  }
+
+  const onHand = input.onHandQuantity ?? 0
+  const reserved = input.reservedQuantity ?? 0
+  const allocated = input.allocatedQuantity ?? 0
+
+  // Canonical sellable formula: on_hand - active_order_holds - allocated
+  return Math.max(0, onHand - reserved - allocated)
 }
 
 export async function getVariantInventoryAvailabilityMap(variantIds: string[]) {
@@ -1299,6 +1318,10 @@ export async function getVariantInventoryAvailabilityMap(variantIds: string[]) {
   return new Map(
     variants.map((variant) => {
       const summary = levelMap.get(variant.variantId)
+      const onHandQuantity = summary?.onHandQuantity ?? 0
+      const availableQuantity = summary?.availableQuantity ?? 0
+      const reservedQuantity = summary?.reservedQuantity ?? 0
+      const allocatedQuantity = summary?.allocatedQuantity ?? 0
 
       return [
         variant.variantId,
@@ -1306,14 +1329,16 @@ export async function getVariantInventoryAvailabilityMap(variantIds: string[]) {
           variantId: variant.variantId,
           manageInventory: variant.manageInventory,
           trackingMode: variant.trackingMode,
-          onHandQuantity: variant.manageInventory
-            ? (summary?.onHandQuantity ?? 0)
-            : null,
-          availableQuantity: variant.manageInventory
-            ? (summary?.availableQuantity ?? 0)
-            : null,
-          reservedQuantity: summary?.reservedQuantity ?? 0,
-          allocatedQuantity: summary?.allocatedQuantity ?? 0,
+          onHandQuantity: variant.manageInventory ? onHandQuantity : null,
+          availableQuantity: variant.manageInventory ? availableQuantity : null,
+          sellableQuantity: getSellableQuantity({
+            manageInventory: variant.manageInventory,
+            onHandQuantity,
+            reservedQuantity,
+            allocatedQuantity,
+          }),
+          reservedQuantity,
+          allocatedQuantity,
           lowStockThreshold: variant.manageInventory
             ? (summary?.lowStockThreshold ?? 5)
             : null,
@@ -1777,11 +1802,12 @@ export async function shipInventory(
 
 export async function returnInventory(
   rawInput: z.input<typeof transactionQuantitySchema>,
+  options?: InventoryMutationOptions,
 ) {
   const input = transactionQuantitySchema.parse(rawInput)
   const performedBy = await getActorUserId()
 
-  return db.transaction(async (tx) => {
+  return runInventoryMutation(options, async (tx) => {
     const variant = await getVariantContext(tx, input.variantId)
     ensureManagedInventory(variant)
 
@@ -1853,11 +1879,12 @@ async function changeSerializedUnitAvailability(
   rawInput: z.input<typeof transactionQuantitySchema>,
   nextStatus: "damaged" | "lost",
   type: AdminInventoryTransactionType,
+  options?: InventoryMutationOptions,
 ) {
   const input = transactionQuantitySchema.parse(rawInput)
   const performedBy = await getActorUserId()
 
-  return db.transaction(async (tx) => {
+  return runInventoryMutation(options, async (tx) => {
     const variant = await getVariantContext(tx, input.variantId)
     ensureManagedInventory(variant)
 
@@ -1909,14 +1936,21 @@ async function changeSerializedUnitAvailability(
 
 export async function markInventoryAsDamaged(
   rawInput: z.input<typeof transactionQuantitySchema>,
+  options?: InventoryMutationOptions,
 ) {
-  return changeSerializedUnitAvailability(rawInput, "damaged", "damage")
+  return changeSerializedUnitAvailability(
+    rawInput,
+    "damaged",
+    "damage",
+    options,
+  )
 }
 
 export async function markInventoryAsLost(
   rawInput: z.input<typeof transactionQuantitySchema>,
+  options?: InventoryMutationOptions,
 ) {
-  return changeSerializedUnitAvailability(rawInput, "lost", "loss")
+  return changeSerializedUnitAvailability(rawInput, "lost", "loss", options)
 }
 
 export async function searchInventoryUnits(

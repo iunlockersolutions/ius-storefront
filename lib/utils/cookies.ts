@@ -1,4 +1,4 @@
-import type { NextRequest } from "next/server"
+﻿import type { NextRequest } from "next/server"
 
 export function isSecureCookieEnvironment(): boolean {
   return process.env.NODE_ENV === "production"

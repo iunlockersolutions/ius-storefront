@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm"
+﻿import { relations } from "drizzle-orm"
 import {
   decimal,
   index,
@@ -80,6 +80,8 @@ export const orders = pgTable(
     customerEmail: text("customer_email").notNull(),
     customerPhone: text("customer_phone"),
     customerName: text("customer_name"),
+    holdExpiresAt: timestamp("hold_expires_at", { withTimezone: true }),
+    bankTransferReference: text("bank_transfer_reference"),
 
     notes: text("notes"),
     adminNotes: text("admin_notes"),
@@ -96,6 +98,8 @@ export const orders = pgTable(
     index("orders_user_id_idx").on(table.userId),
     index("orders_status_idx").on(table.status),
     index("orders_customer_email_idx").on(table.customerEmail),
+    index("orders_hold_expires_at_idx").on(table.holdExpiresAt),
+    index("orders_bank_transfer_reference_idx").on(table.bankTransferReference),
     index("orders_created_at_idx").on(table.createdAt),
   ],
 )

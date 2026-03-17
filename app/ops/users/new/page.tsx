@@ -1,6 +1,6 @@
-import { Metadata } from "next"
+﻿import { Metadata } from "next"
 
-import { CreateStaffForm } from "@/components/admin/users/create-staff-form"
+import { CreateStaffForm } from "@/app/ops/users/_components/create-staff-form"
 
 import { requireAuthenticatedAdminUserOrRedirect } from "../_actions/access"
 

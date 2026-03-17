@@ -1,4 +1,4 @@
-import { Suspense } from "react"
+﻿import { Suspense } from "react"
 import Link from "next/link"
 
 import {
@@ -71,7 +71,7 @@ async function DashboardStats() {
           <CardContent>
             <div className="text-2xl font-bold">{totals.orders}</div>
             <p className="text-xs text-neutral-500">
-              {today.orders} today · {pending.orders} pending
+              {today.orders} today Â· {pending.orders} pending
             </p>
           </CardContent>
         </Card>

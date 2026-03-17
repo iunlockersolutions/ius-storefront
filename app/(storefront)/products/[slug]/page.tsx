@@ -3,9 +3,9 @@ import { notFound } from "next/navigation"
 
 import { ChevronRight } from "lucide-react"
 
-import { ProductCard } from "@/components/storefront/product-card"
-import { ProductDetailContent } from "@/components/storefront/product-detail-content"
-import { ProductReviews } from "@/components/storefront/product-reviews"
+import { ProductCard } from "@/app/(storefront)/_components/product-card"
+import { ProductDetailContent } from "@/app/(storefront)/products/_components/product-detail-content"
+import { ProductReviews } from "@/app/(storefront)/products/_components/product-reviews"
 import { Badge } from "@/components/ui/badge"
 import { isProductFavorited } from "@/lib/actions/favorites"
 import { getProductBySlug, getStorefrontProducts } from "@/lib/actions/product"

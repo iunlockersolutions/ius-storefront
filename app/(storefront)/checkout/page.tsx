@@ -1,8 +1,9 @@
-import { Suspense } from "react"
-import { redirect } from "next/navigation"
+﻿import { Suspense } from "react"
+import Link from "next/link"
 
-import { CheckoutForm } from "@/components/storefront/checkout/checkout-form"
-import { CheckoutSummary } from "@/components/storefront/checkout/checkout-summary"
+import { CheckoutForm } from "@/app/(storefront)/checkout/_components/checkout-form"
+import { CheckoutSummary } from "@/app/(storefront)/checkout/_components/checkout-summary"
+import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getCheckoutSummary, getUserAddresses } from "@/lib/actions/checkout"
 import { getServerSession } from "@/lib/auth/rbac"
@@ -19,9 +20,27 @@ async function CheckoutContent() {
     getServerSession(),
   ])
 
-  // Redirect to cart if empty
+  // Avoid hard redirects here because checkout mutations can briefly re-render
+  // this page with an empty cart before client navigation to success completes.
   if (!summary || summary.items.length === 0) {
-    redirect("/cart")
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="mx-auto max-w-xl rounded-lg border p-6 text-center">
+          <h1 className="text-2xl font-bold">Your checkout cart is empty</h1>
+          <p className="mt-2 text-muted-foreground">
+            Add items to your cart before proceeding to checkout.
+          </p>
+          <div className="mt-6 flex items-center justify-center gap-3">
+            <Button asChild variant="outline">
+              <Link href="/cart">Back to Cart</Link>
+            </Button>
+            <Button asChild>
+              <Link href="/products">Browse Products</Link>
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

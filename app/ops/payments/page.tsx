@@ -1,4 +1,4 @@
-import { PaymentsPageClient } from "@/components/admin/payments/payments-page-client"
+﻿import { PaymentsPageClient } from "./_components/payments-page-client"
 
 interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>

@@ -1,4 +1,4 @@
-import { ProductsPageClient } from "@/components/admin/products/products-page-client"
+﻿import { ProductsPageClient } from "./_components/products-page-client"
 
 interface ProductsPageProps {
   searchParams: Promise<{

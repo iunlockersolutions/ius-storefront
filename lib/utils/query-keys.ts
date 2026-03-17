@@ -1,4 +1,4 @@
-export const queryKeys = {
+﻿export const queryKeys = {
   admin: {
     inventoryRoot: () => ["admin", "inventory"] as const,
     brands: () => ["admin", "brands"] as const,

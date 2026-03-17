@@ -1,11 +1,12 @@
-import { redirect } from "next/navigation"
+﻿import { redirect } from "next/navigation"
 
-import { InventoryPageClient } from "@/components/admin/inventory/inventory-page-client"
 import { requireStaff } from "@/lib/auth/rbac"
 import type {
   AdminInventorySortField,
   AdminInventorySortOrder,
 } from "@/lib/types/admin-inventory"
+
+import { InventoryPageClient } from "./_components/inventory-page-client"
 
 interface PageProps {
   searchParams: Promise<{

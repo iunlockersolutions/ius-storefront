@@ -1,4 +1,4 @@
-import { Suspense } from "react"
+﻿import { Suspense } from "react"
 
 import { getActiveBrands } from "@/lib/actions/brand"
 import { getActiveCategoriesFlat } from "@/lib/actions/category"

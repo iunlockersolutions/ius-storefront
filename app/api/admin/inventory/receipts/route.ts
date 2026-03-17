@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server"
+﻿import { NextRequest } from "next/server"
 
 import { receiveInventory } from "@/lib/actions/inventory"
 import {

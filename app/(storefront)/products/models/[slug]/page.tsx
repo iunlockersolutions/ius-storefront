@@ -3,7 +3,7 @@ import { notFound } from "next/navigation"
 
 import { ChevronRight, Package } from "lucide-react"
 
-import { ProductCard } from "@/components/storefront/product-card"
+import { ProductCard } from "@/app/(storefront)/_components/product-card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { getModelBySlug } from "@/lib/actions/model"

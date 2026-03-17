@@ -1,4 +1,4 @@
-import { EditCategoryPageClient } from "@/components/admin/categories/edit-category-page-client"
+import { EditCategoryPageClient } from "../_components/edit-category-page-client"
 
 interface EditCategoryPageProps {
   params: Promise<{ id: string }>

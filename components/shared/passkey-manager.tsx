@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useCallback, useEffect, useState } from "react"
 
@@ -262,7 +262,7 @@ export function PasskeyManager() {
                           {getDeviceLabel(passkey.deviceType)}
                           {passkey.createdAt && (
                             <>
-                              {" · Added "}
+                              {" Â· Added "}
                               {new Date(passkey.createdAt).toLocaleDateString()}
                             </>
                           )}

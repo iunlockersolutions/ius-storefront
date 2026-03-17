@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Cache management utilities
  *
  * This file provides functions to invalidate cached data when updates occur.

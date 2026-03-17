@@ -1,4 +1,4 @@
-import { OrdersPageClient } from "@/components/admin/orders/orders-page-client"
+﻿import { OrdersPageClient } from "./_components/orders-page-client"
 
 export const metadata = {
   title: "Orders | Operations",

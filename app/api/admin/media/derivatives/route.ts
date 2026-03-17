@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server"
+﻿import { NextRequest } from "next/server"
 
 import { requireAdminApiPermission } from "@/lib/auth/admin-api"
 import { vercelBlobMediaAdapter } from "@/lib/media/adapters/vercel-blob"

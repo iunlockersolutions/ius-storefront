@@ -1,4 +1,4 @@
-export const INVENTORY_IDENTIFIER_TYPE_ORDER = [
+﻿export const INVENTORY_IDENTIFIER_TYPE_ORDER = [
   "serial",
   "imei",
   "imei2",

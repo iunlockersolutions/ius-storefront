@@ -1,8 +1,8 @@
-import { redirect } from "next/navigation"
+﻿import { redirect } from "next/navigation"
 
 import { eq } from "drizzle-orm"
 
-import { FirstTimePasswordChange } from "@/components/admin/auth/first-time-password-change"
+import { FirstTimePasswordChange } from "@/app/ops/change-password/_components/first-time-password-change"
 import { getServerSession } from "@/lib/auth/rbac"
 // eslint-disable-next-line no-restricted-imports
 import { db } from "@/lib/db"

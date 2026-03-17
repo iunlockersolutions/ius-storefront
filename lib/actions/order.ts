@@ -1,5 +1,6 @@
-"use server"
+﻿"use server"
 
+import { createHash } from "crypto"
 import {
   and,
   count,
@@ -17,8 +18,11 @@ import { z } from "zod"
 
 import {
   allocateInventory,
+  markInventoryAsDamaged,
+  markInventoryAsLost,
   releaseAllocatedInventory,
   releaseReservedInventory,
+  returnInventory,
   shipInventory,
   unallocateInventoryToReservation,
 } from "@/lib/actions/inventory"
@@ -32,6 +36,7 @@ import {
   orderItemUnitAssignments,
   orders,
   orderStatusHistory,
+  payments,
   products,
   productVariants,
   shipments,
@@ -65,6 +70,18 @@ const ORDER_VALID_TRANSITIONS: Record<AdminOrderStatus, AdminOrderStatus[]> = {
   cancelled: [],
   refunded: [],
 }
+
+const CANCELLABLE_ORDER_STATUSES: AdminOrderStatus[] = [
+  "draft",
+  "pending_payment",
+  "paid",
+  "processing",
+  "packing",
+]
+
+const REFUNDABLE_ORDER_STATUSES: AdminOrderStatus[] = ["delivered"]
+
+const REFUND_DISPOSITIONS = ["restock", "damaged", "lost", "no-return"] as const
 
 const orderFilterSchema = z.object({
   status: z
@@ -103,6 +120,25 @@ const updateOrderStatusSchema = z.object({
   notes: z.string().trim().optional(),
 })
 
+const cancelOrderSchema = z.object({
+  orderId: z.string().uuid(),
+  reason: z.string().trim().min(3),
+  idempotencyKey: z.string().trim().min(8).optional(),
+})
+
+const refundOrderSchema = z.object({
+  orderId: z.string().uuid(),
+  reason: z.string().trim().min(3),
+  idempotencyKey: z.string().trim().min(8).optional(),
+  lineDispositions: z.array(
+    z.object({
+      orderItemId: z.string().uuid(),
+      disposition: z.enum(REFUND_DISPOSITIONS),
+      quantity: z.number().int().positive().optional(),
+    }),
+  ),
+})
+
 const startPackingSchema = z.object({
   orderId: z.string().uuid(),
   notes: z.string().trim().optional(),
@@ -130,6 +166,8 @@ const completePackingSchema = z.object({
 
 type OrderFilterInput = z.infer<typeof orderFilterSchema>
 type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusSchema>
+type CancelOrderInput = z.infer<typeof cancelOrderSchema>
+type RefundOrderInput = z.infer<typeof refundOrderSchema>
 
 function normalizeIdentifierValue(value: string) {
   return value.trim().toLowerCase()
@@ -137,6 +175,48 @@ function normalizeIdentifierValue(value: string) {
 
 function isValidTransition(from: AdminOrderStatus, to: AdminOrderStatus) {
   return ORDER_VALID_TRANSITIONS[from]?.includes(to) ?? false
+}
+
+function buildRefundIdempotencyKey(input: {
+  orderId: string
+  reason: string
+  lineDispositions: Array<{
+    orderItemId: string
+    disposition: "restock" | "damaged" | "lost" | "no-return"
+    quantity?: number
+  }>
+  providedKey?: string
+}) {
+  if (input.providedKey) {
+    return input.providedKey
+  }
+
+  const normalizedDispositions = [...input.lineDispositions]
+    .map((line) => ({
+      orderItemId: line.orderItemId,
+      disposition: line.disposition,
+      quantity: line.quantity ?? null,
+    }))
+    .sort((left, right) => {
+      if (left.orderItemId !== right.orderItemId) {
+        return left.orderItemId.localeCompare(right.orderItemId)
+      }
+
+      if (left.disposition !== right.disposition) {
+        return left.disposition.localeCompare(right.disposition)
+      }
+
+      return (left.quantity ?? 0) - (right.quantity ?? 0)
+    })
+
+  const hashPayload = JSON.stringify({
+    orderId: input.orderId,
+    reason: input.reason.trim().toLowerCase(),
+    lineDispositions: normalizedDispositions,
+  })
+
+  const hash = createHash("sha256").update(hashPayload).digest("hex")
+  return `refund_${input.orderId}_${hash.slice(0, 24)}`
 }
 
 async function getOrderBase(tx: typeof db | DbTransaction, orderId: string) {
@@ -648,16 +728,16 @@ async function getOrderForEmail(
     orderNumber: order.orderNumber,
     customerName: order.customerName || "Customer",
     customerEmail: order.customerEmail,
-    total: new Intl.NumberFormat("en-US", {
+    total: new Intl.NumberFormat("en-LK", {
       style: "currency",
-      currency: "USD",
+      currency: "LKR",
     }).format(parseFloat(order.total)),
     items: items.map((item) => ({
       name: item.productName,
       quantity: item.quantity,
-      price: new Intl.NumberFormat("en-US", {
+      price: new Intl.NumberFormat("en-LK", {
         style: "currency",
-        currency: "USD",
+        currency: "LKR",
       }).format(parseFloat(item.unitPrice)),
     })),
     shippingAddress: order.shippingAddress as OrderEmailData["shippingAddress"],
@@ -771,6 +851,14 @@ export async function updateOrderStatus(input: UpdateOrderStatusInput) {
     const session = await getServerSession()
     await requireStaff()
     const { orderId, status, notes } = updateOrderStatusSchema.parse(input)
+    const normalizedNotes = notes?.trim()
+
+    if (!normalizedNotes) {
+      return {
+        success: false as const,
+        error: "Status update notes are required for audit",
+      }
+    }
 
     if (status === "packing") {
       return {
@@ -783,6 +871,20 @@ export async function updateOrderStatus(input: UpdateOrderStatusInput) {
       return {
         success: false as const,
         error: "Use the packing completion flow to ship an order",
+      }
+    }
+
+    if (status === "cancelled") {
+      return {
+        success: false as const,
+        error: "Use the dedicated cancel action",
+      }
+    }
+
+    if (status === "refunded") {
+      return {
+        success: false as const,
+        error: "Use the dedicated refund action",
       }
     }
 
@@ -800,22 +902,11 @@ export async function updateOrderStatus(input: UpdateOrderStatusInput) {
         }
       }
 
-      if (
-        status === "cancelled" &&
-        (order.status === "draft" ||
-          order.status === "pending_payment" ||
-          order.status === "paid" ||
-          order.status === "processing" ||
-          order.status === "packing")
-      ) {
-        await releasePackingStateTx(tx, order)
-      }
-
       await transitionOrderStatusTx(tx, {
         orderId,
         currentStatus: order.status,
         nextStatus: status,
-        notes,
+        notes: normalizedNotes,
         changedBy: session?.user?.id ?? null,
       })
 
@@ -844,6 +935,304 @@ export async function updateOrderStatus(input: UpdateOrderStatusInput) {
   }
 }
 
+export async function cancelOrder(input: CancelOrderInput) {
+  try {
+    const session = await getServerSession()
+    await requireStaff()
+    const { orderId, reason } = cancelOrderSchema.parse(input)
+
+    return await db.transaction(async (tx) => {
+      const [lockedOrder] = await tx
+        .select({
+          id: orders.id,
+          status: orders.status,
+        })
+        .from(orders)
+        .where(eq(orders.id, orderId))
+        .limit(1)
+        .for("update")
+
+      if (!lockedOrder) {
+        return { success: false as const, error: "Order not found" }
+      }
+
+      if (lockedOrder.status === "cancelled") {
+        // Idempotent retry: if already cancelled, treat as success.
+        return { success: true as const }
+      }
+
+      const order = await getOrderAggregate(tx, orderId)
+
+      if (!order) {
+        return { success: false as const, error: "Order not found" }
+      }
+
+      if (!CANCELLABLE_ORDER_STATUSES.includes(order.status)) {
+        return {
+          success: false as const,
+          error:
+            "Order cannot be cancelled in current status. Use refund flow for delivered orders.",
+        }
+      }
+
+      await releasePackingStateTx(tx, order)
+
+      await transitionOrderStatusTx(tx, {
+        orderId: order.id,
+        currentStatus: order.status,
+        nextStatus: "cancelled",
+        notes: reason,
+        changedBy: session?.user?.id ?? null,
+      })
+
+      return { success: true as const }
+    })
+  } catch (error) {
+    console.error("Failed to cancel order:", error)
+    return { success: false as const, error: "Failed to cancel order" }
+  }
+}
+
+export async function refundOrder(input: RefundOrderInput) {
+  try {
+    const session = await getServerSession()
+    await requireStaff()
+    const { orderId, reason, idempotencyKey, lineDispositions } =
+      refundOrderSchema.parse(input)
+
+    return await db.transaction(async (tx) => {
+      const [lockedOrder] = await tx
+        .select({
+          id: orders.id,
+          status: orders.status,
+        })
+        .from(orders)
+        .where(eq(orders.id, orderId))
+        .limit(1)
+        .for("update")
+
+      if (!lockedOrder) {
+        return { success: false as const, error: "Order not found" }
+      }
+
+      if (lockedOrder.status === "refunded") {
+        // Idempotent retry: if already refunded, treat as success.
+        return { success: true as const }
+      }
+
+      const order = await getOrderAggregate(tx, orderId)
+
+      if (!order) {
+        return { success: false as const, error: "Order not found" }
+      }
+
+      if (!REFUNDABLE_ORDER_STATUSES.includes(order.status)) {
+        return {
+          success: false as const,
+          error: "Only delivered orders can be refunded",
+        }
+      }
+
+      const refundRequestIdempotencyKey = buildRefundIdempotencyKey({
+        orderId,
+        reason,
+        lineDispositions,
+        providedKey: idempotencyKey,
+      })
+
+      const [existingRefundPayment] = await tx
+        .select({
+          id: payments.id,
+          status: payments.status,
+        })
+        .from(payments)
+        .where(eq(payments.idempotencyKey, refundRequestIdempotencyKey))
+        .limit(1)
+
+      if (existingRefundPayment?.status === "refunded") {
+        return { success: true as const }
+      }
+
+      if (existingRefundPayment) {
+        return {
+          success: false as const,
+          error:
+            "A refund request with this idempotency key is already in progress",
+        }
+      }
+
+      const dispositionByItemId = new Map(
+        lineDispositions.map((line) => [line.orderItemId, line]),
+      )
+
+      for (const item of order.items) {
+        if (!item.variantId || !item.packing.manageInventory) {
+          continue
+        }
+
+        const line = dispositionByItemId.get(item.id)
+        if (!line) {
+          return {
+            success: false as const,
+            error: `Missing refund disposition for item ${item.productName}`,
+          }
+        }
+
+        const quantity = line.quantity ?? item.quantity
+
+        if (quantity <= 0 || quantity > item.quantity) {
+          return {
+            success: false as const,
+            error: `Invalid refund quantity for item ${item.productName}`,
+          }
+        }
+
+        if (line.disposition === "no-return") {
+          continue
+        }
+
+        const referenceType = "order_refund"
+        const referenceId = order.id
+        const note = `Refund disposition (${line.disposition}) for order ${order.orderNumber}`
+
+        if (item.packing.trackingMode === "serial") {
+          const unitIds = item.packing.assignments
+            .filter((assignment) => assignment.unassignedAt === null)
+            .slice(0, quantity)
+            .map((assignment) => assignment.inventoryUnitId)
+
+          if (unitIds.length !== quantity) {
+            return {
+              success: false as const,
+              error: `Not enough serialized units available for refund item ${item.productName}`,
+            }
+          }
+
+          if (line.disposition === "restock") {
+            await returnInventory(
+              {
+                variantId: item.variantId,
+                quantity,
+                unitIds,
+                referenceType,
+                referenceId,
+                notes: note,
+              },
+              { tx },
+            )
+          }
+
+          if (line.disposition === "damaged") {
+            await markInventoryAsDamaged(
+              {
+                variantId: item.variantId,
+                quantity,
+                unitIds,
+                referenceType,
+                referenceId,
+                notes: note,
+              },
+              { tx },
+            )
+          }
+
+          if (line.disposition === "lost") {
+            await markInventoryAsLost(
+              {
+                variantId: item.variantId,
+                quantity,
+                unitIds,
+                referenceType,
+                referenceId,
+                notes: note,
+              },
+              { tx },
+            )
+          }
+
+          continue
+        }
+
+        if (line.disposition === "restock") {
+          await returnInventory(
+            {
+              variantId: item.variantId,
+              quantity,
+              referenceType,
+              referenceId,
+              notes: note,
+            },
+            { tx },
+          )
+        }
+
+        if (line.disposition === "damaged") {
+          await markInventoryAsDamaged(
+            {
+              variantId: item.variantId,
+              quantity,
+              referenceType,
+              referenceId,
+              notes: note,
+            },
+            { tx },
+          )
+        }
+
+        if (line.disposition === "lost") {
+          await markInventoryAsLost(
+            {
+              variantId: item.variantId,
+              quantity,
+              referenceType,
+              referenceId,
+              notes: note,
+            },
+            { tx },
+          )
+        }
+      }
+
+      const [latestPayment] = await tx
+        .select({
+          method: payments.method,
+          currency: payments.currency,
+        })
+        .from(payments)
+        .where(eq(payments.orderId, order.id))
+        .orderBy(desc(payments.createdAt))
+        .limit(1)
+
+      await tx.insert(payments).values({
+        orderId: order.id,
+        method: latestPayment?.method ?? "bank_transfer",
+        status: "refunded",
+        amount: order.total,
+        currency: latestPayment?.currency ?? "LKR",
+        idempotencyKey: refundRequestIdempotencyKey,
+        metadata: JSON.stringify({
+          reason,
+          dispositions: lineDispositions,
+        }),
+        processedAt: new Date(),
+      })
+
+      await transitionOrderStatusTx(tx, {
+        orderId: order.id,
+        currentStatus: order.status,
+        nextStatus: "refunded",
+        notes: reason,
+        changedBy: session?.user?.id ?? null,
+      })
+
+      return { success: true as const }
+    })
+  } catch (error) {
+    console.error("Failed to refund order:", error)
+    return { success: false as const, error: "Failed to refund order" }
+  }
+}
+
 export async function startOrderPacking(
   rawInput: z.input<typeof startPackingSchema>,
 ) {
@@ -862,7 +1251,7 @@ export async function startOrderPacking(
       if (order.status !== "processing" && order.status !== "packing") {
         return {
           success: false as const,
-          error: "Only processing orders can enter packing",
+          error: "Only processing or packing orders can use this flow",
         }
       }
 
@@ -1028,22 +1417,32 @@ export async function scanOrderPackingUnit(
           id: orderItemUnitAssignments.id,
           orderId: orderItemUnitAssignments.orderId,
           orderItemId: orderItemUnitAssignments.orderItemId,
-          unassignedAt: orderItemUnitAssignments.unassignedAt,
         })
         .from(orderItemUnitAssignments)
-        .where(eq(orderItemUnitAssignments.inventoryUnitId, matchedUnit.unitId))
+        .where(
+          and(
+            eq(orderItemUnitAssignments.inventoryUnitId, matchedUnit.unitId),
+            isNull(orderItemUnitAssignments.unassignedAt),
+          ),
+        )
         .limit(1)
 
       if (
         existingAssignment &&
         existingAssignment.orderId === orderId &&
-        existingAssignment.orderItemId === orderItemId &&
-        existingAssignment.unassignedAt === null
+        existingAssignment.orderItemId === orderItemId
       ) {
         return { success: true as const }
       }
 
-      if (existingAssignment && existingAssignment.unassignedAt === null) {
+      if (existingAssignment && existingAssignment.orderId === orderId) {
+        return {
+          success: false as const,
+          error: "This unit is already assigned to another line in this order",
+        }
+      }
+
+      if (existingAssignment) {
         return {
           success: false as const,
           error: "This unit is already assigned to another order line",
@@ -1073,24 +1472,11 @@ export async function scanOrderPackingUnit(
         { tx },
       )
 
-      if (existingAssignment) {
-        await tx
-          .update(orderItemUnitAssignments)
-          .set({
-            orderId,
-            orderItemId,
-            assignedAt: new Date(),
-            unassignedAt: null,
-            updatedAt: new Date(),
-          })
-          .where(eq(orderItemUnitAssignments.id, existingAssignment.id))
-      } else {
-        await tx.insert(orderItemUnitAssignments).values({
-          orderId,
-          orderItemId,
-          inventoryUnitId: matchedUnit.unitId,
-        })
-      }
+      await tx.insert(orderItemUnitAssignments).values({
+        orderId,
+        orderItemId,
+        inventoryUnitId: matchedUnit.unitId,
+      })
 
       await tx
         .update(inventoryUnits)

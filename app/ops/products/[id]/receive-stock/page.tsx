@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation"
 
-import { ProductReceiveStockPageClient } from "@/components/admin/inventory/product-receive-stock-page-client"
+import { ProductReceiveStockPageClient } from "@/app/ops/inventory/_components/product-receive-stock-page-client"
 import { getProductReceiveStockContext } from "@/lib/actions/inventory"
 
 interface ProductReceiveStockPageProps {

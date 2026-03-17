@@ -7,7 +7,6 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   if (pathname.startsWith("/ops")) {
-    // Use Better Auth's getSessionCookie which handles prefix automatically
     const sessionCookie = getSessionCookie(request)
 
     if (!sessionCookie) {

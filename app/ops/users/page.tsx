@@ -1,11 +1,11 @@
-import { Suspense } from "react"
+﻿import { Suspense } from "react"
 import { Metadata } from "next"
 import { headers } from "next/headers"
 import { redirect } from "next/navigation"
 
 import { Loader2 } from "lucide-react"
 
-import { StaffUsersTable } from "@/components/admin/users/staff-users-table"
+import { StaffUsersTable } from "@/app/ops/users/_components/staff-users-table"
 import { auth } from "@/lib/auth"
 
 export const metadata: Metadata = {

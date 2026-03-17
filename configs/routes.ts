@@ -1,3 +1,5 @@
+﻿import { orders } from "@/lib/db/schema"
+
 export interface QueryParams {
   [key: string]: string | number | boolean | undefined
 }
@@ -31,8 +33,22 @@ export const routes = {
       root: "/brands",
       id: (id: string) => `/brands/${id}`,
     },
-    cart: "/cart",
-    favorites: "/favorites",
+    deals: {
+      root: "/deals",
+    },
+    cart: {
+      root: "/cart",
+    },
+    favorites: {
+      root: "/favorites",
+    },
+    orders: {
+      root: "/orders",
+      id: (id: string) => `/orders/${id}`,
+    },
+    profile: {
+      root: "/profile",
+    },
     search: (params: QueryParams) => `/search${generateQueryString(params)}`,
   },
   ops: {

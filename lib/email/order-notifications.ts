@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Email Notification Service
  *
  * Handles sending transactional emails for orders.
@@ -71,7 +71,7 @@ function getOrderConfirmationTemplate(data: OrderEmailData): {
     </div>
 
     <div style="background: #f8f9fa; border-radius: 8px; padding: 30px; margin-bottom: 20px;">
-        <h2 style="margin-top: 0; color: #16a34a;">✓ Order Confirmed</h2>
+        <h2 style="margin-top: 0; color: #16a34a;">âœ“ Order Confirmed</h2>
         <p>Hi ${data.customerName},</p>
         <p>Thank you for your order! We've received your order and will begin processing it shortly.</p>
 
@@ -87,7 +87,7 @@ function getOrderConfirmationTemplate(data: OrderEmailData): {
           .map(
             (item) => `
             <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee;">
-                <span>${item.name} × ${item.quantity}</span>
+                <span>${item.name} Ã— ${item.quantity}</span>
                 <span style="font-weight: 500;">${item.price}</span>
             </div>
         `,
@@ -182,7 +182,7 @@ function getOrderShippedTemplate(data: OrderEmailData): {
     </div>
 
     <div style="background: #f8f9fa; border-radius: 8px; padding: 30px; margin-bottom: 20px;">
-        <h2 style="margin-top: 0; color: #7c3aed;">📦 Your Order is On Its Way!</h2>
+        <h2 style="margin-top: 0; color: #7c3aed;">ðŸ“¦ Your Order is On Its Way!</h2>
         <p>Hi ${data.customerName},</p>
         <p>Great news! Your order has been shipped and is on its way to you.</p>
 
@@ -286,7 +286,7 @@ function getOrderDeliveredTemplate(data: OrderEmailData): {
     </div>
 
     <div style="background: #f8f9fa; border-radius: 8px; padding: 30px; margin-bottom: 20px;">
-        <h2 style="margin-top: 0; color: #16a34a;">✓ Order Delivered!</h2>
+        <h2 style="margin-top: 0; color: #16a34a;">âœ“ Order Delivered!</h2>
         <p>Hi ${data.customerName},</p>
         <p>Your order has been delivered! We hope you love your purchase.</p>
 
@@ -297,7 +297,7 @@ function getOrderDeliveredTemplate(data: OrderEmailData): {
     </div>
 
     <div style="text-align: center; background: #fef3c7; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-        <h3 style="margin-top: 0; color: #92400e;">⭐ Leave a Review</h3>
+        <h3 style="margin-top: 0; color: #92400e;">â­ Leave a Review</h3>
         <p style="margin-bottom: 15px; color: #92400e;">Your feedback helps other customers make informed decisions.</p>
         <a href="${EMAIL_CONFIG.siteUrl}/orders/${data.orderNumber}" style="display: inline-block; background: #f59e0b; color: white; padding: 10px 25px; text-decoration: none; border-radius: 6px;">Write a Review</a>
     </div>

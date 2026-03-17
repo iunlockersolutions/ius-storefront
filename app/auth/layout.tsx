@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Auth Layout
  *
  * Centered layout for authentication pages.

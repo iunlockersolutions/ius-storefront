@@ -1,6 +1,6 @@
-import { Metadata } from "next"
+﻿import { Metadata } from "next"
 
-import { ProfilePageClient } from "@/components/admin/profile/profile-page-client"
+import { ProfilePageClient } from "./_components/profile-page-client"
 
 export const metadata: Metadata = {
   title: "Profile | Ops",

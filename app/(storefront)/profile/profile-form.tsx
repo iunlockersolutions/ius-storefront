@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState } from "react"
 import { useForm } from "react-hook-form"
@@ -127,8 +127,8 @@ export function ProfileForm({ user }: ProfileFormProps) {
             {...register("preferredLanguage")}
           >
             <option value="en">English</option>
-            <option value="es">Español</option>
-            <option value="fr">Français</option>
+            <option value="es">EspaÃ±ol</option>
+            <option value="fr">FranÃ§ais</option>
             <option value="de">Deutsch</option>
           </select>
         </div>

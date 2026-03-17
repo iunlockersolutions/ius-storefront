@@ -1,9 +1,10 @@
 import { Suspense } from "react"
 import { redirect } from "next/navigation"
 
-import { InventoryDetailPageClient } from "@/components/admin/inventory/inventory-detail-page-client"
 import { AdminQueryLoadingState } from "@/components/admin/query-state"
 import { requireStaff } from "@/lib/auth/rbac"
+
+import { InventoryDetailPageClient } from "../_components/inventory-detail-page-client"
 
 interface PageProps {
   params: Promise<{ id: string }>

@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
+    "ops:backfill:order-holds": "tsx scripts/backfill-order-holds.ts",
+    "ops:check:lifecycle": "tsx scripts/check-order-inventory-lifecycle.ts",
     "check:route-db-imports": "tsx scripts/check-route-db-imports.ts",
     "check:admin-client-action-imports": "tsx scripts/check-admin-client-action-imports.ts",
     "report:architecture-drift": "tsx scripts/report-architecture-drift.ts",

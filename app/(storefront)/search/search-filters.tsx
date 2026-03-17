@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -148,10 +148,10 @@ export function SearchFilters({
               {(initialMinPrice || initialMaxPrice) && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
                   {initialMinPrice && initialMaxPrice
-                    ? `Rs. ${initialMinPrice} - Rs. ${initialMaxPrice}`
+                    ? `LKR ${initialMinPrice} - LKR ${initialMaxPrice}`
                     : initialMinPrice
-                      ? `Min: Rs. ${initialMinPrice}`
-                      : `Max: Rs. ${initialMaxPrice}`}
+                      ? `Min: LKR ${initialMinPrice}`
+                      : `Max: LKR ${initialMaxPrice}`}
                 </span>
               )}
             </div>
@@ -235,10 +235,10 @@ export function SearchFilters({
           </Label>
           <div className="grid grid-cols-2 gap-2">
             {[
-              { label: "Under Rs. 5,000", min: "", max: "5000" },
-              { label: "Rs. 5K - 15K", min: "5000", max: "15000" },
-              { label: "Rs. 15K - 50K", min: "15000", max: "50000" },
-              { label: "Over Rs. 50K", min: "50000", max: "" },
+              { label: "Under LKR 5,000", min: "", max: "5000" },
+              { label: "LKR 5K - 15K", min: "5000", max: "15000" },
+              { label: "LKR 15K - 50K", min: "15000", max: "50000" },
+              { label: "Over LKR 50K", min: "50000", max: "" },
             ].map((range) => (
               <Button
                 key={range.label}

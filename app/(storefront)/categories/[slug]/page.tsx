@@ -3,12 +3,13 @@ import { notFound } from "next/navigation"
 
 import { ChevronLeft, ChevronRight, FolderOpen, Package } from "lucide-react"
 
-import { ProductCard } from "@/components/storefront/product-card"
-import { ProductsFilter } from "@/components/storefront/products-filter"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { getCategoryBySlug } from "@/lib/actions/category"
 import { getStorefrontProducts } from "@/lib/actions/product"
+
+import { ProductCard } from "../../_components/product-card"
+import { ProductsFilter } from "../../_components/products-filter"
 
 interface CategoryPageProps {
   params: Promise<{ slug: string }>

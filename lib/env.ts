@@ -1,4 +1,4 @@
-import { z } from "zod"
+﻿import { z } from "zod"
 
 const csvUrlList = z
   .string()
@@ -39,6 +39,14 @@ const serverEnvSchema = z.object({
   GITHUB_CLIENT_SECRET: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().optional(),
+  CRON_SECRET: z.string().min(16).optional(),
+  ORDER_HOLD_CRON_SECRET: z.string().min(16).optional(),
+  ORDER_HOLD_TIMEOUT_MINUTES: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(24 * 60)
+    .default(60),
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),
@@ -54,7 +62,7 @@ function validateServerEnv() {
 
   if (!parsed.success) {
     console.error(
-      "❌ Invalid server environment variables:",
+      "âŒ Invalid server environment variables:",
       parsed.error.flatten().fieldErrors,
     )
     throw new Error("Invalid server environment variables")
@@ -70,7 +78,7 @@ function validateClientEnv() {
 
   if (!parsed.success) {
     console.error(
-      "❌ Invalid client environment variables:",
+      "âŒ Invalid client environment variables:",
       parsed.error.flatten().fieldErrors,
     )
     throw new Error("Invalid client environment variables")

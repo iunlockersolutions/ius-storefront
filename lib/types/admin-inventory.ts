@@ -1,4 +1,4 @@
-export type AdminInventoryTrackingMode = "quantity" | "serial"
+﻿export type AdminInventoryTrackingMode = "quantity" | "serial"
 
 export type AdminInventoryStatus = "all" | "low" | "out" | "normal"
 

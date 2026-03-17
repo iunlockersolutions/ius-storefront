@@ -1,4 +1,4 @@
-import Link from "next/link"
+﻿import Link from "next/link"
 import { redirect } from "next/navigation"
 
 import { formatDistanceToNow } from "date-fns"
@@ -29,9 +29,9 @@ export const metadata = {
 
 function formatCurrency(amount: string | number): string {
   const num = typeof amount === "string" ? parseFloat(amount) : amount
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("en-LK", {
     style: "currency",
-    currency: "USD",
+    currency: "LKR",
   }).format(num)
 }
 
@@ -230,7 +230,7 @@ export default async function OrdersPage({ searchParams }: OrdersPageProps) {
                         </p>
                         <p className="text-sm text-muted-foreground">
                           {order.itemCount}{" "}
-                          {order.itemCount === 1 ? "item" : "items"} ·{" "}
+                          {order.itemCount === 1 ? "item" : "items"} Â·{" "}
                           {formatCurrency(order.total)}
                         </p>
                       </div>
