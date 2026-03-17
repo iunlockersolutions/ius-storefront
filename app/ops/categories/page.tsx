@@ -1,7 +1,8 @@
 import { Suspense } from "react"
 
-import { CategoriesPageClient } from "@/components/admin/categories/categories-page-client"
 import { AdminQueryLoadingState } from "@/components/admin/query-state"
+
+import { CategoriesPageClient } from "./_components/categories-page-client"
 
 export const metadata = {
   title: "Categories | Operations",

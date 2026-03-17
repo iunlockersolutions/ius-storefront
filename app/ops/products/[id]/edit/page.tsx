@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation"
 
-import { EditProductForm } from "@/components/admin/products/edit-product-form"
 import { getBrands } from "@/lib/actions/brand"
 import { getCategoriesFlat } from "@/lib/actions/category"
 import { getModels } from "@/lib/actions/model"
 import { getProduct } from "@/lib/actions/product"
+
+import { EditProductForm } from "../../_components/edit-product-form"
 
 interface EditProductPageProps {
   params: Promise<{ id: string }>

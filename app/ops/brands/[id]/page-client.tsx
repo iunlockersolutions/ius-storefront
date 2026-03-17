@@ -1,6 +1,6 @@
 "use client"
 
-import { BrandDetail } from "@/components/admin/brands/brand-detail"
+import { BrandDetail } from "@/app/ops/brands/_components/brand-detail"
 import {
   AdminQueryEmptyState,
   AdminQueryErrorState,

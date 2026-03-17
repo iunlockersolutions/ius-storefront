@@ -3,10 +3,11 @@ import { redirect } from "next/navigation"
 
 import { ArrowLeft } from "lucide-react"
 
-import { MovementHistoryPageClient } from "@/components/admin/inventory/movement-history-page-client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { requireStaff } from "@/lib/auth/rbac"
+
+import { MovementHistoryPageClient } from "../../_components/movement-history-page-client"
 
 export const metadata = {
   title: "Inventory History",

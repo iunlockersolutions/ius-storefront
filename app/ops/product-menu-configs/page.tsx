@@ -1,4 +1,4 @@
-import { ProductMenuConfigsTable } from "@/components/admin/product-menu-configs/product-menu-configs-table"
+import { ProductMenuConfigsTable } from "@/app/ops/product-menu-configs/_components/product-menu-configs-table"
 import { getCategoryBrandMenuConfigs } from "@/lib/actions/category-brand-menu-config"
 
 export const metadata = {

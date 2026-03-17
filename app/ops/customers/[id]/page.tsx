@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation"
 
-import { CustomerDetailPageClient } from "@/components/admin/customers/customer-detail-page-client"
 import { requireStaff } from "@/lib/auth/rbac"
+
+import { CustomerDetailPageClient } from "../_components/customer-detail-page-client"
 
 interface PageProps {
   params: Promise<{ id: string }>

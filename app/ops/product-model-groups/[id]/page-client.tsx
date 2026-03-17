@@ -1,6 +1,6 @@
 "use client"
 
-import { ModelDetail } from "@/components/admin/product-model-groups/model-detail"
+import { ModelDetail } from "@/app/ops/product-model-groups/_components/model-detail"
 import {
   AdminQueryEmptyState,
   AdminQueryErrorState,

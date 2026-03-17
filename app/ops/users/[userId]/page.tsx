@@ -1,7 +1,7 @@
 import { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 
-import { StaffUserDetail } from "@/components/admin/users/staff-user-detail"
+import { StaffUserDetail } from "@/app/ops/users/_components/staff-user-detail"
 import {
   getStaffUser,
   getStaffUserActivity,

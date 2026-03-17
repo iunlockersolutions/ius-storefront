@@ -1,10 +1,11 @@
 import { Suspense } from "react"
 
-import { CatalogSetupPageClient } from "@/components/admin/catalog-setup/catalog-setup-page-client"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getBrands } from "@/lib/actions/brand"
 import { getCategoriesFlat } from "@/lib/actions/category"
 import { getModels } from "@/lib/actions/model"
+
+import { CatalogSetupPageClient } from "./_components/catalog-setup-page-client"
 
 export const metadata = {
   title: "Catalog Setup | Operations",

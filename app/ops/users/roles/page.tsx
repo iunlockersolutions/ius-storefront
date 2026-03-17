@@ -3,7 +3,7 @@ import Link from "next/link"
 
 import { ArrowLeft } from "lucide-react"
 
-import { RolesTable } from "@/components/admin/users/roles-table"
+import { RolesTable } from "@/app/ops/users/_components/roles-table"
 import { Button } from "@/components/ui/button"
 import {
   Card,

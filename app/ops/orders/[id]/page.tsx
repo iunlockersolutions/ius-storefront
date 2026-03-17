@@ -1,4 +1,4 @@
-import { OrderDetailPageClient } from "@/components/admin/orders/order-detail-page-client"
+import { OrderDetailPageClient } from "../_components/order-detail-page-client"
 
 interface OrderDetailPageProps {
   params: Promise<{ id: string }>

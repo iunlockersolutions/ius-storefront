@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation"
 
-import { CustomersPageClient } from "@/components/admin/customers/customers-page-client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { requireStaff } from "@/lib/auth/rbac"
+
+import { CustomersPageClient } from "./_components/customers-page-client"
 
 interface PageProps {
   searchParams: Promise<{

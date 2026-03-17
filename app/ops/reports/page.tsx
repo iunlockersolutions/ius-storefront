@@ -1,4 +1,4 @@
-import { ReportsPageClient } from "@/components/admin/reports/reports-page-client"
+import { ReportsPageClient } from "./_components/reports-page-client"
 
 interface ReportsPageProps {
   searchParams: Promise<{ tab?: string }>
