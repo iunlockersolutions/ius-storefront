@@ -1,4 +1,4 @@
-import { Suspense } from "react"
+﻿import { Suspense } from "react"
 
 import { Skeleton } from "@/components/ui/skeleton"
 import { getBrands } from "@/lib/actions/brand"

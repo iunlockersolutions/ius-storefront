@@ -1,4 +1,4 @@
-export type AdminProductStatus = "draft" | "active" | "archived"
+﻿export type AdminProductStatus = "draft" | "active" | "archived"
 export type AdminProductDraftStep =
   | "basics"
   | "organization"

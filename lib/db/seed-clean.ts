@@ -1,4 +1,4 @@
-import { drizzle } from "drizzle-orm/postgres-js"
+﻿import { drizzle } from "drizzle-orm/postgres-js"
 import postgres from "postgres"
 
 import {
@@ -29,127 +29,127 @@ async function cleanSeed() {
   const connectionString = process.env.DATABASE_URL
 
   if (!connectionString) {
-    console.error("❌ DATABASE_URL is not set")
+    console.error("âŒ DATABASE_URL is not set")
     process.exit(1)
   }
 
   const client = postgres(connectionString, { max: 1 })
   const db = drizzle(client)
-  console.log("🧹 Starting database cleanup...\n")
+  console.log("ðŸ§¹ Starting database cleanup...\n")
 
   try {
-    console.log("🗑️  Deleting inventory unit identifiers...")
+    console.log("ðŸ—‘ï¸  Deleting inventory unit identifiers...")
     const deletedUnitIdentifiers = await db
       .delete(inventoryUnitIdentifiers)
       .returning()
     console.log(
-      `  ✅ Deleted ${deletedUnitIdentifiers.length} inventory unit identifiers`,
+      `  âœ… Deleted ${deletedUnitIdentifiers.length} inventory unit identifiers`,
     )
 
-    console.log("🗑️  Deleting inventory units...")
+    console.log("ðŸ—‘ï¸  Deleting inventory units...")
     const deletedUnits = await db.delete(inventoryUnits).returning()
-    console.log(`  ✅ Deleted ${deletedUnits.length} inventory units`)
+    console.log(`  âœ… Deleted ${deletedUnits.length} inventory units`)
 
-    console.log("🗑️  Deleting inventory transactions...")
+    console.log("ðŸ—‘ï¸  Deleting inventory transactions...")
     const deletedTransactions = await db
       .delete(inventoryTransactions)
       .returning()
     console.log(
-      `  ✅ Deleted ${deletedTransactions.length} inventory transactions`,
+      `  âœ… Deleted ${deletedTransactions.length} inventory transactions`,
     )
 
-    console.log("🗑️  Deleting inventory levels...")
+    console.log("ðŸ—‘ï¸  Deleting inventory levels...")
     const deletedLevels = await db.delete(inventoryLevels).returning()
-    console.log(`  ✅ Deleted ${deletedLevels.length} inventory levels`)
+    console.log(`  âœ… Deleted ${deletedLevels.length} inventory levels`)
 
-    console.log("🗑️  Deleting product variant option values...")
+    console.log("ðŸ—‘ï¸  Deleting product variant option values...")
     const deletedVariantSelections = await db
       .delete(productVariantOptionValues)
       .returning()
     console.log(
-      `  ✅ Deleted ${deletedVariantSelections.length} product variant option values`,
+      `  âœ… Deleted ${deletedVariantSelections.length} product variant option values`,
     )
 
-    console.log("🗑️  Deleting product media...")
+    console.log("ðŸ—‘ï¸  Deleting product media...")
     const deletedProductMedia = await db.delete(productMedia).returning()
-    console.log(`  ✅ Deleted ${deletedProductMedia.length} product media rows`)
+    console.log(`  âœ… Deleted ${deletedProductMedia.length} product media rows`)
 
-    console.log("🗑️  Deleting media derivatives...")
+    console.log("ðŸ—‘ï¸  Deleting media derivatives...")
     const deletedMediaDerivatives = await db
       .delete(mediaDerivatives)
       .returning()
     console.log(
-      `  ✅ Deleted ${deletedMediaDerivatives.length} media derivative rows`,
+      `  âœ… Deleted ${deletedMediaDerivatives.length} media derivative rows`,
     )
 
-    console.log("🗑️  Deleting media assets...")
+    console.log("ðŸ—‘ï¸  Deleting media assets...")
     const deletedMediaAssets = await db.delete(mediaAssets).returning()
-    console.log(`  ✅ Deleted ${deletedMediaAssets.length} media assets`)
+    console.log(`  âœ… Deleted ${deletedMediaAssets.length} media assets`)
 
-    console.log("🗑️  Deleting product category assignments...")
+    console.log("ðŸ—‘ï¸  Deleting product category assignments...")
     const deletedAssignments = await db
       .delete(productCategoryAssignments)
       .returning()
     console.log(
-      `  ✅ Deleted ${deletedAssignments.length} product category assignments`,
+      `  âœ… Deleted ${deletedAssignments.length} product category assignments`,
     )
 
-    console.log("🗑️  Deleting product option values...")
+    console.log("ðŸ—‘ï¸  Deleting product option values...")
     const deletedOptionValues = await db.delete(productOptionValues).returning()
     console.log(
-      `  ✅ Deleted ${deletedOptionValues.length} product option values`,
+      `  âœ… Deleted ${deletedOptionValues.length} product option values`,
     )
 
-    console.log("🗑️  Deleting product options...")
+    console.log("ðŸ—‘ï¸  Deleting product options...")
     const deletedOptions = await db.delete(productOptions).returning()
-    console.log(`  ✅ Deleted ${deletedOptions.length} product options`)
+    console.log(`  âœ… Deleted ${deletedOptions.length} product options`)
 
-    console.log("🗑️  Deleting product attribute values...")
+    console.log("ðŸ—‘ï¸  Deleting product attribute values...")
     const deletedAttrValues = await db
       .delete(productAttributeValues)
       .returning()
     console.log(
-      `  ✅ Deleted ${deletedAttrValues.length} product attribute values`,
+      `  âœ… Deleted ${deletedAttrValues.length} product attribute values`,
     )
 
-    console.log("🗑️  Deleting product attributes...")
+    console.log("ðŸ—‘ï¸  Deleting product attributes...")
     const deletedAttrs = await db.delete(productAttributes).returning()
-    console.log(`  ✅ Deleted ${deletedAttrs.length} product attributes`)
+    console.log(`  âœ… Deleted ${deletedAttrs.length} product attributes`)
 
-    console.log("🗑️  Deleting product variants...")
+    console.log("ðŸ—‘ï¸  Deleting product variants...")
     const deletedVariants = await db.delete(productVariants).returning()
-    console.log(`  ✅ Deleted ${deletedVariants.length} product variants`)
+    console.log(`  âœ… Deleted ${deletedVariants.length} product variants`)
 
-    console.log("🗑️  Deleting products...")
+    console.log("ðŸ—‘ï¸  Deleting products...")
     const deletedProducts = await db.delete(products).returning()
-    console.log(`  ✅ Deleted ${deletedProducts.length} products`)
+    console.log(`  âœ… Deleted ${deletedProducts.length} products`)
 
-    console.log("🗑️  Deleting models...")
+    console.log("ðŸ—‘ï¸  Deleting models...")
     const deletedModels = await db.delete(models).returning()
-    console.log(`  ✅ Deleted ${deletedModels.length} models`)
+    console.log(`  âœ… Deleted ${deletedModels.length} models`)
 
-    console.log("🗑️  Deleting brand-category assignments...")
+    console.log("ðŸ—‘ï¸  Deleting brand-category assignments...")
     const deletedBrandAssignments = await db
       .delete(brandCategoryAssignments)
       .returning()
     console.log(
-      `  ✅ Deleted ${deletedBrandAssignments.length} brand-category assignments`,
+      `  âœ… Deleted ${deletedBrandAssignments.length} brand-category assignments`,
     )
 
-    console.log("🗑️  Deleting categories...")
+    console.log("ðŸ—‘ï¸  Deleting categories...")
     const deletedCategories = await db.delete(categories).returning()
-    console.log(`  ✅ Deleted ${deletedCategories.length} categories`)
+    console.log(`  âœ… Deleted ${deletedCategories.length} categories`)
 
-    console.log("🗑️  Deleting brands...")
+    console.log("ðŸ—‘ï¸  Deleting brands...")
     const deletedBrands = await db.delete(brands).returning()
-    console.log(`  ✅ Deleted ${deletedBrands.length} brands`)
+    console.log(`  âœ… Deleted ${deletedBrands.length} brands`)
 
-    console.log("\n✅ Database cleanup completed successfully!")
-    console.log("\n📌 Preserved data:")
+    console.log("\nâœ… Database cleanup completed successfully!")
+    console.log("\nðŸ“Œ Preserved data:")
     console.log("  - Admin user (admin@example.com)")
     console.log("  - Better Auth identity data")
   } catch (error) {
-    console.error("\n❌ Cleanup failed:", error)
+    console.error("\nâŒ Cleanup failed:", error)
     process.exit(1)
   } finally {
     await client.end()

@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useRef } from "react"
 import Link from "next/link"
@@ -210,7 +210,7 @@ export function ProductsTable({
                       </div>
                       {product.status === "draft" ? (
                         <div className="text-xs text-neutral-500">
-                          Resume at {draftStepLabels[product.draftStep]} · Last
+                          Resume at {draftStepLabels[product.draftStep]} Â· Last
                           saved{" "}
                           {new Intl.DateTimeFormat(undefined, {
                             dateStyle: "medium",

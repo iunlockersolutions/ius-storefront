@@ -1,4 +1,4 @@
-export type MediaStorageProvider = "vercel_blob" | "external_url"
+﻿export type MediaStorageProvider = "vercel_blob" | "external_url"
 export type MediaAccess = "public" | "private"
 export type MediaKind = "image" | "video"
 export type MediaStatus = "pending" | "ready" | "failed" | "deleted"

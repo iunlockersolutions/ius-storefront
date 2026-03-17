@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Password Requirements Configuration
  */
 export const passwordRequirements = {

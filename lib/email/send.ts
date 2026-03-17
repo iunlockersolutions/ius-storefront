@@ -1,4 +1,4 @@
-import { emailConfig, isEmailConfigured, resend } from "./resend"
+﻿import { emailConfig, isEmailConfigured, resend } from "./resend"
 
 /**
  * Email template types
@@ -256,7 +256,7 @@ function generatePasswordChangedEmail(data: PasswordChangedData): string {
             <p style="font-size: 16px;">Your password has been successfully changed.</p>
             
             <div style="background: #d4edda; padding: 15px; border-radius: 8px; border-left: 4px solid #28a745; margin: 20px 0;">
-                <p style="margin: 0; font-size: 14px;">✓ Your account password was updated on ${new Date().toLocaleDateString("en-US", { dateStyle: "long" })} at ${new Date().toLocaleTimeString("en-US", { timeStyle: "short" })}.</p>
+                <p style="margin: 0; font-size: 14px;">âœ“ Your account password was updated on ${new Date().toLocaleDateString("en-US", { dateStyle: "long" })} at ${new Date().toLocaleTimeString("en-US", { timeStyle: "short" })}.</p>
             </div>
 
             <p style="font-size: 14px; color: #666;">If you did not make this change, please contact our support team immediately and secure your account.</p>

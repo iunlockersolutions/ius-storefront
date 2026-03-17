@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { BrandsTable } from "@/app/ops/brands/_components/brands-table"
 import { useAdminBrandsQuery } from "@/services/queries/use-admin-brands-query"

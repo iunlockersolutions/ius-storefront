@@ -1,4 +1,4 @@
-const NON_RETRIABLE_MESSAGE_PATTERNS = [
+﻿const NON_RETRIABLE_MESSAGE_PATTERNS = [
   "authentication required",
   "unauthorized",
   "insufficient permission",

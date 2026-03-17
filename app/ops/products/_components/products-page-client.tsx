@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useAdminProductsQuery } from "@/services/queries/use-admin-products-query"
 

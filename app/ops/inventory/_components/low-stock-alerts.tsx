@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import Link from "next/link"
 
@@ -64,7 +64,7 @@ function AlertList({ alerts, onNavigate }: LowStockAlertsContentProps) {
                 {item.productName}
               </p>
               <p className="mt-1 truncate text-xs text-muted-foreground">
-                {item.variantName} • {item.variantSku}
+                {item.variantName} â€¢ {item.variantSku}
               </p>
             </div>
             <AlertStateBadge

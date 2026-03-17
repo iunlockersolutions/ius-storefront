@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useEffect, useMemo, useState, useTransition } from "react"
 import { useForm } from "react-hook-form"
@@ -523,7 +523,7 @@ export function ProductEditorForm({
           topLevelCategoryMap.get(model.primaryCategoryId)?.name,
         ]
           .filter(Boolean)
-          .join(" · "),
+          .join(" Â· "),
       })),
     [availableModels, brandOptions, topLevelCategoryMap],
   )
@@ -1637,7 +1637,7 @@ export function ProductEditorForm({
                         </Label>
                         <p className="text-xs text-muted-foreground">
                           {isPrimaryCategory
-                            ? `${category.slug} · Primary category`
+                            ? `${category.slug} Â· Primary category`
                             : category.slug}
                         </p>
                       </div>

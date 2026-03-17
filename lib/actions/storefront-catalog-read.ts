@@ -1,4 +1,4 @@
-type PostgresLikeError = {
+﻿type PostgresLikeError = {
   name?: string
   code?: string
   message?: string

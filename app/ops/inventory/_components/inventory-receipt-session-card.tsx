@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import {
   useCallback,
@@ -1344,7 +1344,7 @@ export function InventoryReceiptSessionCard({
                   {selectedVariant.name}
                 </h3>
                 <p className="text-sm leading-6 text-muted-foreground">
-                  SKU {selectedVariant.sku} ·{" "}
+                  SKU {selectedVariant.sku} Â·{" "}
                   {getTrackingDescription(selectedVariant)}
                 </p>
               </div>
@@ -1366,7 +1366,7 @@ export function InventoryReceiptSessionCard({
               <Label htmlFor="receipt-variant">Variant</Label>
               {variants.length === 1 ? (
                 <div className="rounded-2xl border bg-muted/20 px-4 py-3 text-sm">
-                  {selectedVariant.name} · {selectedVariant.sku}
+                  {selectedVariant.name} Â· {selectedVariant.sku}
                 </div>
               ) : (
                 <Select
@@ -1394,7 +1394,7 @@ export function InventoryReceiptSessionCard({
                   <SelectContent>
                     {variants.map((variant) => (
                       <SelectItem key={variant.id} value={variant.id}>
-                        {variant.name} · {variant.sku}
+                        {variant.name} Â· {variant.sku}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -1875,7 +1875,7 @@ export function InventoryReceiptSessionCard({
                           : "border-border text-muted-foreground hover:text-foreground",
                       )}
                     >
-                      {isComplete ? "✓ " : ""}
+                      {isComplete ? "âœ“ " : ""}
                       {getIdentifierLabel(type)}
                     </button>
                   )

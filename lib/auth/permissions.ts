@@ -1,4 +1,4 @@
-import { createAccessControl } from "better-auth/plugins/access"
+﻿import { createAccessControl } from "better-auth/plugins/access"
 import { adminAc, defaultStatements } from "better-auth/plugins/admin/access"
 
 /**

@@ -1,4 +1,4 @@
-import { ActivityAction, logActivity } from "@/lib/actions/activity-log"
+﻿import { ActivityAction, logActivity } from "@/lib/actions/activity-log"
 import { Action, requireResourcePermission, Resource } from "@/lib/auth/rbac"
 
 export async function requireAdminApiPermission(

@@ -1,4 +1,4 @@
-import Image from "next/image"
+﻿import Image from "next/image"
 import Link from "next/link"
 
 import { ArrowRight, Grid3X3 } from "lucide-react"

@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 function loadImageFromFile(file: File) {
   return new Promise<HTMLImageElement>((resolve, reject) => {

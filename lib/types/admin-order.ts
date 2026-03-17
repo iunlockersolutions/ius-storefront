@@ -1,4 +1,4 @@
-export type AdminOrderStatus =
+﻿export type AdminOrderStatus =
   | "draft"
   | "pending_payment"
   | "paid"

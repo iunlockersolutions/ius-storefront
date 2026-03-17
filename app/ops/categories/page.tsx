@@ -1,4 +1,4 @@
-import { Suspense } from "react"
+﻿import { Suspense } from "react"
 
 import { AdminQueryLoadingState } from "@/components/admin/query-state"
 

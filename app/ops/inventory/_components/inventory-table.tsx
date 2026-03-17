@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { Fragment, useDeferredValue, useState, useTransition } from "react"
 import Link from "next/link"
@@ -606,11 +606,11 @@ export function InventoryTable({
             <DialogDescription>
               {selectedItem ? (
                 <>
-                  {selectedItem.productName} • {selectedItem.variantSku}
+                  {selectedItem.productName} â€¢ {selectedItem.variantSku}
                   <br />
                   On hand: {selectedItem.onHandQuantity}
                   {selectedItem.trackingMode === "serial"
-                    ? " • serialized variants only support negative adjustments here"
+                    ? " â€¢ serialized variants only support negative adjustments here"
                     : null}
                 </>
               ) : null}

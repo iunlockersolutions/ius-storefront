@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { Suspense, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
@@ -62,8 +62,8 @@ function AuthCallbackContent() {
  *
  * This page handles post-authentication redirect logic.
  * It checks the user's role and redirects accordingly:
- * - Staff users → /ops (or /ops/change-password if needed)
- * - Regular customers → original callbackUrl or /
+ * - Staff users â†’ /ops (or /ops/change-password if needed)
+ * - Regular customers â†’ original callbackUrl or /
  *
  * Used by:
  * - Social login (Google, GitHub)

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Order status utilities
  * These are pure functions that can be used in both client and server code
  */

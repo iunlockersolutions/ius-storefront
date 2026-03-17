@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState } from "react"
 import Link from "next/link"
@@ -147,7 +147,7 @@ export function CategoriesTable({
                     <div className="flex items-center gap-2">
                       {category.level > 0 && (
                         <span className="text-neutral-300">
-                          {"└".padStart(category.level * 2, "  ")}
+                          {"â””".padStart(category.level * 2, "  ")}
                         </span>
                       )}
                       <FolderTree className="h-4 w-4 text-neutral-500" />

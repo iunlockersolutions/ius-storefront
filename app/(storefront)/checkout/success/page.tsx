@@ -1,4 +1,4 @@
-import { Suspense } from "react"
+﻿import { Suspense } from "react"
 import { notFound } from "next/navigation"
 
 import { Skeleton } from "@/components/ui/skeleton"

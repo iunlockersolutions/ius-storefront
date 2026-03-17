@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Database Schema Index
  *
  * This file exports all database tables and relations.

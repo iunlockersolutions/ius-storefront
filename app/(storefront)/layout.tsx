@@ -1,4 +1,4 @@
-import { SidebarProvider } from "@/components/ui/sidebar"
+﻿import { SidebarProvider } from "@/components/ui/sidebar"
 import { getServerSession } from "@/lib/auth/rbac"
 
 import { Footer } from "./_components/footer"

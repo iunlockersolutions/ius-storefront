@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState } from "react"
 
@@ -208,7 +208,7 @@ export function OrderPackingCard({ order, onRefetch }: OrderPackingCardProps) {
                     <div>
                       <p className="font-medium">{item.productName}</p>
                       <p className="text-sm text-muted-foreground">
-                        {item.variantName} • {item.sku}
+                        {item.variantName} â€¢ {item.sku}
                       </p>
                     </div>
                     <Badge variant="outline">
@@ -255,7 +255,7 @@ export function OrderPackingCard({ order, onRefetch }: OrderPackingCardProps) {
                         <div>
                           <p className="font-medium">{item.productName}</p>
                           <p className="text-sm text-muted-foreground">
-                            {item.variantName} • {item.sku}
+                            {item.variantName} â€¢ {item.sku}
                           </p>
                         </div>
                         <Badge variant="outline">

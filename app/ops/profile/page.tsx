@@ -1,4 +1,4 @@
-import { Metadata } from "next"
+﻿import { Metadata } from "next"
 
 import { ProfilePageClient } from "./_components/profile-page-client"
 

@@ -1,4 +1,4 @@
-import { z } from "zod"
+﻿import { z } from "zod"
 
 const csvUrlList = z
   .string()
@@ -62,7 +62,7 @@ function validateServerEnv() {
 
   if (!parsed.success) {
     console.error(
-      "❌ Invalid server environment variables:",
+      "âŒ Invalid server environment variables:",
       parsed.error.flatten().fieldErrors,
     )
     throw new Error("Invalid server environment variables")
@@ -78,7 +78,7 @@ function validateClientEnv() {
 
   if (!parsed.success) {
     console.error(
-      "❌ Invalid client environment variables:",
+      "âŒ Invalid client environment variables:",
       parsed.error.flatten().fieldErrors,
     )
     throw new Error("Invalid client environment variables")

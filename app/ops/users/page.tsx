@@ -1,4 +1,4 @@
-import { Suspense } from "react"
+﻿import { Suspense } from "react"
 import { Metadata } from "next"
 import { headers } from "next/headers"
 import { redirect } from "next/navigation"

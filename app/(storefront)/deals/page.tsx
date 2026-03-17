@@ -1,4 +1,4 @@
-import { Percent, Tag } from "lucide-react"
+﻿import { Percent, Tag } from "lucide-react"
 
 import { getDealProducts } from "@/lib/actions/storefront"
 

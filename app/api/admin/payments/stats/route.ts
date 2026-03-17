@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server"
+﻿import { NextRequest } from "next/server"
 
 import { getPaymentStats } from "@/lib/actions/payment"
 import { requireAdminApiPermission } from "@/lib/auth/admin-api"

@@ -1,4 +1,4 @@
-import Link from "next/link"
+﻿import Link from "next/link"
 
 import {
   ArrowRight,
@@ -135,7 +135,7 @@ export function OrderConfirmation({ order }: { order: CheckoutSuccessOrder }) {
                 <div>
                   <p className="font-medium">{item.productName}</p>
                   <p className="text-sm text-muted-foreground">
-                    {item.variantName} × {item.quantity}
+                    {item.variantName} Ã— {item.quantity}
                   </p>
                 </div>
                 <p className="font-medium">{formatCurrency(item.subtotal)}</p>

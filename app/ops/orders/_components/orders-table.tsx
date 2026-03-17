@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState } from "react"
 import Link from "next/link"
@@ -196,7 +196,7 @@ export function OrdersTable({
                     {order.customer ? (
                       <div>
                         <div className="font-medium">
-                          {order.customer.name || "—"}
+                          {order.customer.name || "â€”"}
                         </div>
                         <div className="text-sm text-neutral-500">
                           {order.customer.email}

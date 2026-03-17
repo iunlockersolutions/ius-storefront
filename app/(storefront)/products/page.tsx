@@ -1,4 +1,4 @@
-import Link from "next/link"
+﻿import Link from "next/link"
 
 import { ChevronLeft, ChevronRight, Package, Search } from "lucide-react"
 
@@ -178,7 +178,7 @@ export default async function ProductsPage({
                 href={buildProductsHref({ search: undefined })}
                 className="ml-1 hover:text-destructive"
               >
-                ×
+                Ã—
               </Link>
             </Badge>
           )}
@@ -191,7 +191,7 @@ export default async function ProductsPage({
                 href={buildProductsHref({ category: undefined })}
                 className="ml-1 hover:text-destructive"
               >
-                ×
+                Ã—
               </Link>
             </Badge>
           )}
@@ -202,7 +202,7 @@ export default async function ProductsPage({
                 href={buildProductsHref({ brand: undefined })}
                 className="ml-1 hover:text-destructive"
               >
-                ×
+                Ã—
               </Link>
             </Badge>
           )}
@@ -213,7 +213,7 @@ export default async function ProductsPage({
                 href={buildProductsHref({ featured: undefined })}
                 className="ml-1 hover:text-destructive"
               >
-                ×
+                Ã—
               </Link>
             </Badge>
           )}

@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import Link from "next/link"
 
@@ -137,7 +137,7 @@ export function CustomerStats({ stats }: CustomerStatsProps) {
                           className="hover:underline"
                         >
                           <div className="font-medium">
-                            {customer.name || "—"}
+                            {customer.name || "â€”"}
                           </div>
                           <div className="text-sm text-muted-foreground">
                             {customer.email}
@@ -146,7 +146,7 @@ export function CustomerStats({ stats }: CustomerStatsProps) {
                       ) : (
                         <div>
                           <div className="font-medium">
-                            {customer.name || "—"}
+                            {customer.name || "â€”"}
                           </div>
                           <div className="text-sm text-muted-foreground">
                             {customer.email}

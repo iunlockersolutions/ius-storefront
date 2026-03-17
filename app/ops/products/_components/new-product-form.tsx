@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import type { AdminProductDetail } from "@/lib/types/admin-product"
 

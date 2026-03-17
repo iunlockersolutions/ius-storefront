@@ -1,4 +1,4 @@
-import Link from "next/link"
+﻿import Link from "next/link"
 
 export function Footer() {
   return (
@@ -110,7 +110,7 @@ export function Footer() {
 
         {/* Copyright */}
         <div className="mt-8 border-t pt-8 text-center text-sm text-neutral-600 dark:text-neutral-400">
-          <p>© {new Date().getFullYear()} IUS Shop. All rights reserved.</p>
+          <p>Â© {new Date().getFullYear()} IUS Shop. All rights reserved.</p>
         </div>
       </div>
     </footer>

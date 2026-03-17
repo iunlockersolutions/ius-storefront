@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm"
+﻿import { relations } from "drizzle-orm"
 import { index, pgTable, timestamp, unique, uuid } from "drizzle-orm/pg-core"
 
 import { user } from "./auth"

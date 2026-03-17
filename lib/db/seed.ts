@@ -1,4 +1,4 @@
-import { hashPassword } from "better-auth/crypto"
+﻿import { hashPassword } from "better-auth/crypto"
 import { eq } from "drizzle-orm"
 import { drizzle } from "drizzle-orm/postgres-js"
 import postgres from "postgres"
@@ -11,19 +11,19 @@ async function seed() {
   const connectionString = process.env.DATABASE_URL
 
   if (!connectionString) {
-    console.error("❌ DATABASE_URL is not set")
+    console.error("âŒ DATABASE_URL is not set")
     process.exit(1)
   }
 
   const client = postgres(connectionString, { max: 1 })
   const db = drizzle(client)
-  console.log("🌱 Starting bootstrap seed...\n")
+  console.log("ðŸŒ± Starting bootstrap seed...\n")
 
   try {
     const adminEmail = "admin@example.com"
     const adminPassword = "admin123"
 
-    console.log("👤 Ensuring bootstrap admin user exists...")
+    console.log("ðŸ‘¤ Ensuring bootstrap admin user exists...")
     const existingAdmin = await db
       .select()
       .from(user)
@@ -50,7 +50,7 @@ async function seed() {
         password: passwordHash,
       })
 
-      console.log(`  ✅ Created admin user: ${adminEmail}`)
+      console.log(`  âœ… Created admin user: ${adminEmail}`)
     } else {
       const [adminUser] = existingAdmin
       const passwordHash = await hashPassword(adminPassword)
@@ -69,15 +69,15 @@ async function seed() {
         .set({ password: passwordHash })
         .where(eq(account.userId, adminUser.id))
 
-      console.log(`  🔄 Updated admin credentials: ${adminEmail}`)
+      console.log(`  ðŸ”„ Updated admin credentials: ${adminEmail}`)
     }
 
     console.log(
-      `  ⚠️  Default password: ${adminPassword} (CHANGE IN PRODUCTION)`,
+      `  âš ï¸  Default password: ${adminPassword} (CHANGE IN PRODUCTION)`,
     )
-    console.log("\n✅ Bootstrap seed completed successfully!")
+    console.log("\nâœ… Bootstrap seed completed successfully!")
   } catch (error) {
-    console.error("\n❌ Seed failed:", error)
+    console.error("\nâŒ Seed failed:", error)
     process.exit(1)
   } finally {
     await client.end()

@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { type ReactNode, useEffect, useMemo, useState } from "react"
 import { useForm, useWatch } from "react-hook-form"
@@ -246,7 +246,7 @@ export function ModelDetail({
                 </Badge>
               </div>
               <p className="text-sm text-muted-foreground">
-                /{model.slug} · {model.brandName} / {model.primaryCategoryName}
+                /{model.slug} Â· {model.brandName} / {model.primaryCategoryName}
               </p>
             </div>
           </div>

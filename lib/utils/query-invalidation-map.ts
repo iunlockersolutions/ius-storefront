@@ -1,4 +1,4 @@
-import { QueryClient } from "@tanstack/react-query"
+﻿import { QueryClient } from "@tanstack/react-query"
 
 import { queryKeys } from "@/lib/utils/query-keys"
 

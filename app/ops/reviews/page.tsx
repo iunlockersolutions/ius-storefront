@@ -1,4 +1,4 @@
-import { ReviewsPageClient } from "./_components/reviews-page-client"
+﻿import { ReviewsPageClient } from "./_components/reviews-page-client"
 
 interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>

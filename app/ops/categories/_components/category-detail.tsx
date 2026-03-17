@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { type ReactNode, useEffect, useState } from "react"
 import { useForm, useWatch } from "react-hook-form"
@@ -265,7 +265,7 @@ export function CategoryDetail({
                 </Badge>
               </div>
               <p className="text-sm text-muted-foreground">
-                /{category.slug} · {path}
+                /{category.slug} Â· {path}
               </p>
             </div>
           </div>
@@ -823,7 +823,7 @@ function IdentityEditorSheet({
               <SelectItem value="none">No parent (root category)</SelectItem>
               {parentOptions.map((option) => (
                 <SelectItem key={option.id} value={option.id}>
-                  {option.level > 0 && "— ".repeat(option.level)}
+                  {option.level > 0 && "â€” ".repeat(option.level)}
                   {option.name}
                 </SelectItem>
               ))}

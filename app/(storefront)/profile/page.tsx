@@ -1,4 +1,4 @@
-import Link from "next/link"
+﻿import Link from "next/link"
 import { redirect } from "next/navigation"
 
 import { ChevronRight, Heart, MapPin, Package, Star } from "lucide-react"

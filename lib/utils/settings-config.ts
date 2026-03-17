@@ -1,4 +1,4 @@
-export interface SettingDefinition {
+﻿export interface SettingDefinition {
   key: string
   label: string
   type:

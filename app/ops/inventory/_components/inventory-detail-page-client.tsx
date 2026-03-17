@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useTransition } from "react"
 import Link from "next/link"
@@ -112,7 +112,7 @@ export function InventoryDetailPageClient({
             <h1 className="text-3xl font-bold">{detail.productName}</h1>
             <p className="text-lg text-foreground">{detail.variantName}</p>
             <p className="text-muted-foreground">
-              SKU {detail.variantSku} ·{" "}
+              SKU {detail.variantSku} Â·{" "}
               {detail.trackingMode === "serial"
                 ? "Each physical unit is tracked individually, so staff can search by identifier and follow device-level history."
                 : "Stock is tracked by quantity, so the overview focuses on counts, reservations, and replenishment signals."}
@@ -209,7 +209,7 @@ export function InventoryDetailPageClient({
                       <TableHead>Type</TableHead>
                       <TableHead className="text-center">Change</TableHead>
                       <TableHead className="text-center">
-                        Before → After
+                        Before â†’ After
                       </TableHead>
                       <TableHead>Actor</TableHead>
                       <TableHead>Notes</TableHead>
@@ -249,14 +249,14 @@ export function InventoryDetailPageClient({
                             </span>
                           </TableCell>
                           <TableCell className="text-center text-muted-foreground">
-                            {transaction.beforeOnHandQuantity} →{" "}
+                            {transaction.beforeOnHandQuantity} â†’{" "}
                             {transaction.afterOnHandQuantity}
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground">
                             {transaction.performedByName || "System"}
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground">
-                            {transaction.notes || "—"}
+                            {transaction.notes || "â€”"}
                           </TableCell>
                         </TableRow>
                       ))

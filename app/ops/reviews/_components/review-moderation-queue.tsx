@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState } from "react"
 import Link from "next/link"
@@ -223,7 +223,7 @@ export function ReviewModerationQueue({
                       </div>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         {renderStars(review.rating)}
-                        <span>•</span>
+                        <span>â€¢</span>
                         <span>
                           {formatDistanceToNow(new Date(review.createdAt), {
                             addSuffix: true,

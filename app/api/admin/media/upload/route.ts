@@ -1,4 +1,4 @@
-import { headers } from "next/headers"
+﻿import { headers } from "next/headers"
 import { NextRequest, NextResponse } from "next/server"
 
 import type { HandleUploadBody } from "@vercel/blob/client"

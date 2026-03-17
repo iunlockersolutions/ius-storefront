@@ -1,4 +1,4 @@
-type ApiEnvelope<T> =
+﻿type ApiEnvelope<T> =
   | { success: true; data: T }
   | { success: false; error: { message: string } }
 

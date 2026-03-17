@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { AlertTriangle, Boxes, Lock, Package, ScanBarcode } from "lucide-react"
 

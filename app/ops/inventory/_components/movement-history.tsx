@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useTransition } from "react"
 import { usePathname, useRouter } from "next/navigation"
@@ -104,7 +104,7 @@ export function MovementHistory({
               <TableHead>Date</TableHead>
               <TableHead>Type</TableHead>
               <TableHead className="text-center">Change</TableHead>
-              <TableHead className="text-center">Before → After</TableHead>
+              <TableHead className="text-center">Before â†’ After</TableHead>
               <TableHead>Reference</TableHead>
               <TableHead>Actor</TableHead>
               <TableHead>Notes</TableHead>
@@ -139,7 +139,7 @@ export function MovementHistory({
                   </span>
                 </TableCell>
                 <TableCell className="text-center text-muted-foreground">
-                  {movement.beforeOnHandQuantity} →{" "}
+                  {movement.beforeOnHandQuantity} â†’{" "}
                   {movement.afterOnHandQuantity}
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">

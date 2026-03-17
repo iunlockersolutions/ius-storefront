@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { Clock, DollarSign, ShoppingCart, TrendingUp } from "lucide-react"
 

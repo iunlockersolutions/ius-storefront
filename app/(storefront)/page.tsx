@@ -1,4 +1,4 @@
-import {
+﻿import {
   getBestSellers,
   getDealProducts,
   getFeaturedCategories,

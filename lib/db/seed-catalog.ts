@@ -1,3 +1,3 @@
-import { seedCatalogData } from "./seed-catalog-data"
+﻿import { seedCatalogData } from "./seed-catalog-data"
 
 seedCatalogData("catalog seed")

@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useEffect, useMemo, useState } from "react"
 import { useForm, useWatch } from "react-hook-form"
@@ -504,7 +504,7 @@ export function NewCategoryForm({
                         {categories.map((category) => (
                           <SelectItem key={category.id} value={category.id}>
                             {category.level > 0
-                              ? "— ".repeat(category.level)
+                              ? "â€” ".repeat(category.level)
                               : ""}
                             {category.name}
                           </SelectItem>
