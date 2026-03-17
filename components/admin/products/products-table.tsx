@@ -30,7 +30,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { useDeleteProductMutation } from "@/hooks/admin/use-delete-product-mutation"
+import { useDeleteProductMutation } from "@/services/mutations/use-delete-product-mutation"
 import { formatCurrency } from "@/lib/utils"
 
 interface Product {

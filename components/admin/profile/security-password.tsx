@@ -10,7 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { useChangePasswordMutation } from "@/hooks/admin/use-profile-mutations"
+import { useChangePasswordMutation } from "@/services/mutations/use-profile-mutations"
 
 interface SecurityPasswordProps {
   userInfo?: {

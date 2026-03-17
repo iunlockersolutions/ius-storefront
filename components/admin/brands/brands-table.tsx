@@ -33,7 +33,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { useDeleteBrandMutation } from "@/hooks/admin/use-brand-mutations"
+import { useDeleteBrandMutation } from "@/services/mutations/use-brand-mutations"
 
 interface Brand {
   id: string

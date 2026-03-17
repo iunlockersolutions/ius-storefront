@@ -13,7 +13,7 @@ import { SalesOverview } from "@/components/admin/reports/sales-overview"
 import { TopProductsTable } from "@/components/admin/reports/top-products-table"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useAdminReportsQuery } from "@/hooks/admin/use-admin-reports-query"
+import { useAdminReportsQuery } from "@/services/queries/use-admin-reports-query"
 
 interface ReportsPageClientProps {
   tab: string

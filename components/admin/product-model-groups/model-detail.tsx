@@ -35,11 +35,11 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
-import type { AdminModel } from "@/hooks/admin/use-admin-model-query"
+import type { AdminModel } from "@/services/queries/use-admin-model-query"
 import {
   useDeleteProductModelGroupMutation,
   useUpdateProductModelGroupMutation,
-} from "@/hooks/admin/use-product-model-group-mutations"
+} from "@/services/mutations/use-product-model-group-mutations"
 import { formatDate, slugify } from "@/lib/utils"
 
 const identitySchema = z.object({

@@ -33,7 +33,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
-import { useVerifyBankTransferMutation } from "@/hooks/admin/use-verify-bank-transfer-mutation"
+import { useVerifyBankTransferMutation } from "@/services/mutations/use-verify-bank-transfer-mutation"
 
 interface BankTransferProof {
   id: string

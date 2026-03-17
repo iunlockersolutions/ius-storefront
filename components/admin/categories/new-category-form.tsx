@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
-import { useCreateCategoryMutation } from "@/hooks/admin/use-category-mutations"
+import { useCreateCategoryMutation } from "@/services/mutations/use-category-mutations"
 import { cn, slugify } from "@/lib/utils"
 import { normalizeEntityName } from "@/lib/utils/catalog"
 

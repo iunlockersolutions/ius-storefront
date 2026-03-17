@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
-import { useCreateProductModelGroupMutation } from "@/hooks/admin/use-product-model-group-mutations"
+import { useCreateProductModelGroupMutation } from "@/services/mutations/use-product-model-group-mutations"
 import { slugify } from "@/lib/utils"
 
 const modelSchema = z.object({

@@ -7,8 +7,8 @@ import {
   AdminQueryLoadingState,
   getQueryErrorMessage,
 } from "@/components/admin/query-state"
-import { useAdminBrandQuery } from "@/hooks/admin/use-admin-brand-query"
-import { useAdminCategoriesQuery } from "@/hooks/admin/use-admin-categories-query"
+import { useAdminBrandQuery } from "@/services/queries/use-admin-brand-query"
+import { useAdminCategoriesQuery } from "@/services/queries/use-admin-categories-query"
 
 interface EditBrandPageClientProps {
   brandId: string

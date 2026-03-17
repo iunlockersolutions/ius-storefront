@@ -7,9 +7,9 @@ import {
   AdminQueryLoadingState,
   getQueryErrorMessage,
 } from "@/components/admin/query-state"
-import { useAdminBrandsQuery } from "@/hooks/admin/use-admin-brands-query"
-import { useAdminCategoriesQuery } from "@/hooks/admin/use-admin-categories-query"
-import { useAdminModelQuery } from "@/hooks/admin/use-admin-model-query"
+import { useAdminBrandsQuery } from "@/services/queries/use-admin-brands-query"
+import { useAdminCategoriesQuery } from "@/services/queries/use-admin-categories-query"
+import { useAdminModelQuery } from "@/services/queries/use-admin-model-query"
 
 interface EditProductModelGroupPageClientProps {
   modelId: string

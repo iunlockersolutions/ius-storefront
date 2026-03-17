@@ -11,9 +11,9 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useAdminPaymentsQuery } from "@/hooks/admin/use-admin-payments-query"
-import { usePaymentStatsQuery } from "@/hooks/admin/use-payment-stats-query"
-import { usePendingBankTransfersQuery } from "@/hooks/admin/use-pending-bank-transfers-query"
+import { useAdminPaymentsQuery } from "@/services/queries/use-admin-payments-query"
+import { usePaymentStatsQuery } from "@/services/queries/use-payment-stats-query"
+import { usePendingBankTransfersQuery } from "@/services/queries/use-pending-bank-transfers-query"
 
 interface PaymentsPageClientProps {
   tab: string

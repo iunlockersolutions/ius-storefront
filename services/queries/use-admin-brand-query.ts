@@ -2,8 +2,8 @@
 
 import { useQuery } from "@tanstack/react-query"
 
-import type { AdminBrand } from "@/hooks/admin/use-admin-brands-query"
 import { queryKeys } from "@/lib/utils/query-keys"
+import type { AdminBrand } from "@/services/queries/use-admin-brands-query"
 
 export function useAdminBrandQuery(brandId: string) {
   return useQuery({

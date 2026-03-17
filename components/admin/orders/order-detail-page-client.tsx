@@ -12,7 +12,7 @@ import {
   getQueryErrorMessage,
 } from "@/components/admin/query-state"
 import { Button } from "@/components/ui/button"
-import { useAdminOrderQuery } from "@/hooks/admin/use-admin-order-query"
+import { useAdminOrderQuery } from "@/services/queries/use-admin-order-query"
 
 interface OrderDetailPageClientProps {
   orderId: string

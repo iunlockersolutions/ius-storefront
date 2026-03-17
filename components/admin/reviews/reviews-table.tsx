@@ -45,7 +45,7 @@ import {
 import {
   useDeleteReviewMutation,
   useModerateReviewMutation,
-} from "@/hooks/admin/use-review-mutations"
+} from "@/services/mutations/use-review-mutations"
 
 interface Review {
   id: string

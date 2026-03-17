@@ -7,8 +7,8 @@ import {
   AdminQueryLoadingState,
   getQueryErrorMessage,
 } from "@/components/admin/query-state"
-import { useAdminCategoriesQuery } from "@/hooks/admin/use-admin-categories-query"
-import { useAdminCategoryQuery } from "@/hooks/admin/use-admin-category-query"
+import { useAdminCategoriesQuery } from "@/services/queries/use-admin-categories-query"
+import { useAdminCategoryQuery } from "@/services/queries/use-admin-category-query"
 
 interface EditCategoryPageClientProps {
   categoryId: string

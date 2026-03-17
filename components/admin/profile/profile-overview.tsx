@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useUpdateStaffProfileMutation } from "@/hooks/admin/use-profile-mutations"
+import { useUpdateStaffProfileMutation } from "@/services/mutations/use-profile-mutations"
 
 const profileSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),

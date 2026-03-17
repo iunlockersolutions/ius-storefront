@@ -64,7 +64,7 @@ import { Textarea } from "@/components/ui/textarea"
 import {
   useAdjustStockMutation,
   useUpdateLowStockThresholdMutation,
-} from "@/hooks/admin/use-inventory-mutations"
+} from "@/services/mutations/use-inventory-mutations"
 import type {
   AdminInventoryListItem,
   AdminInventorySortField,

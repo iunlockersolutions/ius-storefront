@@ -40,7 +40,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { useAdminInventoryUnitsQuery } from "@/hooks/admin/use-admin-inventory-units-query"
+import { useAdminInventoryUnitsQuery } from "@/services/queries/use-admin-inventory-units-query"
 import type {
   AdminInventoryIdentifierType,
   AdminInventorySortOrder,

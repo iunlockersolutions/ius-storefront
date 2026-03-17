@@ -1,11 +1,11 @@
 "use client"
 
 import { ProductEditorForm } from "@/components/admin/products/product-editor-form"
-import { useDeleteProductMutation } from "@/hooks/admin/use-delete-product-mutation"
+import { useDeleteProductMutation } from "@/services/mutations/use-delete-product-mutation"
 import {
   useUpdateProductMediaMutation,
   useUpdateProductMutation,
-} from "@/hooks/admin/use-update-product-mutations"
+} from "@/services/mutations/use-update-product-mutations"
 import type {
   AdminProductDetail,
   AdminProductMedia,

@@ -33,7 +33,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { useDeleteProductModelGroupMutation } from "@/hooks/admin/use-product-model-group-mutations"
+import { useDeleteProductModelGroupMutation } from "@/services/mutations/use-product-model-group-mutations"
 
 interface ProductModelGroupRow {
   id: string

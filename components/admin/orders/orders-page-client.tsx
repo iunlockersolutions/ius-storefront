@@ -1,7 +1,7 @@
 "use client"
 
 import { OrdersTable } from "@/components/admin/orders/orders-table"
-import { useAdminOrdersQuery } from "@/hooks/admin/use-admin-orders-query"
+import { useAdminOrdersQuery } from "@/services/queries/use-admin-orders-query"
 
 type OrderStatus =
   | "draft"

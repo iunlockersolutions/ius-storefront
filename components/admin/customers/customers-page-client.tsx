@@ -1,7 +1,7 @@
 "use client"
 
 import { CustomersTable } from "@/components/admin/customers/customers-table"
-import { useAdminCustomersQuery } from "@/hooks/admin/use-admin-customers-query"
+import { useAdminCustomersQuery } from "@/services/queries/use-admin-customers-query"
 
 interface CustomersPageClientProps {
   page: number

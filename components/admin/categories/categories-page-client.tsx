@@ -7,7 +7,7 @@ import { Plus } from "lucide-react"
 import { CategoriesTable } from "@/components/admin/categories/categories-table"
 import { CategoryCreateDialog } from "@/components/admin/categories/category-create-dialog"
 import { Button } from "@/components/ui/button"
-import { useAdminCategoriesQuery } from "@/hooks/admin/use-admin-categories-query"
+import { useAdminCategoriesQuery } from "@/services/queries/use-admin-categories-query"
 
 export function CategoriesPageClient() {
   const router = useRouter()

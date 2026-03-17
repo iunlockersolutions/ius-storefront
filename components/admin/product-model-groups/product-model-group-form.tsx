@@ -37,7 +37,7 @@ import {
   useCreateProductModelGroupMutation,
   useDeleteProductModelGroupMutation,
   useUpdateProductModelGroupMutation,
-} from "@/hooks/admin/use-product-model-group-mutations"
+} from "@/services/mutations/use-product-model-group-mutations"
 import { slugify } from "@/lib/utils"
 
 const formSchema = z.object({

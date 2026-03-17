@@ -23,7 +23,7 @@ import {
   useScanOrderPackingUnitMutation,
   useStartOrderPackingMutation,
   useUnassignOrderPackingUnitMutation,
-} from "@/hooks/admin/use-order-mutations"
+} from "@/services/mutations/use-order-mutations"
 import type { AdminOrder } from "@/lib/types/admin-order"
 
 interface OrderPackingCardProps {

@@ -37,8 +37,8 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useDeleteBrandMutation } from "@/hooks/admin/use-brand-mutations"
-import { useDeleteProductModelGroupMutation } from "@/hooks/admin/use-product-model-group-mutations"
+import { useDeleteBrandMutation } from "@/services/mutations/use-brand-mutations"
+import { useDeleteProductModelGroupMutation } from "@/services/mutations/use-product-model-group-mutations"
 
 type CategoryOption = {
   id: string

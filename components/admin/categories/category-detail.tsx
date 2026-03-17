@@ -43,11 +43,11 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
-import type { AdminCategory } from "@/hooks/admin/use-admin-categories-query"
+import type { AdminCategory } from "@/services/queries/use-admin-categories-query"
 import {
   useDeleteCategoryMutation,
   useUpdateCategoryMutation,
-} from "@/hooks/admin/use-category-mutations"
+} from "@/services/mutations/use-category-mutations"
 import { formatDate, slugify } from "@/lib/utils"
 import { normalizeEntityName } from "@/lib/utils/catalog"
 

@@ -17,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { useUpdateProductMenuConfigMutation } from "@/hooks/admin/use-product-menu-config-mutations"
+import { useUpdateProductMenuConfigMutation } from "@/services/mutations/use-product-menu-config-mutations"
 
 interface ProductMenuConfigRowData {
   id: string

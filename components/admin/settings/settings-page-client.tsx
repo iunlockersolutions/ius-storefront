@@ -5,7 +5,7 @@ import {
   getQueryErrorMessage,
 } from "@/components/admin/query-state"
 import { SettingsForm } from "@/components/admin/settings/settings-form"
-import { useAdminSettingsQuery } from "@/hooks/admin/use-admin-settings-query"
+import { useAdminSettingsQuery } from "@/services/queries/use-admin-settings-query"
 import { getSettingCategories } from "@/lib/utils/settings-config"
 
 function SettingsSkeleton() {

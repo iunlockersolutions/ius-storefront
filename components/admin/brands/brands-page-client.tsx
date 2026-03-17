@@ -1,7 +1,7 @@
 "use client"
 
 import { BrandsTable } from "@/components/admin/brands/brands-table"
-import { useAdminBrandsQuery } from "@/hooks/admin/use-admin-brands-query"
+import { useAdminBrandsQuery } from "@/services/queries/use-admin-brands-query"
 
 export function BrandsPageClient() {
   const brandsQuery = useAdminBrandsQuery()

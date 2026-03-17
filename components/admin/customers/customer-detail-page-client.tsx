@@ -12,8 +12,8 @@ import {
   getQueryErrorMessage,
 } from "@/components/admin/query-state"
 import { Button } from "@/components/ui/button"
-import { useAdminCustomerOrdersQuery } from "@/hooks/admin/use-admin-customer-orders-query"
-import { useAdminCustomerQuery } from "@/hooks/admin/use-admin-customer-query"
+import { useAdminCustomerOrdersQuery } from "@/services/queries/use-admin-customer-orders-query"
+import { useAdminCustomerQuery } from "@/services/queries/use-admin-customer-query"
 
 interface CustomerDetailPageClientProps {
   customerId: string

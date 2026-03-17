@@ -20,7 +20,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import {
   useBulkModerateReviewsMutation,
   useModerateReviewMutation,
-} from "@/hooks/admin/use-review-mutations"
+} from "@/services/mutations/use-review-mutations"
 
 interface Review {
   id: string

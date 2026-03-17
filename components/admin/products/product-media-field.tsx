@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useMediaUploadQueue } from "@/hooks/admin/use-media-upload-queue"
+import { useMediaUploadQueue } from "@/hooks/use-media-upload-queue"
 import {
   generateImagePreviewData,
   generateVideoPreviewData,

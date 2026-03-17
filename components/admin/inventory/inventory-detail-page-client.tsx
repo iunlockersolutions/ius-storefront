@@ -25,7 +25,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useAdminInventoryDetailQuery } from "@/hooks/admin/use-admin-inventory-detail-query"
+import { useAdminInventoryDetailQuery } from "@/services/queries/use-admin-inventory-detail-query"
 
 type InventoryTab = "overview" | "receipts" | "transactions"
 

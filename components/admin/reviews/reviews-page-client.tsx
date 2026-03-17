@@ -11,9 +11,9 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useAdminReviewsQuery } from "@/hooks/admin/use-admin-reviews-query"
-import { usePendingReviewsQuery } from "@/hooks/admin/use-pending-reviews-query"
-import { useReviewStatsQuery } from "@/hooks/admin/use-review-stats-query"
+import { useAdminReviewsQuery } from "@/services/queries/use-admin-reviews-query"
+import { usePendingReviewsQuery } from "@/services/queries/use-pending-reviews-query"
+import { useReviewStatsQuery } from "@/services/queries/use-review-stats-query"
 
 interface ReviewsPageClientProps {
   tab: string

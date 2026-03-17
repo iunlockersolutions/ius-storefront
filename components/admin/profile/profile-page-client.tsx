@@ -11,7 +11,7 @@ import {
   AdminQueryLoadingState,
   getQueryErrorMessage,
 } from "@/components/admin/query-state"
-import { useAdminProfileQuery } from "@/hooks/admin/use-admin-profile-query"
+import { useAdminProfileQuery } from "@/services/queries/use-admin-profile-query"
 
 export function ProfilePageClient() {
   const profileQuery = useAdminProfileQuery()

@@ -38,11 +38,11 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
-import type { AdminBrand } from "@/hooks/admin/use-admin-brands-query"
+import type { AdminBrand } from "@/services/queries/use-admin-brands-query"
 import {
   useDeleteBrandMutation,
   useUpdateBrandMutation,
-} from "@/hooks/admin/use-brand-mutations"
+} from "@/services/mutations/use-brand-mutations"
 import { formatDate, slugify } from "@/lib/utils"
 
 const identitySchema = z.object({

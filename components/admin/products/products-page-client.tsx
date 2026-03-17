@@ -1,7 +1,7 @@
 "use client"
 
 import { ProductsTable } from "@/components/admin/products/products-table"
-import { useAdminProductsQuery } from "@/hooks/admin/use-admin-products-query"
+import { useAdminProductsQuery } from "@/services/queries/use-admin-products-query"
 
 interface ProductsPageClientProps {
   page: number

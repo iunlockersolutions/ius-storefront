@@ -12,7 +12,7 @@ import {
 } from "@/components/admin/inventory/low-stock-alerts"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { useAdminInventoryQuery } from "@/hooks/admin/use-admin-inventory-query"
+import { useAdminInventoryQuery } from "@/services/queries/use-admin-inventory-query"
 import type {
   AdminInventorySortField,
   AdminInventorySortOrder,

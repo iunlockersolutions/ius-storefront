@@ -50,7 +50,7 @@ import {
   useRefundOrderMutation,
   useUpdateOrderNotesMutation,
   useUpdateOrderStatusMutation,
-} from "@/hooks/admin/use-order-mutations"
+} from "@/services/mutations/use-order-mutations"
 import type { AdminOrder } from "@/lib/types/admin-order"
 import { getValidTransitions } from "@/lib/utils/order-status"
 

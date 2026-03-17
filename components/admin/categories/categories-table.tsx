@@ -33,7 +33,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { useDeleteCategoryMutation } from "@/hooks/admin/use-category-mutations"
+import { useDeleteCategoryMutation } from "@/services/mutations/use-category-mutations"
 
 interface Category {
   id: string

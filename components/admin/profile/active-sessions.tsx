@@ -34,7 +34,7 @@ import {
   useRevokeAllOtherSessionsMutation,
   useRevokeSessionMutation,
   useUserSessionsQuery,
-} from "@/hooks/admin/use-profile-mutations"
+} from "@/services/mutations/use-profile-mutations"
 
 interface Session {
   id: string

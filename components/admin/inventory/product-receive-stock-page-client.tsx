@@ -11,7 +11,7 @@ import {
   getQueryErrorMessage,
 } from "@/components/admin/query-state"
 import { Button } from "@/components/ui/button"
-import { useAdminProductReceiveStockQuery } from "@/hooks/admin/use-admin-product-receive-stock-query"
+import { useAdminProductReceiveStockQuery } from "@/services/queries/use-admin-product-receive-stock-query"
 
 interface ProductReceiveStockPageClientProps {
   productId: string

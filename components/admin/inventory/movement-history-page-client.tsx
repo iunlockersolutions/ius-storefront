@@ -6,7 +6,7 @@ import {
   AdminQueryLoadingState,
   getQueryErrorMessage,
 } from "@/components/admin/query-state"
-import { useInventoryMovementsQuery } from "@/hooks/admin/use-inventory-movements-query"
+import { useInventoryMovementsQuery } from "@/services/queries/use-inventory-movements-query"
 
 interface MovementHistoryPageClientProps {
   variantId: string

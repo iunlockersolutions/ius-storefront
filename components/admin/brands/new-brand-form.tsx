@@ -1,7 +1,7 @@
 "use client"
 
 import { BrandEditorForm } from "@/components/admin/brands/brand-editor-form"
-import { useCreateBrandMutation } from "@/hooks/admin/use-brand-mutations"
+import { useCreateBrandMutation } from "@/services/mutations/use-brand-mutations"
 
 interface NewBrandFormProps {
   categories: Array<{

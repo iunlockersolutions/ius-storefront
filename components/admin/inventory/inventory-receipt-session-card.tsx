@@ -66,7 +66,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
-import { useReceiveInventoryMutation } from "@/hooks/admin/use-inventory-mutations"
+import { useReceiveInventoryMutation } from "@/services/mutations/use-inventory-mutations"
 import { useIsMobile } from "@/hooks/use-mobile"
 import {
   getDefaultSerialReceiptIdentifierTypes,

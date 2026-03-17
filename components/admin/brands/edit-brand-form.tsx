@@ -4,7 +4,7 @@ import { BrandEditorForm } from "@/components/admin/brands/brand-editor-form"
 import {
   useDeleteBrandMutation,
   useUpdateBrandMutation,
-} from "@/hooks/admin/use-brand-mutations"
+} from "@/services/mutations/use-brand-mutations"
 
 interface EditBrandFormProps {
   categories: Array<{

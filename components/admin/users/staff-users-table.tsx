@@ -57,8 +57,8 @@ import {
   useDeleteStaffUserMutation,
   useResetStaffPasswordMutation,
   useUnbanStaffUserMutation,
-} from "@/hooks/admin/use-staff-user-mutations"
-import { useStaffUsersQuery } from "@/hooks/admin/use-staff-users-query"
+} from "@/services/mutations/use-staff-user-mutations"
+import { useStaffUsersQuery } from "@/services/queries/use-staff-users-query"
 
 type StaffRole = "admin" | "manager" | "support"
 
