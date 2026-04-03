@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation"
 
 import { LogOut, Settings, User } from "lucide-react"
 
+import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   Breadcrumb,
@@ -58,7 +59,7 @@ function OpsHeader({ user }: OpsHeaderProps) {
   }
 
   return (
-    <header className="supports-backdrop-filter:bg-white/75 sticky top-0 z-30 flex h-16 shrink-0 items-center border-b border-border/60 bg-white/90 backdrop-blur-xl transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-16">
+    <header className="supports-backdrop-filter:bg-background/75 sticky top-0 z-30 flex h-16 shrink-0 items-center border-b border-border/60 bg-background/90 backdrop-blur-xl transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-16">
       <div className="flex w-full items-center justify-between gap-4 px-4 lg:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <SidebarTrigger className="-ml-1" />
@@ -91,6 +92,8 @@ function OpsHeader({ user }: OpsHeaderProps) {
               {user.email}
             </p>
           </div>
+
+          <AnimatedThemeToggler />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
