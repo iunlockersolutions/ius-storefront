@@ -111,7 +111,7 @@ function LoginForm() {
                   >
                     Email address
                   </FieldLabel>
-                  <InputGroup className="border-input bg-background/80 h-12 rounded-2xl shadow-none">
+                  <InputGroup className="border-input bg-background/80 h-12 shadow-none">
                     <InputGroupInput
                       {...field}
                       id="login-email"
@@ -147,7 +147,7 @@ function LoginForm() {
                   >
                     Password
                   </FieldLabel>
-                  <InputGroup className="border-input bg-background/80 h-12 rounded-2xl shadow-none">
+                  <InputGroup className="border-input bg-background/80 h-12 shadow-none">
                     <InputGroupInput
                       {...field}
                       id="login-password"
@@ -191,7 +191,7 @@ function LoginForm() {
 
           <Button
             type="submit"
-            className="bg-primary text-primary-foreground hover:bg-primary/90 h-12 w-full rounded-2xl text-base"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 h-12 w-full text-base"
             disabled={isLoading}
           >
             {isLoading ? "Signing in..." : "Sign in"}
@@ -220,7 +220,7 @@ function LoginForm() {
           <PasskeySignInButton
             callbackUrl={callbackUrl}
             disabled={isLoading}
-            className="border-input bg-background/80 text-foreground hover:bg-secondary h-12 w-full justify-center rounded-2xl shadow-none"
+            className="border-input bg-background/80 text-foreground hover:bg-secondary h-12 w-full justify-center shadow-none"
             onSuccess={handlePasskeySuccess}
           />
 
