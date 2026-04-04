@@ -1,29 +1,28 @@
 ﻿"use client"
+
 import { Suspense, useState } from "react"
-import { useForm } from "react-hook-form"
+import { Controller, useForm } from "react-hook-form"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 
 import { zodResolver } from "@hookform/resolvers/zod"
+import { Lock, Mail } from "lucide-react"
 import { toast } from "sonner"
 import { z } from "zod"
 
+import { AuthPageSkeleton, AuthShell } from "@/app/auth/_components/auth-shell"
 import { PasskeySignInButton } from "@/app/auth/_components/passkey-signin-button"
 import {
   AuthDivider,
   SocialLoginButtons,
 } from "@/app/auth/_components/social-login-buttons"
 import { Button } from "@/components/ui/button"
+import { Field, FieldError, FieldLabel } from "@/components/ui/field"
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group"
 import { handlePostLoginRedirect } from "@/lib/actions/admin-auth"
 import { authClient } from "@/lib/auth-client"
 
@@ -47,12 +46,12 @@ function LoginForm() {
   const callbackUrl = searchParams.get("callbackUrl") || "/"
   const [isLoading, setIsLoading] = useState(false)
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<LoginFormData>({
+  const { control, handleSubmit } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
   })
 
   const performPostLoginRedirect = async () => {
@@ -107,72 +106,128 @@ function LoginForm() {
   }
 
   return (
-    <Card>
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl font-bold">Sign in</CardTitle>
-        <CardDescription>
-          Sign in to your account using email or social providers
-        </CardDescription>
-      </CardHeader>
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <CardContent className="space-y-4">
-          {/* Passkey Sign-In */}
+    <AuthShell
+      eyebrow="IUS Shop account"
+      title="Sign in to shop devices and accessories"
+      description="Access your cart, orders, saved items, and account details for phones, accessories, and other electronics."
+      secondaryTitle="Other sign-in options"
+      secondaryDescription="Use a passkey or provider sign-in to get back to checkout faster."
+      secondaryContent={
+        <div className="space-y-6">
           <PasskeySignInButton
             callbackUrl={callbackUrl}
             disabled={isLoading}
-            className="w-full"
+            className="border-input bg-background/80 text-foreground hover:bg-secondary h-12 w-full justify-center rounded-2xl shadow-none"
             onSuccess={handlePasskeySuccess}
           />
 
-          <AuthDivider text="Or continue with" />
+          <AuthDivider text="Or use another method" />
 
-          {/* Social Login Buttons */}
           <SocialLoginButtons mode="signin" disabled={isLoading} />
 
-          <AuthDivider />
-
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="name@example.com"
-              disabled={isLoading}
-              {...register("email")}
-            />
-            {errors.email && (
-              <p className="text-sm text-red-500">{errors.email.message}</p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              disabled={isLoading}
-              {...register("password")}
-            />
-            {errors.password && (
-              <p className="text-sm text-red-500">{errors.password.message}</p>
-            )}
-          </div>
-        </CardContent>
-        <CardFooter className="flex flex-col space-y-4">
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? "Signing in..." : "Sign in"}
-          </Button>
-          <p className="text-center text-sm text-neutral-600 dark:text-neutral-400">
-            Don&apos;t have an account?{" "}
-            <Link
-              href="/auth/register"
-              className="font-medium underline hover:text-neutral-900 dark:hover:text-neutral-100"
-            >
-              Sign up
-            </Link>
+          <p className="text-muted-foreground text-sm leading-6">
+            Sign in once to track orders, save favorites, and move through
+            checkout faster.
           </p>
-        </CardFooter>
+        </div>
+      }
+      footer={
+        <p>
+          Don&apos;t have an account?{" "}
+          <Link
+            href="/auth/register"
+            className="text-primary hover:text-primary/80 font-medium underline underline-offset-4 transition-colors"
+          >
+            Create one here
+          </Link>
+          .
+        </p>
+      }
+    >
+      <form noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <div className="space-y-5">
+          <Controller
+            name="email"
+            control={control}
+            render={({ field, fieldState }) => (
+              <Field data-invalid={fieldState.invalid} className="gap-2.5">
+                <FieldLabel
+                  htmlFor="login-email"
+                  className="text-foreground text-sm font-medium"
+                >
+                  Email address
+                </FieldLabel>
+                <InputGroup className="border-input bg-background/80 h-12 rounded-2xl shadow-none">
+                  <InputGroupInput
+                    {...field}
+                    id="login-email"
+                    type="email"
+                    autoComplete="email"
+                    aria-invalid={fieldState.invalid}
+                    disabled={isLoading}
+                    placeholder="name@example.com"
+                    className="h-12 px-4 text-base"
+                  />
+                  <InputGroupAddon
+                    align="inline-end"
+                    className="text-muted-foreground pr-4"
+                  >
+                    <Mail className="size-4" />
+                  </InputGroupAddon>
+                </InputGroup>
+                {fieldState.invalid && (
+                  <FieldError errors={[fieldState.error]} />
+                )}
+              </Field>
+            )}
+          />
+
+          <Controller
+            name="password"
+            control={control}
+            render={({ field, fieldState }) => (
+              <Field data-invalid={fieldState.invalid} className="gap-2.5">
+                <FieldLabel
+                  htmlFor="login-password"
+                  className="text-foreground text-sm font-medium"
+                >
+                  Password
+                </FieldLabel>
+                <InputGroup className="border-input bg-background/80 h-12 rounded-2xl shadow-none">
+                  <InputGroupInput
+                    {...field}
+                    id="login-password"
+                    type="password"
+                    autoComplete="current-password"
+                    aria-invalid={fieldState.invalid}
+                    disabled={isLoading}
+                    placeholder="Enter your password"
+                    className="h-12 px-4 text-base"
+                  />
+                  <InputGroupAddon
+                    align="inline-end"
+                    className="text-muted-foreground pr-4"
+                  >
+                    <Lock className="size-4" />
+                  </InputGroupAddon>
+                </InputGroup>
+                {fieldState.invalid && (
+                  <FieldError errors={[fieldState.error]} />
+                )}
+              </Field>
+            )}
+          />
+        </div>
+
+        <Button
+          type="submit"
+          className="bg-primary text-primary-foreground hover:bg-primary/90 h-12 w-full rounded-2xl text-base"
+          disabled={isLoading}
+        >
+          {isLoading ? "Signing in..." : "Sign in"}
+        </Button>
       </form>
-    </Card>
+    </AuthShell>
   )
 }
 
@@ -183,7 +238,7 @@ function LoginForm() {
  */
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="animate-pulse">Loading...</div>}>
+    <Suspense fallback={<AuthPageSkeleton />}>
       <LoginForm />
     </Suspense>
   )

@@ -1,30 +1,27 @@
 ﻿"use client"
 
 import { Suspense, useState } from "react"
-import { useForm } from "react-hook-form"
+import { Controller, useForm } from "react-hook-form"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
 import { zodResolver } from "@hookform/resolvers/zod"
+import { Lock, Mail, User2 } from "lucide-react"
 import { toast } from "sonner"
 import { z } from "zod"
 
+import { AuthPageSkeleton, AuthShell } from "@/app/auth/_components/auth-shell"
 import {
   AuthDivider,
   SocialLoginButtons,
 } from "@/app/auth/_components/social-login-buttons"
 import { Button } from "@/components/ui/button"
+import { Field, FieldError, FieldLabel } from "@/components/ui/field"
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Skeleton } from "@/components/ui/skeleton"
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group"
 import { authClient } from "@/lib/auth-client"
 
 const registerSchema = z
@@ -56,12 +53,14 @@ function RegisterForm() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<RegisterFormData>({
+  const { control, handleSubmit } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
+    defaultValues: {
+      name: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+    },
   })
 
   const onSubmit = async (data: RegisterFormData) => {
@@ -89,104 +88,205 @@ function RegisterForm() {
   }
 
   return (
-    <Card>
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
-        <CardDescription>
-          Sign up using social providers or create an account with email
-        </CardDescription>
-      </CardHeader>
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <CardContent className="space-y-4">
-          {/* Social Login Buttons */}
+    <AuthShell
+      eyebrow="New customer"
+      title="Create your IUS Shop account"
+      description="Save carts, track orders, and check out faster for phones, accessories, and everyday electronics."
+      secondaryTitle="Quick sign up"
+      secondaryDescription="Use a provider account if you want to start shopping right away."
+      secondaryContent={
+        <div className="space-y-6">
           <SocialLoginButtons mode="signup" disabled={isLoading} />
 
-          <AuthDivider />
+          <AuthDivider text="Why create an account" />
 
-          <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
-            <Input
-              id="name"
-              type="text"
-              placeholder="John Doe"
-              disabled={isLoading}
-              {...register("name")}
-            />
-            {errors.name && (
-              <p className="text-sm text-red-500">{errors.name.message}</p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="name@example.com"
-              disabled={isLoading}
-              {...register("email")}
-            />
-            {errors.email && (
-              <p className="text-sm text-red-500">{errors.email.message}</p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              disabled={isLoading}
-              {...register("password")}
-            />
-            {errors.password && (
-              <p className="text-sm text-red-500">{errors.password.message}</p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirm Password</Label>
-            <Input
-              id="confirmPassword"
-              type="password"
-              disabled={isLoading}
-              {...register("confirmPassword")}
-            />
-            {errors.confirmPassword && (
-              <p className="text-sm text-red-500">
-                {errors.confirmPassword.message}
-              </p>
-            )}
-          </div>
-        </CardContent>
-        <CardFooter className="flex flex-col space-y-4">
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? "Creating account..." : "Create account"}
-          </Button>
-          <p className="text-center text-sm text-neutral-600 dark:text-neutral-400">
-            Already have an account?{" "}
-            <Link
-              href="/auth/login"
-              className="font-medium underline hover:text-neutral-900 dark:hover:text-neutral-100"
-            >
-              Sign in
-            </Link>
+          <p className="text-muted-foreground text-sm leading-6">
+            Keep your delivery details, saved products, and order updates ready
+            for your next purchase.
           </p>
-        </CardFooter>
-      </form>
-    </Card>
-  )
-}
+        </div>
+      }
+      footer={
+        <p>
+          Already have an account?{" "}
+          <Link
+            href="/auth/login"
+            className="text-primary hover:text-primary/80 font-medium underline underline-offset-4 transition-colors"
+          >
+            Sign in instead
+          </Link>
+          .
+        </p>
+      }
+    >
+      <form noValidate onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Controller
+            name="name"
+            control={control}
+            render={({ field, fieldState }) => (
+              <Field
+                data-invalid={fieldState.invalid}
+                className="gap-2.5 sm:col-span-2"
+              >
+                <FieldLabel
+                  htmlFor="register-name"
+                  className="text-foreground text-sm font-medium"
+                >
+                  Full name
+                </FieldLabel>
+                <InputGroup className="border-input bg-background/80 h-12 rounded-2xl shadow-none">
+                  <InputGroupInput
+                    {...field}
+                    id="register-name"
+                    type="text"
+                    autoComplete="name"
+                    aria-invalid={fieldState.invalid}
+                    disabled={isLoading}
+                    placeholder="John Doe"
+                    className="h-12 px-4 text-base"
+                  />
+                  <InputGroupAddon
+                    align="inline-end"
+                    className="text-muted-foreground pr-4"
+                  >
+                    <User2 className="size-4" />
+                  </InputGroupAddon>
+                </InputGroup>
+                {fieldState.invalid && (
+                  <FieldError errors={[fieldState.error]} />
+                )}
+              </Field>
+            )}
+          />
 
-function SocialButtonsSkeleton() {
-  return (
-    <div className="space-y-3">
-      <Skeleton className="h-10 w-full" />
-      <Skeleton className="h-10 w-full" />
-    </div>
+          <Controller
+            name="email"
+            control={control}
+            render={({ field, fieldState }) => (
+              <Field
+                data-invalid={fieldState.invalid}
+                className="gap-2.5 sm:col-span-2"
+              >
+                <FieldLabel
+                  htmlFor="register-email"
+                  className="text-foreground text-sm font-medium"
+                >
+                  Email address
+                </FieldLabel>
+                <InputGroup className="border-input bg-background/80 h-12 rounded-2xl shadow-none">
+                  <InputGroupInput
+                    {...field}
+                    id="register-email"
+                    type="email"
+                    autoComplete="email"
+                    aria-invalid={fieldState.invalid}
+                    disabled={isLoading}
+                    placeholder="name@example.com"
+                    className="h-12 px-4 text-base"
+                  />
+                  <InputGroupAddon
+                    align="inline-end"
+                    className="text-muted-foreground pr-4"
+                  >
+                    <Mail className="size-4" />
+                  </InputGroupAddon>
+                </InputGroup>
+                {fieldState.invalid && (
+                  <FieldError errors={[fieldState.error]} />
+                )}
+              </Field>
+            )}
+          />
+
+          <Controller
+            name="password"
+            control={control}
+            render={({ field, fieldState }) => (
+              <Field data-invalid={fieldState.invalid} className="gap-2.5">
+                <FieldLabel
+                  htmlFor="register-password"
+                  className="text-foreground text-sm font-medium"
+                >
+                  Password
+                </FieldLabel>
+                <InputGroup className="border-input bg-background/80 h-12 rounded-2xl shadow-none">
+                  <InputGroupInput
+                    {...field}
+                    id="register-password"
+                    type="password"
+                    autoComplete="new-password"
+                    aria-invalid={fieldState.invalid}
+                    disabled={isLoading}
+                    placeholder="Create a password"
+                    className="h-12 px-4 text-base"
+                  />
+                  <InputGroupAddon
+                    align="inline-end"
+                    className="text-muted-foreground pr-4"
+                  >
+                    <Lock className="size-4" />
+                  </InputGroupAddon>
+                </InputGroup>
+                {fieldState.invalid && (
+                  <FieldError errors={[fieldState.error]} />
+                )}
+              </Field>
+            )}
+          />
+
+          <Controller
+            name="confirmPassword"
+            control={control}
+            render={({ field, fieldState }) => (
+              <Field data-invalid={fieldState.invalid} className="gap-2.5">
+                <FieldLabel
+                  htmlFor="register-confirm-password"
+                  className="text-foreground text-sm font-medium"
+                >
+                  Confirm password
+                </FieldLabel>
+                <InputGroup className="border-input bg-background/80 h-12 rounded-2xl shadow-none">
+                  <InputGroupInput
+                    {...field}
+                    id="register-confirm-password"
+                    type="password"
+                    autoComplete="new-password"
+                    aria-invalid={fieldState.invalid}
+                    disabled={isLoading}
+                    placeholder="Repeat your password"
+                    className="h-12 px-4 text-base"
+                  />
+                  <InputGroupAddon
+                    align="inline-end"
+                    className="text-muted-foreground pr-4"
+                  >
+                    <Lock className="size-4" />
+                  </InputGroupAddon>
+                </InputGroup>
+                {fieldState.invalid && (
+                  <FieldError errors={[fieldState.error]} />
+                )}
+              </Field>
+            )}
+          />
+        </div>
+
+        <Button
+          type="submit"
+          className="bg-primary text-primary-foreground hover:bg-primary/90 h-12 w-full rounded-2xl text-base"
+          disabled={isLoading}
+        >
+          {isLoading ? "Creating account..." : "Create account"}
+        </Button>
+      </form>
+    </AuthShell>
   )
 }
 
 export default function RegisterPage() {
   return (
-    <Suspense fallback={<SocialButtonsSkeleton />}>
+    <Suspense fallback={<AuthPageSkeleton />}>
       <RegisterForm />
     </Suspense>
   )
