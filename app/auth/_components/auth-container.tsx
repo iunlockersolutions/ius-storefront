@@ -119,17 +119,6 @@ function AuthContainerRoot({
           <div className={cn("mt-10", content?.className)}>
             {content?.children ?? unassignedChildren}
           </div>
-
-          {footer ? (
-            <div
-              className={cn(
-                "text-muted-foreground mt-8 text-sm leading-6",
-                footer.className,
-              )}
-            >
-              {footer.children}
-            </div>
-          ) : null}
         </section>
 
         {secondary ? (
@@ -158,6 +147,16 @@ function AuthContainerRoot({
           </aside>
         ) : null}
       </div>
+      {footer ? (
+        <div
+          className={cn(
+            "text-muted-foreground mt-8 text-sm leading-6 flex items-center justify-center",
+            footer.className,
+          )}
+        >
+          {footer.children}
+        </div>
+      ) : null}
     </div>
   )
 }

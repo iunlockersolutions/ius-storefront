@@ -16,10 +16,7 @@ import {
   AuthContainerSecondaryContent,
 } from "@/app/auth/_components/auth-container"
 import { PasskeySignInButton } from "@/app/auth/_components/passkey-signin-button"
-import {
-  AuthDivider,
-  SocialLoginButtons,
-} from "@/app/auth/_components/social-login-buttons"
+import { SocialLoginButtons } from "@/app/auth/_components/social-login-buttons"
 import { Button } from "@/components/ui/button"
 import { Field, FieldError, FieldLabel } from "@/components/ui/field"
 import {
@@ -31,6 +28,7 @@ import {
 import { handlePostLoginRedirect } from "@/lib/actions/admin-auth"
 import { authClient } from "@/lib/auth-client"
 
+import AuthDivider from "../_components/auth-devider"
 import { loginDefaultData, LoginFormData, loginSchema } from "./login.zod"
 
 function LoginForm() {
@@ -94,6 +92,42 @@ function LoginForm() {
       description="Access your cart, orders, saved items, and account details for phones, accessories, and other electronics."
     >
       <AuthContainerContent>
+        <div className="space-y-6">
+          <PasskeySignInButton
+            callbackUrl={callbackUrl}
+            disabled={isLoading}
+            className="border-input bg-background/80 text-foreground hover:bg-secondary h-12 w-full justify-center shadow-none"
+            onSuccess={handlePasskeySuccess}
+          />
+
+          <AuthDivider text="Or use another method" />
+
+          <SocialLoginButtons mode="signin" disabled={isLoading} />
+
+          <p className="text-muted-foreground text-sm leading-6">
+            Sign in once to track orders, save favorites, and move through
+            checkout faster.
+          </p>
+        </div>
+      </AuthContainerContent>
+
+      <AuthContainerFooter>
+        <p>
+          Don&apos;t have an account?{" "}
+          <Link
+            href="/auth/register"
+            className="text-primary hover:text-primary/80 font-medium underline underline-offset-4 transition-colors"
+          >
+            Create one here
+          </Link>
+          .
+        </p>
+      </AuthContainerFooter>
+
+      <AuthContainerSecondaryContent
+        title="Other sign-in options"
+        description="Use a passkey or provider sign-in to get back to checkout faster."
+      >
         <form
           noValidate
           onSubmit={handleSubmit(onSubmit)}
@@ -197,42 +231,6 @@ function LoginForm() {
             {isLoading ? "Signing in..." : "Sign in"}
           </Button>
         </form>
-      </AuthContainerContent>
-
-      <AuthContainerFooter>
-        <p>
-          Don&apos;t have an account?{" "}
-          <Link
-            href="/auth/register"
-            className="text-primary hover:text-primary/80 font-medium underline underline-offset-4 transition-colors"
-          >
-            Create one here
-          </Link>
-          .
-        </p>
-      </AuthContainerFooter>
-
-      <AuthContainerSecondaryContent
-        title="Other sign-in options"
-        description="Use a passkey or provider sign-in to get back to checkout faster."
-      >
-        <div className="space-y-6">
-          <PasskeySignInButton
-            callbackUrl={callbackUrl}
-            disabled={isLoading}
-            className="border-input bg-background/80 text-foreground hover:bg-secondary h-12 w-full justify-center shadow-none"
-            onSuccess={handlePasskeySuccess}
-          />
-
-          <AuthDivider text="Or use another method" />
-
-          <SocialLoginButtons mode="signin" disabled={isLoading} />
-
-          <p className="text-muted-foreground text-sm leading-6">
-            Sign in once to track orders, save favorites, and move through
-            checkout faster.
-          </p>
-        </div>
       </AuthContainerSecondaryContent>
     </AuthContainer>
   )

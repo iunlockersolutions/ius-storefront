@@ -15,10 +15,7 @@ import {
   AuthContainerFooter,
   AuthContainerSecondaryContent,
 } from "@/app/auth/_components/auth-container"
-import {
-  AuthDivider,
-  SocialLoginButtons,
-} from "@/app/auth/_components/social-login-buttons"
+import { SocialLoginButtons } from "@/app/auth/_components/social-login-buttons"
 import { Button } from "@/components/ui/button"
 import { Field, FieldError, FieldLabel } from "@/components/ui/field"
 import {
@@ -29,6 +26,7 @@ import {
 } from "@/components/ui/input-group"
 import { authClient } from "@/lib/auth-client"
 
+import AuthDivider from "../_components/auth-devider"
 import {
   registerDefaultData,
   RegisterFormData,
@@ -76,6 +74,35 @@ function RegisterForm() {
       description="Save carts, track orders, and check out faster for phones, accessories, and everyday electronics."
     >
       <AuthContainerContent>
+        <div className="space-y-6">
+          <SocialLoginButtons mode="signup" disabled={isLoading} />
+
+          <AuthDivider text="Why create an account" />
+
+          <p className="text-muted-foreground text-sm leading-6">
+            Keep your delivery details, saved products, and order updates ready
+            for your next purchase.
+          </p>
+        </div>
+      </AuthContainerContent>
+
+      <AuthContainerFooter>
+        <p>
+          Already have an account?{" "}
+          <Link
+            href="/auth/login"
+            className="text-primary hover:text-primary/80 font-medium underline underline-offset-4 transition-colors"
+          >
+            Sign in instead
+          </Link>
+          .
+        </p>
+      </AuthContainerFooter>
+
+      <AuthContainerSecondaryContent
+        title="Quick sign up"
+        description="Use a provider account if you want to start shopping right away."
+      >
         <form
           noValidate
           onSubmit={handleSubmit(onSubmit)}
@@ -277,35 +304,6 @@ function RegisterForm() {
             {isLoading ? "Creating account..." : "Create account"}
           </Button>
         </form>
-      </AuthContainerContent>
-
-      <AuthContainerFooter>
-        <p>
-          Already have an account?{" "}
-          <Link
-            href="/auth/login"
-            className="text-primary hover:text-primary/80 font-medium underline underline-offset-4 transition-colors"
-          >
-            Sign in instead
-          </Link>
-          .
-        </p>
-      </AuthContainerFooter>
-
-      <AuthContainerSecondaryContent
-        title="Quick sign up"
-        description="Use a provider account if you want to start shopping right away."
-      >
-        <div className="space-y-6">
-          <SocialLoginButtons mode="signup" disabled={isLoading} />
-
-          <AuthDivider text="Why create an account" />
-
-          <p className="text-muted-foreground text-sm leading-6">
-            Keep your delivery details, saved products, and order updates ready
-            for your next purchase.
-          </p>
-        </div>
       </AuthContainerSecondaryContent>
     </AuthContainer>
   )
