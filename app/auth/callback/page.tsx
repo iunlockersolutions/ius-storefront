@@ -66,7 +66,7 @@ function AuthCallbackContent() {
  * - Regular customers â†’ original callbackUrl or /
  *
  * Used by:
- * - Social login (Google, GitHub)
+ * - Social login providers
  * - Any auth flow that needs role-based redirect
  */
 export default function AuthCallbackPage() {

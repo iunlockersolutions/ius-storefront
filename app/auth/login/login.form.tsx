@@ -3,7 +3,6 @@
 import { useState } from "react"
 import { Controller, useForm } from "react-hook-form"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
 
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Eye, EyeOff, Mail } from "lucide-react"
@@ -26,16 +25,21 @@ import {
   InputGroupInput,
 } from "@/components/ui/input-group"
 import { handlePostLoginRedirect } from "@/lib/actions/admin-auth"
+import type { SocialProviderId } from "@/lib/auth/social-provider-metadata"
 import { authClient } from "@/lib/auth-client"
 
 import AuthDivider from "../_components/auth-devider"
 import { loginDefaultData, LoginFormData, loginSchema } from "./login.zod"
 
-function LoginForm() {
-  const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get("callbackUrl") || "/"
+interface LoginFormProps {
+  callbackUrl: string
+  socialProviders: SocialProviderId[]
+}
+
+function LoginForm({ callbackUrl, socialProviders }: LoginFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const hasSocialProviders = socialProviders.length > 0
 
   const { control, handleSubmit } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -100,9 +104,17 @@ function LoginForm() {
             onSuccess={handlePasskeySuccess}
           />
 
-          <AuthDivider text="Or use another method" />
-
-          <SocialLoginButtons mode="signin" disabled={isLoading} />
+          {hasSocialProviders ? (
+            <>
+              <AuthDivider text="Or use another method" />
+              <SocialLoginButtons
+                callbackUrl={callbackUrl}
+                providers={socialProviders}
+                mode="signin"
+                disabled={isLoading}
+              />
+            </>
+          ) : null}
 
           <p className="text-muted-foreground text-sm leading-6">
             Sign in once to track orders, save favorites, and move through

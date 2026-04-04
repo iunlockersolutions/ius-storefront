@@ -24,6 +24,7 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group"
+import type { SocialProviderId } from "@/lib/auth/social-provider-metadata"
 import { authClient } from "@/lib/auth-client"
 
 import AuthDivider from "../_components/auth-devider"
@@ -33,11 +34,17 @@ import {
   registerSchema,
 } from "./register.zod"
 
-function RegisterForm() {
+interface RegisterFormProps {
+  callbackUrl: string
+  socialProviders: SocialProviderId[]
+}
+
+function RegisterForm({ callbackUrl, socialProviders }: RegisterFormProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const hasSocialProviders = socialProviders.length > 0
 
   const { control, handleSubmit } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
@@ -75,9 +82,17 @@ function RegisterForm() {
     >
       <AuthContainerContent>
         <div className="space-y-6">
-          <SocialLoginButtons mode="signup" disabled={isLoading} />
-
-          <AuthDivider text="Why create an account" />
+          {hasSocialProviders ? (
+            <>
+              <SocialLoginButtons
+                callbackUrl={callbackUrl}
+                providers={socialProviders}
+                mode="signup"
+                disabled={isLoading}
+              />
+              <AuthDivider text="Why create an account" />
+            </>
+          ) : null}
 
           <p className="text-muted-foreground text-sm leading-6">
             Keep your delivery details, saved products, and order updates ready
