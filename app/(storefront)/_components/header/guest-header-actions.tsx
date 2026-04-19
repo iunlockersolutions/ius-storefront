@@ -17,27 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { routes } from "@/configs/routes"
 
-const accountLinks: Array<{
-  href: string
-  label: string
-  source: GuestAuthPromptSource
-}> = [
-  {
-    href: routes.storefront.orders.root,
-    label: "My Orders",
-    source: "orders",
-  },
-  {
-    href: routes.storefront.favorites.root,
-    label: "Favorites",
-    source: "favorites",
-  },
-  {
-    href: routes.storefront.profile.root,
-    label: "Profile",
-    source: "profile",
-  },
-]
+import { accountLinks } from "./navigation-config"
 
 function getCurrentUrl() {
   if (typeof window === "undefined") {
@@ -49,6 +29,7 @@ function getCurrentUrl() {
 
 export function GuestHeaderActions() {
   const { open } = useGuestAuthPrompt()
+  const favoritesLink = accountLinks.find((link) => link.source === "favorites")
 
   return (
     <>
@@ -58,8 +39,11 @@ export function GuestHeaderActions() {
         className="hidden sm:inline-flex"
         onClick={() =>
           open({
-            callbackUrl: routes.storefront.favorites.root,
-            source: "favorites",
+            callbackUrl:
+              favoritesLink?.href || routes.storefront.favorites.root,
+            source:
+              (favoritesLink?.source as GuestAuthPromptSource | undefined) ||
+              "favorites",
           })
         }
       >

@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
-import { LogOut, User } from "lucide-react"
+import { LogOut } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -18,6 +18,8 @@ import {
 import { routes } from "@/configs/routes"
 import { clearAuthCookies } from "@/lib/actions/admin-auth"
 import { authClient } from "@/lib/auth-client"
+
+import { accountLinks } from "./navigation-config"
 
 type ProfileMenuProps = {
   user: {
@@ -66,28 +68,20 @@ function ProfileMenu({ user }: ProfileMenuProps) {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link href={routes.storefront.orders.root} className="cursor-pointer">
-            My Orders
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link
-            href={routes.storefront.favorites.root}
-            className="cursor-pointer"
-          >
-            Favorites
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link
-            href={routes.storefront.profile.root}
-            className="cursor-pointer"
-          >
-            <User className="mr-2 size-4" />
-            Profile
-          </Link>
-        </DropdownMenuItem>
+        {accountLinks.map((link) => {
+          const Icon = link.icon
+
+          return (
+            <DropdownMenuItem key={link.href} asChild>
+              <Link href={link.href} className="cursor-pointer">
+                {link.source === "profile" ? (
+                  <Icon className="mr-2 size-4" />
+                ) : null}
+                {link.label}
+              </Link>
+            </DropdownMenuItem>
+          )
+        })}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
           <LogOut className="mr-2 size-4" />

@@ -4,20 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 
-import {
-  ChevronLeft,
-  ChevronRight,
-  Grid3X3,
-  Heart,
-  Home,
-  LogIn,
-  LogOut,
-  Package,
-  ShoppingBag,
-  Store,
-  Tag,
-  User,
-} from "lucide-react"
+import { ChevronLeft, ChevronRight, LogIn, LogOut, X } from "lucide-react"
 
 import {
   type GuestAuthPromptSource,
@@ -44,41 +31,14 @@ import { clearAuthCookies } from "@/lib/actions/admin-auth"
 import { authClient } from "@/lib/auth-client"
 import { type StorefrontNavigationData } from "@/lib/storefront/navigation"
 
+import { accountLinks, mobileRootNavLinks } from "./navigation-config"
+
 interface MobileNavProps {
   isAuthenticated?: boolean
   navigation: StorefrontNavigationData
   userEmail?: string
   userName?: string | null
 }
-
-const rootNavLinks = [
-  { href: "/", label: "Home", icon: Home },
-  { href: "/products", label: "Products", icon: Package },
-  { href: "/categories", label: "Categories", icon: Grid3X3 },
-  { href: "/brands", label: "Brands", icon: Store },
-  { href: "/deals", label: "Deals", icon: Tag },
-]
-
-const accountLinks = [
-  {
-    href: "/orders",
-    label: "My Orders",
-    icon: ShoppingBag,
-    source: "orders" as GuestAuthPromptSource,
-  },
-  {
-    href: "/favorites",
-    label: "Favorites",
-    icon: Heart,
-    source: "favorites" as GuestAuthPromptSource,
-  },
-  {
-    href: "/profile",
-    label: "Profile",
-    icon: User,
-    source: "profile" as GuestAuthPromptSource,
-  },
-]
 
 export function MobileNavigation({
   isAuthenticated = false,
@@ -87,6 +47,30 @@ export function MobileNavigation({
   userName,
 }: MobileNavProps) {
   const pathname = usePathname()
+
+  return (
+    <MobileNavigationContent
+      key={pathname}
+      pathname={pathname}
+      isAuthenticated={isAuthenticated}
+      navigation={navigation}
+      userEmail={userEmail}
+      userName={userName}
+    />
+  )
+}
+
+type MobileNavigationContentProps = MobileNavProps & {
+  pathname: string
+}
+
+function MobileNavigationContent({
+  isAuthenticated = false,
+  navigation,
+  pathname,
+  userEmail,
+  userName,
+}: MobileNavigationContentProps) {
   const router = useRouter()
   const { setOpenMobile } = useSidebar()
   const { open } = useGuestAuthPrompt()
@@ -99,10 +83,6 @@ export function MobileNavigation({
   const [activeBrandId, setActiveBrandId] = React.useState<string | null>(
     navigation.productCategories[0]?.brands[0]?.id ?? null,
   )
-
-  React.useEffect(() => {
-    setView("categories")
-  }, [pathname])
 
   const activeCategory =
     navigation.productCategories.find(
@@ -149,6 +129,25 @@ export function MobileNavigation({
     <div className="lg:hidden">
       <Sidebar side="left" variant="sidebar" collapsible="offcanvas">
         <SidebarHeader className="border-b bg-background px-0 py-0">
+          <div className="flex items-center justify-between border-b px-4 py-3">
+            <Link
+              href={routes.storefront.root}
+              onClick={closeNav}
+              className="text-lg font-semibold tracking-tight"
+            >
+              EvoluX
+            </Link>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={closeNav}
+              className="size-9"
+            >
+              <X className="size-5" />
+              <span className="sr-only">Close navigation</span>
+            </Button>
+          </div>
           <Tabs
             value={view === "menu" ? "menu" : "categories"}
             onValueChange={(value) =>
@@ -176,7 +175,7 @@ export function MobileNavigation({
               <SidebarGroup className="px-0 pt-0">
                 <SidebarGroupContent>
                   <SidebarMenu>
-                    {rootNavLinks.map((link) => {
+                    {mobileRootNavLinks.map((link) => {
                       const Icon = link.icon
 
                       return (
@@ -209,7 +208,7 @@ export function MobileNavigation({
                     {navigation.brands.slice(0, 4).map((brand) => (
                       <Link
                         key={brand.id}
-                        href={`/brands/${brand.slug}`}
+                        href={routes.storefront.brands.id(brand.slug)}
                         onClick={closeNav}
                         className="flex items-center justify-between border-b px-4 py-3 text-sm transition-colors hover:bg-sidebar-accent"
                       >
@@ -466,7 +465,10 @@ export function MobileNavigation({
                         key={link.href}
                         type="button"
                         onClick={() =>
-                          handleGuestAuthOpen(link.href, link.source)
+                          handleGuestAuthOpen(
+                            link.href,
+                            link.source as GuestAuthPromptSource,
+                          )
                         }
                         className="flex w-full items-center justify-between border-b px-4 py-3 text-sm transition-colors hover:bg-sidebar-accent"
                       >

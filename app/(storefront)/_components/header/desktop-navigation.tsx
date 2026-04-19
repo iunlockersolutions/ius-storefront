@@ -16,15 +16,11 @@ import {
 import { type StorefrontNavigationData } from "@/lib/storefront/navigation"
 import { cn } from "@/lib/utils"
 
+import { desktopTopLevelLinks } from "./navigation-config"
+
 interface StorefrontDesktopNavigationProps {
   navigation: StorefrontNavigationData
 }
-
-const topLevelLinks = [
-  { href: "/categories", label: "Categories" },
-  { href: "/brands", label: "Brands" },
-  { href: "/deals", label: "Deals" },
-]
 
 export function DesktopNavigation({
   navigation,
@@ -65,7 +61,7 @@ export function DesktopNavigation({
     activeCategory?.brands[0]
 
   return (
-    <div className="flex items-center justify-between gap-4">
+    <div className="flex min-w-0 flex-1 items-center justify-between gap-4">
       <NavigationMenu viewport={false} className="justify-start">
         <NavigationMenuList className="gap-1">
           <NavigationMenuItem>
@@ -226,7 +222,7 @@ export function DesktopNavigation({
       </NavigationMenu>
 
       <div className="flex items-center gap-1">
-        {topLevelLinks.map((link) => (
+        {desktopTopLevelLinks.map((link) => (
           <Link
             key={link.href}
             href={link.href}

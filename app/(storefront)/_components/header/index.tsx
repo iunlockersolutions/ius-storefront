@@ -20,8 +20,10 @@ type HeaderProps = {
 }
 
 async function Header({ isAuthenticated = false }: HeaderProps) {
-  const navigation = await getStorefrontNavigationData()
-  const session = await getServerSession()
+  const [navigation, session] = await Promise.all([
+    getStorefrontNavigationData(),
+    getServerSession(),
+  ])
   const user = session?.user
     ? {
         name: session.user.name,
@@ -33,60 +35,58 @@ async function Header({ isAuthenticated = false }: HeaderProps) {
 
   return (
     <>
-      <>
-        <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80">
-          {user?.role === "admin" ? <TopBar /> : null}
-          <div className="container mx-auto flex h-16 items-center gap-4 px-4">
-            <Link
-              href={routes.storefront.root}
-              className="flex shrink-0 items-center gap-3"
-            >
-              <span className="text-lg font-semibold tracking-tight">
-                EvoluX
-              </span>
-            </Link>
+      <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/80">
+        {user?.role === "admin" ? <TopBar /> : null}
+        <div className="container mx-auto flex h-16 items-center gap-3 px-4 lg:gap-6">
+          <Link
+            href={routes.storefront.root}
+            className="flex shrink-0 items-center gap-3"
+          >
+            <span className="text-lg font-semibold tracking-tight">EvoluX</span>
+          </Link>
 
+          <div className="hidden min-w-0 flex-1 lg:flex">
             <DesktopNavigation navigation={navigation} />
+          </div>
 
-            <div className="ml-auto flex items-center gap-1 sm:gap-2">
-              {isAuthenticated ? (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  asChild
-                  className="hidden sm:inline-flex"
-                >
-                  <Link href={routes.storefront.favorites.root}>
-                    <Heart className="size-5" />
-                    <span className="sr-only">Favorites</span>
-                  </Link>
-                </Button>
-              ) : null}
+          <div className="ml-auto flex items-center gap-1 sm:gap-2">
+            <SidebarTrigger variant="ghost" size="icon" className="lg:hidden" />
 
-              <CartBadge />
+            <CartBadge />
 
-              {isAuthenticated && user ? (
-                <ProfileMenu user={user} />
-              ) : (
-                <GuestHeaderActions />
-              )}
-
-              <SidebarTrigger
+            {isAuthenticated ? (
+              <Button
                 variant="ghost"
                 size="icon"
-                className="lg:hidden"
-              />
-            </div>
-          </div>
-        </header>
+                asChild
+                className="hidden lg:inline-flex"
+              >
+                <Link href={routes.storefront.favorites.root}>
+                  <Heart className="size-5" />
+                  <span className="sr-only">Favorites</span>
+                </Link>
+              </Button>
+            ) : null}
 
-        <MobileNavigation
-          isAuthenticated={isAuthenticated}
-          navigation={navigation}
-          userEmail={user?.email}
-          userName={user?.name}
-        />
-      </>
+            {isAuthenticated && user ? (
+              <div className="hidden lg:block">
+                <ProfileMenu user={user} />
+              </div>
+            ) : (
+              <div className="hidden lg:flex lg:items-center">
+                <GuestHeaderActions />
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <MobileNavigation
+        isAuthenticated={isAuthenticated}
+        navigation={navigation}
+        userEmail={user?.email}
+        userName={user?.name}
+      />
     </>
   )
 }
