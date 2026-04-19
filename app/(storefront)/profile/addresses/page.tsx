@@ -17,7 +17,7 @@ export default async function AddressesPage() {
   const session = await getServerSession()
 
   if (!session?.user) {
-    redirect("/auth/sign-in?callbackUrl=/profile/addresses")
+    redirect("/auth/login?callbackUrl=/profile/addresses")
   }
 
   const [addresses, maxAddresses] = await Promise.all([

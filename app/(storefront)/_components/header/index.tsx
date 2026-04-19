@@ -1,6 +1,6 @@
 ﻿import Link from "next/link"
 
-import { ArrowRight, Heart } from "lucide-react"
+import { Heart } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { SidebarTrigger } from "@/components/ui/sidebar"
@@ -10,6 +10,7 @@ import { getStorefrontNavigationData } from "@/lib/storefront/navigation"
 
 import { CartBadge } from "./cart-badge"
 import { DesktopNavigation } from "./desktop-navigation"
+import { GuestHeaderActions } from "./guest-header-actions"
 import { MobileNavigation } from "./mobile-navigation"
 import ProfileMenu from "./profile-menu"
 import TopBar from "./top-bar"
@@ -67,17 +68,7 @@ async function Header({ isAuthenticated = false }: HeaderProps) {
               {isAuthenticated && user ? (
                 <ProfileMenu user={user} />
               ) : (
-                <Button
-                  variant="default"
-                  size="sm"
-                  asChild
-                  className="hidden sm:inline-flex"
-                >
-                  <Link href={routes.auth.login}>
-                    Sign in
-                    <ArrowRight className="size-4" />
-                  </Link>
-                </Button>
+                <GuestHeaderActions />
               )}
 
               <SidebarTrigger

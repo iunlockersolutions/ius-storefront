@@ -13,6 +13,7 @@ import {
   type SocialProviderId,
 } from "@/lib/auth/social-provider-metadata"
 import { authClient } from "@/lib/auth-client"
+import { cn } from "@/lib/utils"
 
 const providerIcons: Record<
   SocialProviderId,
@@ -27,7 +28,8 @@ const providerIcons: Record<
 interface SocialLoginButtonsProps {
   callbackUrl: string
   providers: SocialProviderId[]
-  mode?: "signin" | "signup"
+  mode?: "signin" | "signup" | "continue"
+  layout?: "stack" | "grid"
   disabled?: boolean
 }
 
@@ -35,6 +37,7 @@ export function SocialLoginButtons({
   callbackUrl,
   providers,
   mode = "signin",
+  layout = "stack",
   disabled = false,
 }: SocialLoginButtonsProps) {
   const [loadingProvider, setLoadingProvider] =
@@ -53,7 +56,7 @@ export function SocialLoginButtons({
       })
     } catch {
       toast.error(
-        `Failed to ${mode === "signin" ? "sign in" : "sign up"} with ${SOCIAL_PROVIDER_LABELS[provider]}`,
+        `Failed to ${mode === "signup" ? "sign up" : mode} with ${SOCIAL_PROVIDER_LABELS[provider]}`,
       )
       setLoadingProvider(null)
     }
@@ -64,10 +67,15 @@ export function SocialLoginButtons({
   }
 
   const isLoading = loadingProvider !== null
-  const actionText = mode === "signin" ? "Sign in" : "Sign up"
+  const actionText =
+    mode === "signup" ? "Sign up" : mode === "continue" ? "Continue" : "Sign in"
 
   return (
-    <div className="space-y-3">
+    <div
+      className={cn(
+        layout === "grid" ? "grid gap-3 sm:grid-cols-2" : "space-y-3",
+      )}
+    >
       {providers.map((provider) => {
         const Icon = providerIcons[provider]
 

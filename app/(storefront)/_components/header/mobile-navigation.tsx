@@ -19,6 +19,10 @@ import {
   User,
 } from "lucide-react"
 
+import {
+  type GuestAuthPromptSource,
+  useGuestAuthPrompt,
+} from "@/components/auth/guest-auth-prompt"
 import { Button } from "@/components/ui/button"
 import {
   Sidebar,
@@ -56,9 +60,24 @@ const rootNavLinks = [
 ]
 
 const accountLinks = [
-  { href: "/orders", label: "My Orders", icon: ShoppingBag },
-  { href: "/favorites", label: "Favorites", icon: Heart },
-  { href: "/profile", label: "Profile", icon: User },
+  {
+    href: "/orders",
+    label: "My Orders",
+    icon: ShoppingBag,
+    source: "orders" as GuestAuthPromptSource,
+  },
+  {
+    href: "/favorites",
+    label: "Favorites",
+    icon: Heart,
+    source: "favorites" as GuestAuthPromptSource,
+  },
+  {
+    href: "/profile",
+    label: "Profile",
+    icon: User,
+    source: "profile" as GuestAuthPromptSource,
+  },
 ]
 
 export function MobileNavigation({
@@ -70,6 +89,7 @@ export function MobileNavigation({
   const pathname = usePathname()
   const router = useRouter()
   const { setOpenMobile } = useSidebar()
+  const { open } = useGuestAuthPrompt()
   const [view, setView] = React.useState<
     "brands" | "categories" | "menu" | "products"
   >("categories")
@@ -106,6 +126,16 @@ export function MobileNavigation({
   const handleProtectedNavigation = (href: string) => {
     closeNav()
     router.push(href)
+  }
+
+  const handleGuestAuthOpen = (
+    callbackUrl: string,
+    source: GuestAuthPromptSource,
+  ) => {
+    closeNav()
+    window.setTimeout(() => {
+      open({ callbackUrl, source })
+    }, 0)
   }
 
   const handleSignOut = async () => {
@@ -426,23 +456,56 @@ export function MobileNavigation({
                 </div>
               </>
             ) : (
-              <div className="grid grid-cols-2 gap-0">
-                <Button
-                  asChild
-                  variant="ghost"
-                  className="h-12 rounded-none border-r"
-                >
-                  <Link href="/auth/login" onClick={closeNav}>
+              <>
+                <div className="space-y-0 border-b">
+                  {accountLinks.map((link) => {
+                    const Icon = link.icon
+
+                    return (
+                      <button
+                        key={link.href}
+                        type="button"
+                        onClick={() =>
+                          handleGuestAuthOpen(link.href, link.source)
+                        }
+                        className="flex w-full items-center justify-between border-b px-4 py-3 text-sm transition-colors hover:bg-sidebar-accent"
+                      >
+                        <span className="flex min-w-0 items-center gap-3 pr-4">
+                          <Icon className="size-4 shrink-0" />
+                          <span className="truncate">{link.label}</span>
+                        </span>
+                        <ChevronRight className="size-4 shrink-0 text-sidebar-foreground/70" />
+                      </button>
+                    )
+                  })}
+                </div>
+                <div className="grid grid-cols-2 gap-0">
+                  <Button
+                    variant="ghost"
+                    className="h-12 rounded-none border-r"
+                    onClick={() =>
+                      handleGuestAuthOpen(
+                        `${window.location.pathname}${window.location.search}`,
+                        "signin",
+                      )
+                    }
+                  >
                     <LogIn className="mr-2 size-4" />
                     Sign In
-                  </Link>
-                </Button>
-                <Button asChild className="h-12 rounded-none">
-                  <Link href="/auth/register" onClick={closeNav}>
+                  </Button>
+                  <Button
+                    className="h-12 rounded-none"
+                    onClick={() =>
+                      handleGuestAuthOpen(
+                        `${window.location.pathname}${window.location.search}`,
+                        "register",
+                      )
+                    }
+                  >
                     Create Account
-                  </Link>
-                </Button>
-              </div>
+                  </Button>
+                </div>
+              </>
             )
           ) : null}
         </SidebarFooter>

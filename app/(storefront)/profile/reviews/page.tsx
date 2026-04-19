@@ -24,7 +24,7 @@ export default async function ReviewsPage({ searchParams }: ReviewsPageProps) {
   const session = await getServerSession()
 
   if (!session?.user) {
-    redirect("/auth/sign-in?callbackUrl=/profile/reviews")
+    redirect("/auth/login?callbackUrl=/profile/reviews")
   }
 
   const params = await searchParams

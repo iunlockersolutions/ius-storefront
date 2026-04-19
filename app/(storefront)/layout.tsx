@@ -1,7 +1,9 @@
-﻿import { ForceLightTheme } from "@/components/force-light-theme"
+﻿import { GuestAuthPromptProvider } from "@/components/auth/guest-auth-prompt"
+import { ForceLightTheme } from "@/components/force-light-theme"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { Toaster } from "@/components/ui/sonner"
 import { getServerSession } from "@/lib/auth/rbac"
+import { getEnabledSocialProviderIds } from "@/lib/auth/social-providers"
 
 import { Footer } from "./_components/footer"
 import Header from "./_components/header"
@@ -13,14 +15,20 @@ export default async function StorefrontLayout({
 }) {
   const session = await getServerSession()
   const isAuthenticated = !!session?.user
+  const socialProviders = getEnabledSocialProviderIds()
 
   return (
     <>
       <ForceLightTheme />
       <SidebarProvider mobileBreakpoint={1024} unstyled>
-        <Header isAuthenticated={isAuthenticated} />
-        <main className="flex-1">{children}</main>
-        <Footer />
+        <GuestAuthPromptProvider
+          isAuthenticated={isAuthenticated}
+          socialProviders={socialProviders}
+        >
+          <Header isAuthenticated={isAuthenticated} />
+          <main className="flex-1">{children}</main>
+          <Footer />
+        </GuestAuthPromptProvider>
       </SidebarProvider>
       <Toaster theme="light" />
     </>
