@@ -1,6 +1,5 @@
 ﻿"use client"
 
-import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
@@ -16,7 +15,9 @@ import {
 import { type StorefrontNavigationData } from "@/lib/storefront/navigation"
 import { cn } from "@/lib/utils"
 
+import { getStorefrontProductsHref } from "./header-utils"
 import { desktopTopLevelLinks } from "./navigation-config"
+import { useStorefrontProductNavigation } from "./use-storefront-product-navigation"
 
 interface StorefrontDesktopNavigationProps {
   navigation: StorefrontNavigationData
@@ -26,39 +27,8 @@ export function DesktopNavigation({
   navigation,
 }: StorefrontDesktopNavigationProps) {
   const pathname = usePathname()
-  const [activeCategorySlug, setActiveCategorySlug] = React.useState(
-    navigation.productCategories[0]?.slug ?? null,
-  )
-  const [activeBrandId, setActiveBrandId] = React.useState<string | null>(
-    navigation.productCategories[0]?.brands[0]?.id ?? null,
-  )
-
-  React.useEffect(() => {
-    if (
-      !navigation.productCategories.some(
-        (item) => item.slug === activeCategorySlug,
-      )
-    ) {
-      setActiveCategorySlug(navigation.productCategories[0]?.slug ?? null)
-    }
-  }, [activeCategorySlug, navigation.productCategories])
-
-  const activeCategory =
-    navigation.productCategories.find(
-      (category) => category.slug === activeCategorySlug,
-    ) ?? navigation.productCategories[0]
-
-  React.useEffect(() => {
-    const nextBrandId = activeCategory?.brands[0]?.id ?? null
-
-    if (!activeCategory?.brands.some((brand) => brand.id === activeBrandId)) {
-      setActiveBrandId(nextBrandId)
-    }
-  }, [activeBrandId, activeCategory])
-
-  const activeBrand =
-    activeCategory?.brands.find((brand) => brand.id === activeBrandId) ??
-    activeCategory?.brands[0]
+  const { activeBrand, activeCategory, selectBrand, selectCategory } =
+    useStorefrontProductNavigation(navigation)
 
   return (
     <div className="flex min-w-0 flex-1 items-center justify-between gap-4">
@@ -83,10 +53,8 @@ export function DesktopNavigation({
                         <button
                           key={category.id}
                           type="button"
-                          onMouseEnter={() =>
-                            setActiveCategorySlug(category.slug)
-                          }
-                          onFocus={() => setActiveCategorySlug(category.slug)}
+                          onMouseEnter={() => selectCategory(category.slug)}
+                          onFocus={() => selectCategory(category.slug)}
                           className={cn(
                             "flex w-full items-center justify-between border-b px-4 py-3.5 text-left text-sm transition-colors",
                             activeCategory?.slug === category.slug
@@ -123,7 +91,9 @@ export function DesktopNavigation({
                               </p>
                             </div>
                             <Link
-                              href={`/products?category=${activeCategory.slug}`}
+                              href={getStorefrontProductsHref({
+                                category: activeCategory.slug,
+                              })}
                               className="shrink-0 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
                             >
                               View all
@@ -141,10 +111,8 @@ export function DesktopNavigation({
                                 <button
                                   key={brand.id}
                                   type="button"
-                                  onMouseEnter={() =>
-                                    setActiveBrandId(brand.id)
-                                  }
-                                  onFocus={() => setActiveBrandId(brand.id)}
+                                  onMouseEnter={() => selectBrand(brand.id)}
+                                  onFocus={() => selectBrand(brand.id)}
                                   className={cn(
                                     "flex w-full items-center justify-between rounded-md px-3 py-2.5 text-left text-sm transition-colors",
                                     activeBrand?.id === brand.id

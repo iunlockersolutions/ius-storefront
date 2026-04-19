@@ -2,10 +2,7 @@
 
 import { ArrowRight, Heart, User } from "lucide-react"
 
-import {
-  type GuestAuthPromptSource,
-  useGuestAuthPrompt,
-} from "@/components/auth/guest-auth-prompt"
+import { useGuestAuthPrompt } from "@/components/auth/guest-auth-prompt"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -17,15 +14,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { routes } from "@/configs/routes"
 
+import { getCurrentStorefrontPathWithQuery } from "./header-utils"
 import { accountLinks } from "./navigation-config"
-
-function getCurrentUrl() {
-  if (typeof window === "undefined") {
-    return "/"
-  }
-
-  return `${window.location.pathname}${window.location.search}`
-}
 
 export function GuestHeaderActions() {
   const { open } = useGuestAuthPrompt()
@@ -41,9 +31,7 @@ export function GuestHeaderActions() {
           open({
             callbackUrl:
               favoritesLink?.href || routes.storefront.favorites.root,
-            source:
-              (favoritesLink?.source as GuestAuthPromptSource | undefined) ||
-              "favorites",
+            source: favoritesLink?.source || "favorites",
           })
         }
       >
@@ -91,7 +79,7 @@ export function GuestHeaderActions() {
         className="hidden sm:inline-flex"
         onClick={() =>
           open({
-            callbackUrl: getCurrentUrl(),
+            callbackUrl: getCurrentStorefrontPathWithQuery(),
             source: "signin",
           })
         }

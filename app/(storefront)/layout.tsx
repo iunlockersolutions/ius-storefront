@@ -7,6 +7,7 @@ import { getEnabledSocialProviderIds } from "@/lib/auth/social-providers"
 
 import { Footer } from "./_components/footer"
 import Header from "./_components/header"
+import { type HeaderUser } from "./_components/header/types"
 
 export default async function StorefrontLayout({
   children,
@@ -14,7 +15,15 @@ export default async function StorefrontLayout({
   children: React.ReactNode
 }) {
   const session = await getServerSession()
-  const isAuthenticated = !!session?.user
+  const user: HeaderUser | undefined = session?.user
+    ? {
+        name: session.user.name,
+        email: session.user.email,
+        image: session.user.image,
+        role: session.user.role,
+      }
+    : undefined
+  const isAuthenticated = !!user
   const socialProviders = getEnabledSocialProviderIds()
 
   return (
@@ -25,7 +34,7 @@ export default async function StorefrontLayout({
           isAuthenticated={isAuthenticated}
           socialProviders={socialProviders}
         >
-          <Header isAuthenticated={isAuthenticated} />
+          <Header user={user} />
           <main className="flex-1">{children}</main>
           <Footer />
         </GuestAuthPromptProvider>

@@ -1,3 +1,4 @@
+import type { LucideIcon } from "lucide-react"
 import {
   Grid3X3,
   Heart,
@@ -8,8 +9,8 @@ import {
   Tag,
   User,
 } from "lucide-react"
-import type { LucideIcon } from "lucide-react"
 
+import { type GuestAuthPromptSource } from "@/components/auth/guest-auth-prompt"
 import { routes } from "@/configs/routes"
 
 type HeaderLink = {
@@ -24,7 +25,7 @@ type MobileHeaderLink = HeaderLink & {
 
 type AccountLink = HeaderLink & {
   icon: LucideIcon
-  source: "favorites" | "orders" | "profile"
+  source: GuestAuthPromptSource
 }
 
 export const mobileRootNavLinks: MobileHeaderLink[] = [

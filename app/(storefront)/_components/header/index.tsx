@@ -5,7 +5,6 @@ import { Heart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { routes } from "@/configs/routes"
-import { getServerSession } from "@/lib/auth/rbac"
 import { getStorefrontNavigationData } from "@/lib/storefront/navigation"
 
 import { CartBadge } from "./cart-badge"
@@ -14,24 +13,15 @@ import { GuestHeaderActions } from "./guest-header-actions"
 import { MobileNavigation } from "./mobile-navigation"
 import ProfileMenu from "./profile-menu"
 import TopBar from "./top-bar"
+import { type HeaderUser } from "./types"
 
 type HeaderProps = {
-  isAuthenticated?: boolean
+  user?: HeaderUser
 }
 
-async function Header({ isAuthenticated = false }: HeaderProps) {
-  const [navigation, session] = await Promise.all([
-    getStorefrontNavigationData(),
-    getServerSession(),
-  ])
-  const user = session?.user
-    ? {
-        name: session.user.name,
-        email: session.user.email,
-        image: session.user.image,
-        role: session.user.role,
-      }
-    : undefined
+async function Header({ user }: HeaderProps) {
+  const navigation = await getStorefrontNavigationData()
+  const isAuthenticated = !!user
 
   return (
     <>
