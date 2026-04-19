@@ -30,7 +30,7 @@ export function useStorefrontProductNavigation(
       )
 
       setSelectedCategorySlug(categorySlug)
-      setSelectedBrandId(nextCategory?.brands[0]?.id ?? null)
+      setSelectedBrandId(nextCategory?.brands[0]?.id ?? "")
     },
     [navigation.productCategories],
   )
