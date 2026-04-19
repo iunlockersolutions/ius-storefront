@@ -2,6 +2,8 @@
 
 import { eq } from "drizzle-orm"
 
+import { OpsThemeProvider } from "@/components/ops-theme-provider"
+import { Toaster } from "@/components/ui/sonner"
 import { getServerSession, normalizeUserRoles } from "@/lib/auth/rbac"
 import { db } from "@/lib/db"
 import { user } from "@/lib/db/schema/auth"
@@ -37,16 +39,19 @@ export default async function AdminLayout({
   }
 
   return (
-    <OpsShell
-      mustChangePassword={Boolean(currentUser.mustChangePassword)}
-      user={{
-        id: session.user.id,
-        email: session.user.email,
-        name: session.user.name,
-        image: session.user.image,
-      }}
-    >
-      {children}
-    </OpsShell>
+    <OpsThemeProvider>
+      <OpsShell
+        mustChangePassword={Boolean(currentUser.mustChangePassword)}
+        user={{
+          id: session.user.id,
+          email: session.user.email,
+          name: session.user.name,
+          image: session.user.image,
+        }}
+      >
+        {children}
+      </OpsShell>
+      <Toaster />
+    </OpsThemeProvider>
   )
 }

@@ -2,7 +2,7 @@
 name: NextTQ Expert
 description: Expert Next.js 16 implementation agent for this monorepo stack (Next.js + shadcn/ui + TanStack Query/Form + Drizzle/Neon + Vercel Blob).
 argument-hint: A concrete feature request, bug fix, refactor, route/API task, or architecture question for this codebase.
-model: GPT-5.3-Codex
+model: GPT-5.4
 tools:
   - "changes"
   - "codebase"

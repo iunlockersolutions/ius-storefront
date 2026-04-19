@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { getActiveCategories } from "@/lib/actions/category"
 
 export const metadata = {
-  title: "Categories | IUS Shop",
+  title: "Categories | EvoluX",
   description: "Browse our product categories",
 }
 

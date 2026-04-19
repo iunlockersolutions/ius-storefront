@@ -29,7 +29,7 @@ interface BankTransferPageProps {
 }
 
 export const metadata = {
-  title: "Bank Transfer Payment | IUS Shop",
+  title: "Bank Transfer Payment | EvoluX",
   description: "Complete your bank transfer payment",
 }
 
@@ -44,7 +44,7 @@ function formatCurrency(amount: string | number): string {
 // Bank details - these would typically come from settings
 const bankDetails = {
   bankName: "Commercial Bank of Ceylon",
-  accountName: "IUS Shop Pvt Ltd",
+  accountName: "EvoluX Pvt Ltd",
   accountNumber: "1234567890",
   branchCode: "001",
   branchName: "Colombo Main",

@@ -2,14 +2,14 @@
   key: string
   label: string
   type:
-    | "text"
-    | "textarea"
-    | "number"
-    | "email"
-    | "tel"
-    | "url"
-    | "select"
-    | "boolean"
+  | "text"
+  | "textarea"
+  | "number"
+  | "email"
+  | "tel"
+  | "url"
+  | "select"
+  | "boolean"
   default: string
   options?: string[]
 }
@@ -32,7 +32,7 @@ export function getSettingCategories(): SettingCategory[] {
           key: "site_name",
           label: "Site Name",
           type: "text",
-          default: "IUS Shop",
+          default: "EvoluX",
         },
         {
           key: "site_description",

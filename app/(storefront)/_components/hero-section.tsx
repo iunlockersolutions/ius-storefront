@@ -16,7 +16,7 @@ interface HeroSectionProps {
 }
 
 export function HeroSection({
-  title = "Welcome to IUS Shop",
+  title = "Welcome to EvoluX",
   subtitle = "Your trusted destination for mobile phones, accessories, and electronics. Quality products at competitive prices.",
   ctaText = "Browse Products",
   ctaLink = "/products",

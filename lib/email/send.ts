@@ -151,11 +151,11 @@ function generateWelcomeEmail(data: WelcomeData): string {
     </head>
     <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 28px;">Welcome to IUS Shop!</h1>
+            <h1 style="color: white; margin: 0; font-size: 28px;">Welcome to EvoluX!</h1>
         </div>
         <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e5e5; border-top: none; border-radius: 0 0 10px 10px;">
             <p style="font-size: 16px;">Hi ${data.name},</p>
-            <p style="font-size: 16px;">Thank you for joining IUS Shop! We're excited to have you on board.</p>
+            <p style="font-size: 16px;">Thank you for joining EvoluX! We're excited to have you on board.</p>
             <p style="font-size: 16px;">You can now:</p>
             <ul style="font-size: 16px;">
                 <li>Browse our wide selection of products</li>
@@ -164,7 +164,7 @@ function generateWelcomeEmail(data: WelcomeData): string {
                 <li>Leave reviews for products you've purchased</li>
             </ul>
             <p style="font-size: 16px;">If you have any questions, feel free to reach out to our support team.</p>
-            <p style="font-size: 16px; margin-top: 30px;">Best regards,<br>The IUS Shop Team</p>
+            <p style="font-size: 16px; margin-top: 30px;">Best regards,<br>The EvoluX Team</p>
         </div>
     </body>
     </html>
@@ -185,7 +185,7 @@ function generateStaffInvitationEmail(data: StaffInvitationData): string {
         </div>
         <div style="background: #ffffff; padding: 30px; border: 1px solid #e5e5e5; border-top: none; border-radius: 0 0 10px 10px;">
             <p style="font-size: 16px;">Hi ${data.name},</p>
-            <p style="font-size: 16px;">${data.invitedByName} has invited you to join the IUS Shop admin team as a <strong>${data.role}</strong>.</p>
+            <p style="font-size: 16px;">${data.invitedByName} has invited you to join the EvoluX admin team as a <strong>${data.role}</strong>.</p>
             
             <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
                 <h3 style="margin-top: 0; color: #1e3a5f;">Your Login Credentials</h3>
@@ -202,7 +202,7 @@ function generateStaffInvitationEmail(data: StaffInvitationData): string {
             </div>
 
             <p style="font-size: 16px; margin-top: 30px;">If you didn't expect this invitation or have any questions, please contact support.</p>
-            <p style="font-size: 16px;">Best regards,<br>The IUS Shop Team</p>
+            <p style="font-size: 16px;">Best regards,<br>The EvoluX Team</p>
         </div>
     </body>
     </html>
@@ -232,7 +232,7 @@ function generatePasswordResetEmail(data: PasswordResetData): string {
             <p style="font-size: 14px; color: #666;">This link will expire in 1 hour for security reasons.</p>
             <p style="font-size: 14px; color: #666;">If you didn't request a password reset, you can safely ignore this email. Your password will remain unchanged.</p>
             
-            <p style="font-size: 16px; margin-top: 30px;">Best regards,<br>The IUS Shop Team</p>
+            <p style="font-size: 16px; margin-top: 30px;">Best regards,<br>The EvoluX Team</p>
         </div>
     </body>
     </html>
@@ -261,7 +261,7 @@ function generatePasswordChangedEmail(data: PasswordChangedData): string {
 
             <p style="font-size: 14px; color: #666;">If you did not make this change, please contact our support team immediately and secure your account.</p>
             
-            <p style="font-size: 16px; margin-top: 30px;">Best regards,<br>The IUS Shop Team</p>
+            <p style="font-size: 16px; margin-top: 30px;">Best regards,<br>The EvoluX Team</p>
         </div>
     </body>
     </html>
@@ -301,7 +301,7 @@ function generatePasswordResetByAdminEmail(
 
             <p style="font-size: 14px; color: #666; margin-top: 20px;">If you did not expect this password reset, please contact support immediately.</p>
             
-            <p style="font-size: 16px; margin-top: 30px;">Best regards,<br>The IUS Shop Team</p>
+            <p style="font-size: 16px; margin-top: 30px;">Best regards,<br>The EvoluX Team</p>
         </div>
     </body>
     </html>

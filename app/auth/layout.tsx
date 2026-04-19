@@ -1,16 +1,20 @@
-﻿/**
- * Auth Layout
- *
- * Centered layout for authentication pages.
- */
+﻿import { ForceLightTheme } from "@/components/force-light-theme"
+import { Toaster } from "@/components/ui/sonner"
+
 export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-neutral-50 px-4 py-12 dark:bg-neutral-900">
-      <div className="w-full max-w-md">{children}</div>
-    </div>
+    <>
+      <ForceLightTheme />
+      <div className="bg-background text-foreground relative min-h-screen overflow-hidden">
+        <div className="relative mx-auto flex min-h-screen w-full container items-center px-6 py-12 sm:px-8 lg:px-10">
+          {children}
+        </div>
+      </div>
+      <Toaster theme="light" />
+    </>
   )
 }

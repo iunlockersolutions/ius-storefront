@@ -13,7 +13,7 @@ import { ProductCard } from "../_components/product-card"
 import { ProductsFilter } from "../_components/products-filter"
 
 export const metadata = {
-  title: "Products | IUS Shop",
+  title: "Products | EvoluX",
   description: "Browse our complete collection of products",
 }
 

@@ -7,7 +7,7 @@ import { getCheckoutSuccessOrder } from "../_actions/get-order-confirmation"
 import { OrderConfirmation } from "../_components/order-confirmation"
 
 export const metadata = {
-  title: "Order Confirmed | IUS Shop",
+  title: "Order Confirmed | EvoluX",
   description: "Your order has been placed successfully",
 }
 

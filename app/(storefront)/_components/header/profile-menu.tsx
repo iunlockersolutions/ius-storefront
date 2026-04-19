@@ -1,9 +1,8 @@
 ﻿"use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 
-import { LogOut, User } from "lucide-react"
+import { LogOut } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -15,21 +14,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { routes } from "@/configs/routes"
-import { clearAuthCookies } from "@/lib/actions/admin-auth"
-import { authClient } from "@/lib/auth-client"
+
+import { accountLinks } from "./navigation-config"
+import { type HeaderUser } from "./types"
+import { useStorefrontSignOut } from "./use-storefront-sign-out"
 
 type ProfileMenuProps = {
-  user: {
-    name?: string | null
-    email: string
-    image?: string | null
-  }
+  user: HeaderUser
 }
 
 function ProfileMenu({ user }: ProfileMenuProps) {
-  const router = useRouter()
-
+  const signOut = useStorefrontSignOut()
   const initials = user?.name
     ? user.name
         .split(" ")
@@ -37,13 +32,6 @@ function ProfileMenu({ user }: ProfileMenuProps) {
         .join("")
         .toUpperCase()
     : user?.email[0]?.toUpperCase() || "U"
-
-  const handleSignOut = async () => {
-    await clearAuthCookies()
-    await authClient.signOut()
-    router.push(routes.storefront.root)
-    router.refresh()
-  }
 
   return (
     <DropdownMenu>
@@ -66,30 +54,22 @@ function ProfileMenu({ user }: ProfileMenuProps) {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link href={routes.storefront.orders.root} className="cursor-pointer">
-            My Orders
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link
-            href={routes.storefront.favorites.root}
-            className="cursor-pointer"
-          >
-            Favorites
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link
-            href={routes.storefront.profile.root}
-            className="cursor-pointer"
-          >
-            <User className="mr-2 size-4" />
-            Profile
-          </Link>
-        </DropdownMenuItem>
+        {accountLinks.map((link) => {
+          const Icon = link.icon
+
+          return (
+            <DropdownMenuItem key={link.href} asChild>
+              <Link href={link.href} className="cursor-pointer">
+                {link.source === "profile" ? (
+                  <Icon className="mr-2 size-4" />
+                ) : null}
+                {link.label}
+              </Link>
+            </DropdownMenuItem>
+          )
+        })}
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
+        <DropdownMenuItem onClick={signOut} className="cursor-pointer">
           <LogOut className="mr-2 size-4" />
           Sign out
         </DropdownMenuItem>
