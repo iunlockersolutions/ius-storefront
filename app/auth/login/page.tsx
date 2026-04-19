@@ -6,8 +6,8 @@ import { getEnabledSocialProviderIds } from "@/lib/auth/social-providers"
 import LoginForm from "./login.form"
 
 export const metadata = {
-  title: "Sign In | IUS Shop",
-  description: "Sign in to your IUS Shop account to continue shopping.",
+  title: "Sign In | EvoluX",
+  description: "Sign in to your EvoluX account to continue shopping.",
 }
 
 type LoginPageProps = {

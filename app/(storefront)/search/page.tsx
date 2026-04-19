@@ -7,7 +7,7 @@ import { SearchFilters } from "./search-filters"
 import { SearchResults } from "./search-results"
 
 export const metadata = {
-  title: "Search | IUS Shop",
+  title: "Search | EvoluX",
   description: "Search products, brands, and categories.",
 }
 

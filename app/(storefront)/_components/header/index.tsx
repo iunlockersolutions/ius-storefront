@@ -42,7 +42,7 @@ async function Header({ isAuthenticated = false }: HeaderProps) {
               className="flex shrink-0 items-center gap-3"
             >
               <span className="text-lg font-semibold tracking-tight">
-                IUS Shop
+                EvoluX
               </span>
             </Link>
 

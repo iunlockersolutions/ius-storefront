@@ -31,7 +31,7 @@ interface OrderDetailPageProps {
 
 export async function generateMetadata({ params }: OrderDetailPageProps) {
   return {
-    title: `Order Details | IUS Shop`,
+    title: `Order Details | EvoluX`,
     description: `View details for your order`,
   }
 }

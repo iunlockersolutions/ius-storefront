@@ -17,6 +17,6 @@ export const isEmailConfigured = Boolean(process.env.RESEND_API_KEY)
  * Default email configuration
  */
 export const emailConfig = {
-  from: process.env.EMAIL_FROM || "IUS Shop <noreply@code-dock.d>",
+  from: process.env.EMAIL_FROM || "EvoluX <noreply@code-dock.d>",
   replyTo: process.env.EMAIL_REPLY_TO || "support@example.com",
 }

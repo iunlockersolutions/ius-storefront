@@ -6,9 +6,9 @@ import { getEnabledSocialProviderIds } from "@/lib/auth/social-providers"
 import RegisterForm from "./register.form"
 
 export const metadata = {
-  title: "Create Account | IUS Shop",
+  title: "Create Account | EvoluX",
   description:
-    "Create an IUS Shop account for faster checkout and order tracking.",
+    "Create an EvoluX account for faster checkout and order tracking.",
 }
 
 type RegisterPageProps = {

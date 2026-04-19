@@ -28,7 +28,7 @@ export async function generateMetadata({ params }: CategoryPageProps) {
   }
 
   return {
-    title: category.metaTitle || `${category.name} | IUS Shop`,
+    title: category.metaTitle || `${category.name} | EvoluX`,
     description:
       category.metaDescription ||
       category.description ||

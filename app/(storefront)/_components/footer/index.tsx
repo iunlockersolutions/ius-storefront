@@ -7,7 +7,7 @@ export function Footer() {
         <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
           {/* Brand */}
           <div>
-            <h3 className="text-lg font-bold">IUS Shop</h3>
+            <h3 className="text-lg font-bold">EvoluX</h3>
             <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
               Your trusted destination for mobile phones, accessories, and
               electronics.
@@ -110,7 +110,7 @@ export function Footer() {
 
         {/* Copyright */}
         <div className="mt-8 border-t pt-8 text-center text-sm text-neutral-600 dark:text-neutral-400">
-          <p>Â© {new Date().getFullYear()} IUS Shop. All rights reserved.</p>
+          <p>Â© {new Date().getFullYear()} EvoluX. All rights reserved.</p>
         </div>
       </div>
     </footer>

@@ -17,17 +17,17 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "IUS Shop - Electronics Store",
-    template: "%s | IUS Shop",
+    default: "EvoluX - Electronics Store",
+    template: "%s | EvoluX",
   },
   description:
     "Your trusted destination for mobile phones, accessories, and electronics.",
   keywords: ["electronics", "mobile phones", "accessories", "e-commerce"],
-  authors: [{ name: "IUS Shop" }],
+  authors: [{ name: "EvoluX" }],
   openGraph: {
     type: "website",
     locale: "en_US",
-    siteName: "IUS Shop",
+    siteName: "EvoluX",
   },
 }
 

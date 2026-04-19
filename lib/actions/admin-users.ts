@@ -196,7 +196,7 @@ export async function createStaffUser(input: CreateStaffInput) {
     await sendEmail({
       to: input.email,
       template: "staff-invitation",
-      subject: "You've been invited to join IUS Shop",
+      subject: "You've been invited to join EvoluX",
       data: {
         name: input.name,
         email: input.email,

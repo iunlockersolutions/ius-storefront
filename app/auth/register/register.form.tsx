@@ -77,7 +77,7 @@ function RegisterForm({ callbackUrl, socialProviders }: RegisterFormProps) {
 
   return (
     <AuthContainer
-      title="Create your IUS Shop account"
+      title="Create your EvoluX account"
       description="Save carts, track orders, and check out faster for phones, accessories, and everyday electronics."
     >
       <AuthContainerContent>

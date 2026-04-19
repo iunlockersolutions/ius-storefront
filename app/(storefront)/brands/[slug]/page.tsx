@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: BrandPageProps) {
   }
 
   return {
-    title: brand.metaTitle || `${brand.name} | IUS Shop`,
+    title: brand.metaTitle || `${brand.name} | EvoluX`,
     description:
       brand.metaDescription ||
       brand.description ||
