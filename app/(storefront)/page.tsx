@@ -1,69 +1,98 @@
-﻿import {
+﻿import { getActiveBrands } from "@/lib/actions/brand"
+import {
   getBestSellers,
   getDealProducts,
   getFeaturedCategories,
   getFeaturedProducts,
   getNewArrivals,
+  getTopReviews,
 } from "@/lib/actions/storefront"
 
-import { DealsSection } from "./_components/deals-section"
-import { FeaturedCategories } from "./_components/featured-categories"
-import { HeroSection } from "./_components/hero-section"
-import { NewsletterSection } from "./_components/newsletter-section"
-import { ProductGridSection } from "./_components/product-grid-section"
+import { BestSellersSection } from "./_components/home/best-sellers-section"
+import { BrandsSection } from "./_components/home/brands-section"
+import { CategoriesSection } from "./_components/home/categories-section"
+import { ContactSection } from "./_components/home/contact-section"
+import { DealsSection } from "./_components/home/deals-section"
+import { FeaturedProductsSection } from "./_components/home/featured-products-section"
+import { HeroSection } from "./_components/home/hero-section"
+import { NewArrivalsSection } from "./_components/home/new-arrivals-section"
+import { NewsletterSection } from "./_components/home/newsletter-section"
+import {
+  PromoFreeDelivery,
+  PromoTradeIn,
+} from "./_components/home/promo-banners-section"
+import { ReviewsSection } from "./_components/home/reviews-section"
+import { StoreInfoSection } from "./_components/home/store-info-section"
 
 export const revalidate = 1800
 
 export default async function HomePage() {
-  const [featuredProducts, newArrivals, bestSellers, categories, deals] =
-    await Promise.all([
-      getFeaturedProducts(8),
-      getNewArrivals(8),
-      getBestSellers(8),
-      getFeaturedCategories(6),
-      getDealProducts(4),
-    ])
+  const [
+    bestSellers,
+    categories,
+    featuredProducts,
+    deals,
+    brands,
+    newArrivals,
+    topReviews,
+  ] = await Promise.all([
+    getBestSellers(10),
+    getFeaturedCategories(8),
+    getFeaturedProducts(8),
+    getDealProducts(10),
+    getActiveBrands({ failSoft: true }),
+    getNewArrivals(10),
+    getTopReviews(6),
+  ])
+
+  // Map brands to the shape BrandsSection expects
+  const brandsList = brands.map((b) => ({
+    id: b.id,
+    name: b.name,
+    slug: b.slug,
+    logo: b.logo,
+    productCount: b.productCount,
+  }))
 
   return (
     <div className="flex flex-col">
-      <HeroSection
-        title="Welcome to EvoluX"
-        subtitle="Your trusted destination for mobile phones, accessories, and electronics. Quality products at competitive prices."
-        ctaText="Browse Products"
-        ctaLink="/products"
-        secondaryCtaText="View Categories"
-        secondaryCtaLink="/categories"
-      />
+      {/* 1. Hero carousel */}
+      <HeroSection />
 
-      <FeaturedCategories categories={categories} />
+      {/* 2. Shop by Category — compact icon strip */}
+      <CategoriesSection categories={categories} />
 
-      <ProductGridSection
-        title="Featured Products"
-        subtitle="Handpicked selection of our best products"
-        products={featuredProducts}
-        viewAllLink="/products?featured=true"
-        viewAllText="View All Featured"
-      />
+      {/* 3. Best Sellers — horizontal scroll */}
+      <BestSellersSection products={bestSellers} />
 
-      {deals.length > 0 && <DealsSection products={deals} />}
+      {/* ── Promo: Trade In ── */}
+      <PromoTradeIn />
 
-      <ProductGridSection
-        title="New Arrivals"
-        subtitle="Check out our latest additions"
-        products={newArrivals}
-        viewAllLink="/products?sort=newest"
-        viewAllText="View All New"
-        className="bg-muted/30"
-      />
+      {/* 4. New Arrivals — horizontal scroll */}
+      <NewArrivalsSection products={newArrivals} />
 
-      <ProductGridSection
-        title="Best Sellers"
-        subtitle="Customer favorites and top-rated products"
-        products={bestSellers}
-        viewAllLink="/products?sort=popular"
-        viewAllText="View All Best Sellers"
-      />
+      {/* 5. Featured Products grid */}
+      <FeaturedProductsSection products={featuredProducts} />
 
+      {/* ── Promo: Free Delivery ── */}
+      <PromoFreeDelivery />
+
+      {/* 6. Deals & Promotions — dark section */}
+      <DealsSection products={deals} />
+
+      {/* 7. Shop by Brand */}
+      <BrandsSection brands={brandsList} />
+
+      {/* 8. Customer Reviews */}
+      <ReviewsSection reviews={topReviews} />
+
+      {/* 9. Store info — Ways to Pay, Delivery, Collections */}
+      <StoreInfoSection />
+
+      {/* 10. Contact Us */}
+      <ContactSection />
+
+      {/* 11. Newsletter */}
       <NewsletterSection />
     </div>
   )
