@@ -32,7 +32,9 @@ async function Header({ user }: HeaderProps) {
             href={routes.storefront.root}
             className="flex shrink-0 items-center gap-3"
           >
-            <span className="text-lg font-semibold tracking-tight">EvoluX</span>
+            <span className="text-xl font-semibold tracking-tight">
+              Evolu<span className="text-indigo-600 font-bold">X</span>
+            </span>
           </Link>
 
           <div className="hidden min-w-0 flex-1 lg:flex">
