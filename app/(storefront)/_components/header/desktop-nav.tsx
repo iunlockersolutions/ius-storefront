@@ -6,6 +6,7 @@ import { Search, ShoppingBag, Tag } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 
 import { routes } from "@/configs/routes"
+import { cn } from "@/lib/utils"
 
 import { appleCatalog } from "./catalog"
 import { BagFlyout, ProductFlyout, SearchFlyout } from "./flyout-panels"
@@ -49,10 +50,15 @@ export function DesktopNav({ cartCount }: DesktopNavProps) {
         onPointerEnter={cancelScheduled}
         onPointerLeave={scheduleClose}
       >
-        <div className="relative border-b border-neutral-200 bg-white shadow-[0_1px_0_rgb(0_0_0/0.04)]">
+        <div
+          className={cn(
+            "relative border-b bg-white transition-colors",
+            hasAny ? "border-transparent" : "border-black/5",
+          )}
+        >
           <nav
             aria-label="Primary"
-            className="mx-auto flex h-14 w-full max-w-7xl items-center gap-4 px-6 text-sm"
+            className="mx-auto flex h-16 w-full max-w-7xl items-center gap-4 px-6 text-sm"
           >
             {/* Logo */}
             <Link
@@ -60,15 +66,6 @@ export function DesktopNav({ cartCount }: DesktopNavProps) {
               className="flex shrink-0 items-center text-lg font-semibold tracking-tight text-neutral-900"
             >
               Evolu<span className="text-indigo-600">X</span>
-            </Link>
-
-            {/* Deals pill */}
-            <Link
-              href={routes.storefront.deals.root}
-              className="hidden shrink-0 items-center gap-1.5 rounded-full bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-500 xl:inline-flex"
-            >
-              <Tag className="size-3.5" />
-              Deals
             </Link>
 
             {/* Category triggers */}
@@ -114,35 +111,43 @@ export function DesktopNav({ cartCount }: DesktopNavProps) {
               })}
             </ul>
 
-            {/* Search pill */}
-            <button
-              type="button"
-              aria-label="Search products"
-              aria-expanded={openKind === "search"}
-              onClick={() =>
-                openKind === "search" ? closeAll() : openSearch()
-              }
-              className="hidden h-9 w-56 shrink-0 items-center gap-2 rounded-full border border-neutral-200 bg-neutral-50 px-3.5 text-sm text-neutral-500 transition hover:border-neutral-300 hover:text-neutral-700 md:inline-flex"
-            >
-              <Search className="size-4" />
-              <span>Search products…</span>
-            </button>
+            {/* Right-side action group: Deals pill · Search · Bag */}
+            <div className="flex shrink-0 items-center gap-1">
+              <Link
+                href={routes.storefront.deals.root}
+                className="mr-1 inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-500"
+              >
+                <Tag className="size-3.5" />
+                Deals
+              </Link>
 
-            {/* Bag */}
-            <button
-              type="button"
-              aria-label={`Bag (${cartCount} items)`}
-              aria-expanded={openKind === "bag"}
-              onClick={() => (openKind === "bag" ? closeAll() : openBag())}
-              className="relative shrink-0 p-2 text-neutral-800 hover:text-neutral-950"
-            >
-              <ShoppingBag className="size-5" />
-              {cartCount > 0 ? (
-                <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-600 px-1 text-[9px] font-medium text-white">
-                  {cartCount > 99 ? "99+" : cartCount}
-                </span>
-              ) : null}
-            </button>
+              <button
+                type="button"
+                aria-label="Search"
+                aria-expanded={openKind === "search"}
+                onClick={() =>
+                  openKind === "search" ? closeAll() : openSearch()
+                }
+                className="p-2 text-neutral-800 hover:text-neutral-950"
+              >
+                <Search className="size-5" />
+              </button>
+
+              <button
+                type="button"
+                aria-label={`Bag (${cartCount} items)`}
+                aria-expanded={openKind === "bag"}
+                onClick={() => (openKind === "bag" ? closeAll() : openBag())}
+                className="relative p-2 text-neutral-800 hover:text-neutral-950"
+              >
+                <ShoppingBag className="size-5" />
+                {cartCount > 0 ? (
+                  <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-600 px-1 text-[9px] font-medium text-white">
+                    {cartCount > 99 ? "99+" : cartCount}
+                  </span>
+                ) : null}
+              </button>
+            </div>
           </nav>
         </div>
 
@@ -154,7 +159,7 @@ export function DesktopNav({ cartCount }: DesktopNavProps) {
               animate={{ height: "auto" }}
               exit={{ height: 0 }}
               transition={{ duration: FLYOUT_DURATION, ease: APPLE_EASE }}
-              className="absolute inset-x-0 top-full overflow-hidden border-b border-neutral-200 bg-white shadow-[0_8px_24px_rgb(0_0_0/0.06)]"
+              className="absolute inset-x-0 top-full overflow-hidden border-b border-black/5 bg-white"
               onPointerEnter={cancelScheduled}
               onPointerLeave={scheduleClose}
             >

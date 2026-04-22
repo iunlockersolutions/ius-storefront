@@ -35,81 +35,78 @@ export function ProductFlyout({
   category: AppleCatalogCategory
   onNavigate: () => void
 }) {
-  const featured = category.models.slice(0, 3)
-  const remainingModels = category.models.slice(3)
+  const featured = category.models.filter((m) => m.featured)
+  const rest = category.models.filter((m) => !m.featured)
+  const cardCount = featured.length
 
   return (
     <motion.div
-      className="mx-auto grid w-full max-w-7xl grid-cols-[1.4fr_1fr_1fr_1fr] gap-8 px-6 pt-10 pb-14"
+      className="mx-auto flex w-full max-w-6xl flex-col gap-12 px-8 pt-6 pb-10"
       variants={listVariants}
       initial="hidden"
       animate="show"
     >
-      <div>
-        <motion.p
-          variants={itemVariants}
-          className="mb-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-indigo-600"
-        >
-          Featured
-        </motion.p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      {cardCount > 0 ? (
+        <div className="flex flex-wrap gap-3">
           {featured.map((model) => (
-            <motion.div key={model.name} variants={itemVariants}>
+            <motion.div
+              key={model.name}
+              variants={itemVariants}
+              className="w-44 shrink-0"
+            >
               <Link
                 href={model.href}
                 onClick={onNavigate}
-                className="group block overflow-hidden rounded-xl border border-neutral-200 bg-white transition hover:-translate-y-0.5 hover:shadow-md"
+                className="block overflow-hidden rounded-lg border border-neutral-200/70 bg-white transition-colors hover:border-neutral-300"
               >
                 <div
                   className={cn(
-                    "aspect-[4/3] w-full bg-linear-to-br",
+                    "h-38.5 w-full bg-linear-to-br",
                     model.gradient ?? "from-neutral-200 to-neutral-400",
                   )}
                 />
-                <div className="px-3 py-2.5">
-                  <p className="text-sm font-semibold tracking-tight text-neutral-900">
+                <div className="px-2.5 py-2">
+                  <p className="truncate text-xs font-semibold tracking-tight text-neutral-900">
                     {model.name}
                   </p>
                   {model.priceFrom ? (
-                    <p className="mt-0.5 text-xs font-medium text-indigo-600">
+                    <p className="mt-0.5 text-[11px] font-medium text-indigo-600">
                       {formatPriceFrom(model.priceFrom)}
                     </p>
-                  ) : (
-                    <p className="mt-0.5 text-xs text-neutral-500 line-clamp-1">
-                      {model.tagline}
-                    </p>
-                  )}
+                  ) : null}
                 </div>
               </Link>
             </motion.div>
           ))}
         </div>
+      ) : null}
+
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+        <ColumnLinks
+          heading={`Explore ${category.label}`}
+          items={[
+            {
+              label: `Explore All ${category.label}`,
+              href: category.exploreAllHref,
+              bold: true,
+            },
+            ...rest.map((m) => ({ label: m.name, href: m.href })),
+          ]}
+          onNavigate={onNavigate}
+        />
+
+        <ColumnLinks
+          heading={`Shop ${category.label}`}
+          items={category.shopLinks}
+          onNavigate={onNavigate}
+        />
+
+        <ColumnLinks
+          heading={`More from ${category.label}`}
+          items={category.moreLinks}
+          onNavigate={onNavigate}
+        />
       </div>
-
-      <ColumnLinks
-        heading={`Explore ${category.label}`}
-        items={[
-          {
-            label: `Explore All ${category.label}`,
-            href: category.exploreAllHref,
-            bold: true,
-          },
-          ...remainingModels.map((m) => ({ label: m.name, href: m.href })),
-        ]}
-        onNavigate={onNavigate}
-      />
-
-      <ColumnLinks
-        heading={`Shop ${category.label}`}
-        items={category.shopLinks}
-        onNavigate={onNavigate}
-      />
-
-      <ColumnLinks
-        heading={`More from ${category.label}`}
-        items={category.moreLinks}
-        onNavigate={onNavigate}
-      />
     </motion.div>
   )
 }
@@ -128,19 +125,20 @@ function ColumnLinks({
     <div>
       <motion.p
         variants={itemVariants}
-        className="mb-4 border-b border-neutral-200 pb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-500"
+        className="mb-5 text-sm font-medium text-neutral-500"
       >
         {heading}
       </motion.p>
-      <ul className="space-y-2.5">
+      <ul className="space-y-3.5">
         {items.map((item) => (
           <motion.li key={item.label + item.href} variants={itemVariants}>
             <Link
               href={item.href}
               onClick={onNavigate}
               className={cn(
-                "block text-sm text-neutral-800 hover:text-indigo-600",
-                item.bold && "font-semibold text-neutral-900",
+                "block text-[15px] text-neutral-800 transition-colors hover:text-indigo-600",
+                item.bold &&
+                  "text-lg font-semibold tracking-tight text-neutral-900",
               )}
             >
               {item.label}
@@ -187,7 +185,7 @@ export function SearchFlyout({ onClose }: { onClose: () => void }) {
 
   return (
     <motion.div
-      className="mx-auto w-full max-w-5xl px-6 pt-10 pb-14"
+      className="mx-auto w-full max-w-5xl px-8 pt-16 pb-20"
       variants={listVariants}
       initial="hidden"
       animate="show"
@@ -195,7 +193,7 @@ export function SearchFlyout({ onClose }: { onClose: () => void }) {
       <motion.form
         variants={itemVariants}
         onSubmit={handleSubmit}
-        className="flex items-center gap-3 rounded-full border border-neutral-200 bg-white px-5 py-3 shadow-sm"
+        className="flex items-center gap-4 rounded-2xl border border-black/10 bg-white px-6 py-5"
       >
         <Search className="size-5 text-neutral-500" />
         <input
@@ -204,7 +202,7 @@ export function SearchFlyout({ onClose }: { onClose: () => void }) {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search products, brands, and more"
           aria-label="Search"
-          className="flex-1 bg-transparent text-base text-neutral-900 placeholder:text-neutral-400 focus:outline-none"
+          className="flex-1 bg-transparent text-lg text-neutral-900 placeholder:text-neutral-400 focus:outline-none"
         />
         {query.trim() ? (
           <button
@@ -217,10 +215,10 @@ export function SearchFlyout({ onClose }: { onClose: () => void }) {
         ) : null}
       </motion.form>
 
-      <div className="mt-8">
+      <div className="mt-10">
         <motion.p
           variants={itemVariants}
-          className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-500"
+          className="mb-3 text-sm font-medium text-neutral-500"
         >
           Popular searches
         </motion.p>
@@ -230,7 +228,7 @@ export function SearchFlyout({ onClose }: { onClose: () => void }) {
               <Link
                 href={link.href}
                 onClick={onClose}
-                className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3.5 py-1.5 text-sm text-neutral-800 hover:border-indigo-300 hover:text-indigo-600"
+                className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-3.5 py-1.5 text-sm text-neutral-800 hover:border-indigo-300 hover:text-indigo-600"
               >
                 {link.label}
               </Link>
@@ -246,7 +244,7 @@ type BagPreviewItem = {
   id: string
   name: string
   variant: string
-  priceCents: number
+  priceLkr: number
   quantity: number
   gradient: string
 }
@@ -257,7 +255,7 @@ const PREVIEW_ITEMS: BagPreviewItem[] = [
     id: "preview-iphone-17-pro",
     name: "iPhone 17 Pro",
     variant: "256GB · Titanium",
-    priceCents: 1199_00,
+    priceLkr: 360000,
     quantity: 1,
     gradient: "from-stone-500 to-stone-800",
   },
@@ -265,14 +263,14 @@ const PREVIEW_ITEMS: BagPreviewItem[] = [
     id: "preview-airpods-pro-2",
     name: "AirPods Pro 2",
     variant: "USB-C",
-    priceCents: 249_00,
+    priceLkr: 75000,
     quantity: 1,
     gradient: "from-neutral-300 to-neutral-500",
   },
 ]
 
-function formatDollars(cents: number) {
-  return `$${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+function formatLkr(value: number) {
+  return `LKR ${value.toLocaleString("en-US")}`
 }
 
 export function BagFlyout({
@@ -284,27 +282,25 @@ export function BagFlyout({
 }) {
   const hasItems = cartCount > 0
   const items = hasItems ? PREVIEW_ITEMS.slice(0, Math.min(cartCount, 3)) : []
-  const subtotalCents = items.reduce(
-    (sum, item) => sum + item.priceCents * item.quantity,
+  const subtotalLkr = items.reduce(
+    (sum, item) => sum + item.priceLkr * item.quantity,
     0,
   )
 
   return (
     <motion.div
-      className="mx-auto w-full max-w-xl px-6 pt-10 pb-14"
+      className="mx-auto w-full max-w-xl px-8 pt-14 pb-20"
       variants={listVariants}
       initial="hidden"
       animate="show"
     >
       <motion.div
         variants={itemVariants}
-        className="mb-4 flex items-center justify-between"
+        className="mb-5 flex items-center justify-between"
       >
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-indigo-600">
-            Your bag
-          </p>
-          <p className="mt-1 text-lg font-semibold tracking-tight text-neutral-900">
+          <p className="text-sm font-medium text-neutral-500">Your bag</p>
+          <p className="mt-1 text-xl font-semibold tracking-tight text-neutral-900">
             {hasItems
               ? `${cartCount} ${cartCount === 1 ? "item" : "items"}`
               : "Your bag is empty"}
@@ -315,7 +311,7 @@ export function BagFlyout({
 
       {hasItems ? (
         <>
-          <ul className="divide-y divide-neutral-200 rounded-xl border border-neutral-200 bg-white">
+          <ul className="divide-y divide-neutral-200 rounded-2xl border border-black/10 bg-white">
             {items.map((item) => (
               <motion.li
                 key={item.id}
@@ -346,7 +342,7 @@ export function BagFlyout({
                   </div>
                 </div>
                 <p className="shrink-0 text-sm font-semibold text-neutral-900">
-                  {formatDollars(item.priceCents * item.quantity)}
+                  {formatLkr(item.priceLkr * item.quantity)}
                 </p>
               </motion.li>
             ))}
@@ -358,7 +354,7 @@ export function BagFlyout({
           >
             <span className="text-neutral-600">Subtotal</span>
             <span className="font-semibold text-neutral-900">
-              {formatDollars(subtotalCents)}
+              {formatLkr(subtotalLkr)}
             </span>
           </motion.div>
 
@@ -369,14 +365,14 @@ export function BagFlyout({
             <Link
               href={routes.storefront.cart.root}
               onClick={onNavigate}
-              className="inline-flex h-10 items-center justify-center rounded-full border border-neutral-300 text-sm font-medium text-neutral-900 hover:border-neutral-400"
+              className="inline-flex h-11 items-center justify-center rounded-full border border-neutral-300 text-sm font-medium text-neutral-900 hover:border-neutral-400"
             >
               View bag
             </Link>
             <Link
               href={routes.storefront.cart.root}
               onClick={onNavigate}
-              className="inline-flex h-10 items-center justify-center rounded-full bg-indigo-600 text-sm font-medium text-white hover:bg-indigo-500"
+              className="inline-flex h-11 items-center justify-center rounded-full bg-indigo-600 text-sm font-medium text-white hover:bg-indigo-500"
             >
               Checkout
             </Link>
@@ -391,7 +387,7 @@ export function BagFlyout({
           <Link
             href={routes.storefront.prodcuts.root}
             onClick={onNavigate}
-            className="mt-4 inline-flex h-10 items-center justify-center rounded-full bg-indigo-600 px-5 text-sm font-medium text-white hover:bg-indigo-500"
+            className="mt-4 inline-flex h-11 items-center justify-center rounded-full bg-indigo-600 px-6 text-sm font-medium text-white hover:bg-indigo-500"
           >
             Shop the store
           </Link>
@@ -400,9 +396,9 @@ export function BagFlyout({
 
       <motion.div
         variants={itemVariants}
-        className="mt-6 border-t border-neutral-200 pt-4 text-xs text-neutral-500"
+        className="mt-7 border-t border-neutral-200 pt-4 text-xs text-neutral-500"
       >
-        <p>Free shipping over $50 · 30-day returns · 0% financing</p>
+        <p>Free shipping over LKR 15,000 · 30-day returns · 0% financing</p>
       </motion.div>
     </motion.div>
   )

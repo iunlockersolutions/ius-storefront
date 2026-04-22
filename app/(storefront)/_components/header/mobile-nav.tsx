@@ -261,7 +261,7 @@ function MobileSearchBody({ onClose }: { onClose: () => void }) {
     <div className="flex-1 overflow-y-auto px-4 pt-5 pb-12">
       <form
         onSubmit={handleSubmit}
-        className="flex items-center gap-2.5 rounded-full border border-neutral-200 bg-neutral-50 px-4 py-2.5"
+        className="flex items-center gap-3 rounded-2xl border border-black/10 bg-white px-5 py-4"
       >
         <Search className="size-5 text-neutral-500" />
         <input
@@ -270,12 +270,12 @@ function MobileSearchBody({ onClose }: { onClose: () => void }) {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search products, brands, and more"
           aria-label="Search"
-          className="flex-1 bg-transparent text-base text-neutral-900 placeholder:text-neutral-400 focus:outline-none"
+          className="flex-1 bg-transparent text-lg text-neutral-900 placeholder:text-neutral-400 focus:outline-none"
         />
       </form>
 
       <div className="mt-8">
-        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-500">
+        <p className="mb-3 text-sm font-medium text-neutral-500">
           Popular searches
         </p>
         <div className="flex flex-wrap gap-2">

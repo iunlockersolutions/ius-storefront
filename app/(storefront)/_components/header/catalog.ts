@@ -8,6 +8,7 @@ export type AppleCatalogModel = {
   priceFrom?: number
   gradient?: string
   tagline?: string
+  featured?: boolean
 }
 
 export type AppleCatalogCategory = {
@@ -53,18 +54,21 @@ export const appleCatalog: AppleCatalogCategory[] = [
         href: routes.storefront.prodcuts.root,
         tagline: "Newest arrivals across every lineup.",
         gradient: "from-indigo-500 to-purple-500",
+        featured: true,
       },
       {
         name: "Refurbished",
         href: `${routes.storefront.prodcuts.root}?condition=refurbished`,
         tagline: "Certified pre-owned with warranty.",
         gradient: "from-emerald-500 to-teal-500",
+        featured: true,
       },
       {
         name: "Gift Cards",
         href: routes.storefront.prodcuts.root,
         tagline: "The gift that always fits.",
         gradient: "from-rose-500 to-pink-500",
+        featured: true,
       },
     ],
     shopLinks: [
@@ -90,43 +94,41 @@ export const appleCatalog: AppleCatalogCategory[] = [
       {
         name: "MacBook Pro",
         href: `${macHref}&model=macbook-pro`,
-        priceFrom: 1599,
-        tagline: "Supercharged by M4 Pro & Max.",
+        priceFrom: 480000,
         gradient: "from-slate-700 to-slate-900",
+        featured: true,
       },
       {
         name: "MacBook Air",
         href: `${macHref}&model=macbook-air`,
-        priceFrom: 1099,
-        tagline: "Strikingly thin. Seriously powerful.",
+        priceFrom: 330000,
         gradient: "from-sky-400 to-blue-600",
+        featured: true,
       },
       {
         name: "iMac",
         href: `${macHref}&model=imac`,
-        priceFrom: 1299,
-        tagline: "Inspiration, in 24 inches.",
+        priceFrom: 390000,
         gradient: "from-pink-400 to-rose-500",
+        featured: true,
       },
       {
         name: "Mac mini",
         href: `${macHref}&model=mac-mini`,
-        priceFrom: 599,
-        tagline: "Desktop power. Pint-sized.",
+        priceFrom: 180000,
         gradient: "from-zinc-400 to-zinc-600",
+        featured: true,
       },
       {
         name: "Mac Studio",
         href: `${macHref}&model=mac-studio`,
-        priceFrom: 1999,
-        tagline: "Studio-grade performance.",
+        priceFrom: 600000,
         gradient: "from-gray-500 to-gray-700",
       },
       {
         name: "Mac Pro",
         href: `${macHref}&model=mac-pro`,
-        priceFrom: 6999,
-        tagline: "The ultimate pro workstation.",
+        priceFrom: 2100000,
         gradient: "from-neutral-700 to-neutral-900",
       },
     ],
@@ -145,30 +147,30 @@ export const appleCatalog: AppleCatalogCategory[] = [
       {
         name: "iPad Pro",
         href: `${ipadHref}&model=ipad-pro`,
-        priceFrom: 999,
-        tagline: "Unbelievably thin. Incredibly powerful.",
+        priceFrom: 300000,
         gradient: "from-slate-600 to-slate-800",
+        featured: true,
       },
       {
         name: "iPad Air",
         href: `${ipadHref}&model=ipad-air`,
-        priceFrom: 599,
-        tagline: "Light. Bright. Full of might.",
+        priceFrom: 180000,
         gradient: "from-purple-400 to-indigo-600",
+        featured: true,
       },
       {
         name: "iPad",
         href: `${ipadHref}&model=ipad`,
-        priceFrom: 349,
-        tagline: "Colorfully capable.",
+        priceFrom: 105000,
         gradient: "from-amber-400 to-orange-500",
+        featured: true,
       },
       {
         name: "iPad mini",
         href: `${ipadHref}&model=ipad-mini`,
-        priceFrom: 499,
-        tagline: "Mega power. Mini sized.",
+        priceFrom: 150000,
         gradient: "from-cyan-400 to-blue-500",
+        featured: true,
       },
     ],
     shopLinks: [
@@ -187,45 +189,49 @@ export const appleCatalog: AppleCatalogCategory[] = [
     exploreAllHref: iphoneHref,
     models: [
       {
+        name: "iPhone 17 Pro Max",
+        href: `${iphoneHref}&model=iphone-17-pro-max`,
+        priceFrom: 420000,
+        gradient: "from-stone-600 to-stone-900",
+        featured: true,
+      },
+      {
         name: "iPhone 17 Pro",
         href: `${iphoneHref}&model=iphone-17-pro`,
-        priceFrom: 1199,
-        tagline: "Titanium. Thinnest borders ever.",
+        priceFrom: 360000,
         gradient: "from-stone-500 to-stone-800",
+        featured: true,
+      },
+      {
+        name: "iPhone 17 Air",
+        href: `${iphoneHref}&model=iphone-17-air`,
+        priceFrom: 300000,
+        gradient: "from-sky-300 to-cyan-500",
+        featured: true,
       },
       {
         name: "iPhone 17",
         href: `${iphoneHref}&model=iphone-17`,
-        priceFrom: 899,
-        tagline: "Brilliant display. Powerful chip.",
+        priceFrom: 270000,
         gradient: "from-blue-400 to-indigo-600",
-      },
-      {
-        name: "iPhone Air",
-        href: `${iphoneHref}&model=iphone-air`,
-        priceFrom: 999,
-        tagline: "Impossibly thin. Remarkably capable.",
-        gradient: "from-sky-300 to-cyan-500",
+        featured: true,
       },
       {
         name: "iPhone 16 Pro",
         href: `${iphoneHref}&model=iphone-16-pro`,
-        priceFrom: 999,
-        tagline: "Built for Apple Intelligence.",
+        priceFrom: 300000,
         gradient: "from-zinc-600 to-zinc-900",
       },
       {
         name: "iPhone 16",
         href: `${iphoneHref}&model=iphone-16`,
-        priceFrom: 799,
-        tagline: "Hello, Apple Intelligence.",
+        priceFrom: 240000,
         gradient: "from-pink-400 to-rose-500",
       },
       {
         name: "iPhone 15",
         href: `${iphoneHref}&model=iphone-15`,
-        priceFrom: 599,
-        tagline: "Dynamic. Bright. Capable.",
+        priceFrom: 180000,
         gradient: "from-violet-400 to-purple-600",
       },
     ],
@@ -247,23 +253,23 @@ export const appleCatalog: AppleCatalogCategory[] = [
       {
         name: "Apple Watch Ultra 2",
         href: `${watchHref}&model=watch-ultra-2`,
-        priceFrom: 799,
-        tagline: "Adventure awaits.",
+        priceFrom: 240000,
         gradient: "from-orange-500 to-amber-600",
+        featured: true,
       },
       {
         name: "Apple Watch Series 10",
         href: `${watchHref}&model=watch-series-10`,
-        priceFrom: 399,
-        tagline: "Thinstant classic.",
+        priceFrom: 120000,
         gradient: "from-slate-400 to-slate-600",
+        featured: true,
       },
       {
         name: "Apple Watch SE",
         href: `${watchHref}&model=watch-se`,
-        priceFrom: 249,
-        tagline: "A great deal to love.",
+        priceFrom: 75000,
         gradient: "from-emerald-400 to-green-600",
+        featured: true,
       },
     ],
     shopLinks: [
@@ -283,23 +289,23 @@ export const appleCatalog: AppleCatalogCategory[] = [
       {
         name: "AirPods Pro 2",
         href: `${airpodsHref}&model=airpods-pro-2`,
-        priceFrom: 249,
-        tagline: "Adaptive Audio. Now playing.",
+        priceFrom: 75000,
         gradient: "from-neutral-300 to-neutral-500",
+        featured: true,
       },
       {
         name: "AirPods 4",
         href: `${airpodsHref}&model=airpods-4`,
-        priceFrom: 129,
-        tagline: "Iconic. Now supersonic.",
+        priceFrom: 39000,
         gradient: "from-zinc-200 to-zinc-400",
+        featured: true,
       },
       {
         name: "AirPods Max",
         href: `${airpodsHref}&model=airpods-max`,
-        priceFrom: 549,
-        tagline: "A symphony of sound.",
+        priceFrom: 165000,
         gradient: "from-purple-300 to-fuchsia-500",
+        featured: true,
       },
     ],
     shopLinks: commonShopLinks(airpodsHref, "AirPods"),
@@ -316,23 +322,23 @@ export const appleCatalog: AppleCatalogCategory[] = [
       {
         name: "Apple TV 4K",
         href: `${tvHomeHref}&model=apple-tv-4k`,
-        priceFrom: 129,
-        tagline: "Cinematic at home.",
+        priceFrom: 39000,
         gradient: "from-gray-700 to-gray-900",
+        featured: true,
       },
       {
         name: "HomePod",
         href: `${tvHomeHref}&model=homepod`,
-        priceFrom: 299,
-        tagline: "Profound sound.",
+        priceFrom: 90000,
         gradient: "from-indigo-400 to-violet-600",
+        featured: true,
       },
       {
         name: "HomePod mini",
         href: `${tvHomeHref}&model=homepod-mini`,
-        priceFrom: 99,
-        tagline: "Mini in size. Mighty in sound.",
+        priceFrom: 30000,
         gradient: "from-teal-400 to-cyan-600",
+        featured: true,
       },
     ],
     shopLinks: commonShopLinks(tvHomeHref, "TV & Home"),
@@ -348,24 +354,28 @@ export const appleCatalog: AppleCatalogCategory[] = [
         href: `${accessoriesHref}&for=mac`,
         tagline: "Keyboards, mice, trackpads.",
         gradient: "from-slate-400 to-slate-600",
+        featured: true,
       },
       {
         name: "iPad Accessories",
         href: `${accessoriesHref}&for=ipad`,
         tagline: "Pencils, keyboards, cases.",
         gradient: "from-purple-400 to-indigo-600",
+        featured: true,
       },
       {
         name: "iPhone Accessories",
         href: `${accessoriesHref}&for=iphone`,
         tagline: "Cases, MagSafe, chargers.",
         gradient: "from-sky-400 to-blue-600",
+        featured: true,
       },
       {
         name: "Watch Accessories",
         href: `${accessoriesHref}&for=watch`,
         tagline: "Bands, chargers, protection.",
         gradient: "from-orange-400 to-red-500",
+        featured: true,
       },
     ],
     shopLinks: [
@@ -392,18 +402,21 @@ export const appleCatalog: AppleCatalogCategory[] = [
         href: routes.storefront.root,
         tagline: "Chat, call, or book a consult.",
         gradient: "from-indigo-500 to-blue-600",
+        featured: true,
       },
       {
         name: "Order Status",
         href: routes.storefront.orders.root,
         tagline: "Track a recent order.",
         gradient: "from-emerald-500 to-teal-600",
+        featured: true,
       },
       {
         name: "Returns & Exchanges",
         href: routes.storefront.root,
         tagline: "30 days, hassle-free.",
         gradient: "from-amber-500 to-orange-500",
+        featured: true,
       },
     ],
     shopLinks: [
@@ -428,7 +441,7 @@ export function getAppleCategoryById(
   return appleCatalog.find((c) => c.id === id)
 }
 
-export function formatPriceFrom(cents: number | undefined): string | null {
-  if (!cents) return null
-  return `From $${cents.toLocaleString()}`
+export function formatPriceFrom(value: number | undefined): string | null {
+  if (!value) return null
+  return `LKR ${value.toLocaleString("en-US")}`
 }
