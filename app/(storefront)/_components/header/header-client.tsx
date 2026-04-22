@@ -4,6 +4,7 @@ import * as React from "react"
 
 import { getCartCount } from "@/lib/actions/cart"
 
+import { DealsStrip } from "./deals-strip"
 import { DesktopNav } from "./desktop-nav"
 import { MobileNav } from "./mobile-nav"
 import { NavProvider } from "./nav-context"
@@ -33,6 +34,7 @@ export function HeaderClient({ user }: HeaderClientProps) {
 
   return (
     <NavProvider>
+      <DealsStrip />
       <div className="hidden lg:block">
         <DesktopNav cartCount={cartCount} />
       </div>

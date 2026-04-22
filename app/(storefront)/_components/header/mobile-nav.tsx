@@ -4,7 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
-import { ArrowRight, Search, ShoppingBag, X } from "lucide-react"
+import { ArrowRight, Search, ShoppingBag, User, X } from "lucide-react"
 import { motion } from "motion/react"
 import { Drawer as DrawerPrimitive } from "vaul"
 
@@ -17,12 +17,16 @@ import { type HeaderUser } from "./types"
 
 const SEARCH_QUICK_LINKS: { label: string; href: string }[] = [
   { label: "Shop All Products", href: routes.storefront.prodcuts.root },
-  { label: "Deals", href: routes.storefront.deals.root },
+  { label: "Deals & Offers", href: routes.storefront.deals.root },
   {
     label: "iPhone",
     href: `${routes.storefront.prodcuts.root}?category=iphone`,
   },
   { label: "Mac", href: `${routes.storefront.prodcuts.root}?category=mac` },
+  {
+    label: "Refurbished",
+    href: `${routes.storefront.prodcuts.root}?condition=refurbished`,
+  },
 ]
 
 type MobileNavProps = {
@@ -36,12 +40,24 @@ export function MobileNav({ user, cartCount }: MobileNavProps) {
   const [tab, setTab] = React.useState<"shop" | "account">("shop")
 
   return (
-    <div className="sticky top-0 z-40 border-b border-black/5 bg-[rgb(250,250,252)]/80 backdrop-blur-xl">
-      <div className="mx-auto flex h-12 w-full items-center justify-between px-4">
-        <Link href="/" className="flex items-center" aria-label="Home">
-          <span className="text-base font-semibold tracking-tight">
-            Evolu<span className="text-indigo-600">X</span>
-          </span>
+    <div className="sticky top-0 z-40 border-b border-neutral-200 bg-white">
+      <div className="mx-auto flex h-14 w-full items-center justify-between px-4">
+        <button
+          type="button"
+          aria-label={menuOpen ? "Close menu" : "Open menu"}
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen((v) => !v)}
+          className="inline-flex size-10 items-center justify-center text-neutral-800"
+        >
+          <HamburgerIcon open={menuOpen} />
+        </button>
+
+        <Link
+          href="/"
+          className="flex items-center text-base font-semibold tracking-tight"
+          aria-label="Home"
+        >
+          Evolu<span className="text-indigo-600">X</span>
         </Link>
 
         <div className="flex items-center gap-1">
@@ -66,54 +82,49 @@ export function MobileNav({ user, cartCount }: MobileNavProps) {
               </span>
             ) : null}
           </Link>
-
-          <button
-            type="button"
-            aria-label={menuOpen ? "Close menu" : "Open menu"}
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((v) => !v)}
-            className="inline-flex size-10 items-center justify-center text-neutral-800"
-          >
-            <HamburgerIcon open={menuOpen} />
-          </button>
         </div>
       </div>
 
+      {/* Menu drawer */}
       <FullScreenDrawer
         open={menuOpen}
         onOpenChange={setMenuOpen}
         ariaLabel="Navigation"
-        header={
-          <div
-            role="tablist"
-            aria-label="Navigation sections"
-            className="flex gap-6"
-          >
-            <TabTrigger
-              label="Shop"
-              selected={tab === "shop"}
-              onSelect={() => setTab("shop")}
-            />
-            <TabTrigger
-              label="Account"
-              selected={tab === "account"}
-              onSelect={() => setTab("account")}
-            />
-          </div>
-        }
       >
-        {tab === "shop" ? (
-          <MobileShopTab onClose={() => setMenuOpen(false)} />
-        ) : (
-          <MobileAccountTab user={user} onClose={() => setMenuOpen(false)} />
-        )}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          {tab === "shop" ? (
+            <MobileShopTab onClose={() => setMenuOpen(false)} />
+          ) : (
+            <MobileAccountTab user={user} onClose={() => setMenuOpen(false)} />
+          )}
+        </div>
+
+        {/* Bottom-docked tab bar */}
+        <nav
+          role="tablist"
+          aria-label="Navigation sections"
+          className="grid grid-cols-2 border-t border-neutral-200 bg-white pb-[env(safe-area-inset-bottom)]"
+        >
+          <BottomTab
+            label="Shop"
+            icon={<ShoppingBag className="size-5" />}
+            selected={tab === "shop"}
+            onSelect={() => setTab("shop")}
+          />
+          <BottomTab
+            label="Account"
+            icon={<User className="size-5" />}
+            selected={tab === "account"}
+            onSelect={() => setTab("account")}
+          />
+        </nav>
       </FullScreenDrawer>
 
+      {/* Search drawer */}
       <FullScreenDrawer
         open={searchOpen}
         onOpenChange={setSearchOpen}
         ariaLabel="Search"
-        header={<span className="text-sm font-medium">Search</span>}
       >
         <MobileSearchBody onClose={() => setSearchOpen(false)} />
       </FullScreenDrawer>
@@ -143,12 +154,14 @@ function HamburgerIcon({ open }: { open: boolean }) {
   )
 }
 
-function TabTrigger({
+function BottomTab({
   label,
+  icon,
   selected,
   onSelect,
 }: {
   label: string
+  icon: React.ReactNode
   selected: boolean
   onSelect: () => void
 }) {
@@ -159,17 +172,17 @@ function TabTrigger({
       aria-selected={selected}
       onClick={onSelect}
       className={cn(
-        "relative pb-1 text-sm font-medium transition-colors",
-        selected
-          ? "text-neutral-900"
-          : "text-neutral-500 hover:text-neutral-800",
+        "relative flex flex-col items-center justify-center gap-1 py-3 text-xs font-medium transition-colors",
+        selected ? "text-indigo-600" : "text-neutral-500",
       )}
     >
+      {icon}
       {label}
       {selected ? (
         <motion.span
-          layoutId="mobile-nav-tab-underline"
-          className="absolute -bottom-px left-0 right-0 h-0.5 bg-neutral-900"
+          layoutId="mobile-nav-bottom-indicator"
+          className="absolute inset-x-8 top-0 h-0.5 rounded-b bg-indigo-600"
+          transition={{ duration: 0.2, ease: [0.4, 0, 0.6, 1] }}
         />
       ) : null}
     </button>
@@ -180,13 +193,11 @@ function FullScreenDrawer({
   open,
   onOpenChange,
   ariaLabel,
-  header,
   children,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   ariaLabel: string
-  header: React.ReactNode
   children: React.ReactNode
 }) {
   return (
@@ -200,7 +211,7 @@ function FullScreenDrawer({
         <DrawerPrimitive.Overlay className="fixed inset-0 z-50 bg-black/10" />
         <DrawerPrimitive.Content
           aria-label={ariaLabel}
-          className="fixed inset-x-0 top-0 z-50 flex h-dvh flex-col bg-background outline-none"
+          className="fixed inset-x-0 top-0 z-50 flex h-dvh flex-col bg-white outline-none"
         >
           <DrawerPrimitive.Title className="sr-only">
             {ariaLabel}
@@ -209,8 +220,10 @@ function FullScreenDrawer({
             {ariaLabel}
           </DrawerPrimitive.Description>
 
-          <div className="flex items-center justify-between border-b px-4 py-3">
-            {header}
+          <div className="flex h-14 items-center justify-between border-b border-neutral-200 px-4">
+            <span className="text-base font-semibold tracking-tight">
+              Evolu<span className="text-indigo-600">X</span>
+            </span>
             <DrawerPrimitive.Close
               aria-label="Close"
               className="inline-flex size-10 items-center justify-center text-neutral-700"
@@ -219,7 +232,7 @@ function FullScreenDrawer({
             </DrawerPrimitive.Close>
           </div>
 
-          <div className="flex flex-1 flex-col overflow-hidden">{children}</div>
+          {children}
         </DrawerPrimitive.Content>
       </DrawerPrimitive.Portal>
     </DrawerPrimitive.Root>
@@ -245,35 +258,39 @@ function MobileSearchBody({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto px-6 pt-6 pb-12">
-      <form onSubmit={handleSubmit} className="flex items-center gap-3">
-        <Search className="size-6 text-neutral-500" />
+    <div className="flex-1 overflow-y-auto px-4 pt-5 pb-12">
+      <form
+        onSubmit={handleSubmit}
+        className="flex items-center gap-2.5 rounded-full border border-neutral-200 bg-neutral-50 px-4 py-2.5"
+      >
+        <Search className="size-5 text-neutral-500" />
         <input
           ref={inputRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search"
+          placeholder="Search products, brands, and more"
           aria-label="Search"
-          className="flex-1 bg-transparent text-2xl font-semibold tracking-tight text-neutral-900 placeholder:text-neutral-400 focus:outline-none"
+          className="flex-1 bg-transparent text-base text-neutral-900 placeholder:text-neutral-400 focus:outline-none"
         />
       </form>
 
       <div className="mt-8">
-        <p className="mb-3 text-xs text-neutral-500">Quick Links</p>
-        <ul className="space-y-3">
+        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-500">
+          Popular searches
+        </p>
+        <div className="flex flex-wrap gap-2">
           {SEARCH_QUICK_LINKS.map((link) => (
-            <li key={link.href + link.label}>
-              <Link
-                href={link.href}
-                onClick={onClose}
-                className="inline-flex items-center gap-3 text-base font-medium text-neutral-900 hover:text-neutral-700"
-              >
-                <ArrowRight className="size-4 text-neutral-500" />
-                {link.label}
-              </Link>
-            </li>
+            <Link
+              key={link.href + link.label}
+              href={link.href}
+              onClick={onClose}
+              className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3.5 py-1.5 text-sm text-neutral-800 hover:border-indigo-300 hover:text-indigo-600"
+            >
+              <ArrowRight className="size-3.5 text-neutral-400" />
+              {link.label}
+            </Link>
           ))}
-        </ul>
+        </div>
       </div>
     </div>
   )

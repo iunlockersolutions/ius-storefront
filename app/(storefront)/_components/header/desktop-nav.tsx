@@ -2,8 +2,10 @@
 
 import Link from "next/link"
 
-import { Search, ShoppingBag } from "lucide-react"
+import { Search, ShoppingBag, Tag } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
+
+import { routes } from "@/configs/routes"
 
 import { appleCatalog } from "./catalog"
 import { BagFlyout, ProductFlyout, SearchFlyout } from "./flyout-panels"
@@ -33,7 +35,6 @@ export function DesktopNav({ cartCount }: DesktopNavProps) {
   } = useNav()
 
   const hasAny = openKind !== null
-  const searchOpen = openKind === "search"
   const activeCategory =
     openKind === "panel" && openPanelId
       ? appleCatalog.find((c) => c.id === openPanelId)
@@ -48,38 +49,44 @@ export function DesktopNav({ cartCount }: DesktopNavProps) {
         onPointerEnter={cancelScheduled}
         onPointerLeave={scheduleClose}
       >
-        <div className="relative border-b border-black/5 bg-[rgb(250,250,252)]/80 backdrop-blur-xl backdrop-saturate-[1.8]">
+        <div className="relative border-b border-neutral-200 bg-white shadow-[0_1px_0_rgb(0_0_0/0.04)]">
           <nav
             aria-label="Primary"
-            className="mx-auto flex h-11 w-full max-w-5xl items-center justify-between px-6 text-sm"
+            className="mx-auto flex h-14 w-full max-w-7xl items-center gap-4 px-6 text-sm"
           >
-            <motion.div
-              animate={{ opacity: searchOpen ? 0 : 1 }}
-              transition={{ duration: FADE_DURATION, ease: APPLE_EASE }}
-              className="shrink-0"
+            {/* Logo */}
+            <Link
+              href="/"
+              className="flex shrink-0 items-center text-lg font-semibold tracking-tight text-neutral-900"
             >
-              <Link
-                href="/"
-                className="flex items-center text-base font-semibold tracking-tight"
-              >
-                Evolu<span className="text-indigo-600">X</span>
-              </Link>
-            </motion.div>
+              Evolu<span className="text-indigo-600">X</span>
+            </Link>
 
-            <ul className="flex flex-1 items-center justify-center">
+            {/* Deals pill */}
+            <Link
+              href={routes.storefront.deals.root}
+              className="hidden shrink-0 items-center gap-1.5 rounded-full bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-500 xl:inline-flex"
+            >
+              <Tag className="size-3.5" />
+              Deals
+            </Link>
+
+            {/* Category triggers */}
+            <ul className="flex flex-1 items-center">
               {appleCatalog.map((category) => {
                 const isActive =
                   openKind === "panel" && openPanelId === category.id
-                const dimmed = searchOpen || (hasAny && !isActive)
 
                 return (
-                  <li key={category.id} className="px-2">
+                  <li key={category.id}>
                     <motion.button
                       type="button"
                       aria-expanded={isActive}
                       aria-haspopup="true"
-                      className="px-2 py-2 whitespace-nowrap text-neutral-800 hover:text-black"
-                      animate={{ opacity: dimmed ? 0 : 1 }}
+                      className="relative px-3 py-2 font-medium whitespace-nowrap text-neutral-700 hover:text-neutral-900"
+                      animate={{
+                        color: isActive ? "rgb(79 70 229)" : "rgb(64 64 64)",
+                      }}
                       transition={{
                         duration: FADE_DURATION,
                         ease: APPLE_EASE,
@@ -91,40 +98,51 @@ export function DesktopNav({ cartCount }: DesktopNavProps) {
                       }
                     >
                       {category.label}
+                      {isActive ? (
+                        <motion.span
+                          layoutId="desktop-nav-underline"
+                          className="absolute inset-x-3 -bottom-px h-0.5 bg-indigo-600"
+                          transition={{
+                            duration: FADE_DURATION,
+                            ease: APPLE_EASE,
+                          }}
+                        />
+                      ) : null}
                     </motion.button>
                   </li>
                 )
               })}
             </ul>
 
-            <div className="flex shrink-0 items-center gap-1">
-              <button
-                type="button"
-                aria-label="Search"
-                aria-expanded={openKind === "search"}
-                className="p-2 text-neutral-800 hover:text-black"
-                onClick={() =>
-                  openKind === "search" ? closeAll() : openSearch()
-                }
-              >
-                <Search className="size-4" />
-              </button>
+            {/* Search pill */}
+            <button
+              type="button"
+              aria-label="Search products"
+              aria-expanded={openKind === "search"}
+              onClick={() =>
+                openKind === "search" ? closeAll() : openSearch()
+              }
+              className="hidden h-9 w-56 shrink-0 items-center gap-2 rounded-full border border-neutral-200 bg-neutral-50 px-3.5 text-sm text-neutral-500 transition hover:border-neutral-300 hover:text-neutral-700 md:inline-flex"
+            >
+              <Search className="size-4" />
+              <span>Search products…</span>
+            </button>
 
-              <button
-                type="button"
-                aria-label={`Bag (${cartCount} items)`}
-                aria-expanded={openKind === "bag"}
-                className="relative p-2 text-neutral-800 hover:text-black"
-                onClick={() => (openKind === "bag" ? closeAll() : openBag())}
-              >
-                <ShoppingBag className="size-4" />
-                {cartCount > 0 ? (
-                  <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-600 px-1 text-[9px] font-medium text-white">
-                    {cartCount > 99 ? "99+" : cartCount}
-                  </span>
-                ) : null}
-              </button>
-            </div>
+            {/* Bag */}
+            <button
+              type="button"
+              aria-label={`Bag (${cartCount} items)`}
+              aria-expanded={openKind === "bag"}
+              onClick={() => (openKind === "bag" ? closeAll() : openBag())}
+              className="relative shrink-0 p-2 text-neutral-800 hover:text-neutral-950"
+            >
+              <ShoppingBag className="size-5" />
+              {cartCount > 0 ? (
+                <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-600 px-1 text-[9px] font-medium text-white">
+                  {cartCount > 99 ? "99+" : cartCount}
+                </span>
+              ) : null}
+            </button>
           </nav>
         </div>
 
@@ -136,7 +154,7 @@ export function DesktopNav({ cartCount }: DesktopNavProps) {
               animate={{ height: "auto" }}
               exit={{ height: 0 }}
               transition={{ duration: FLYOUT_DURATION, ease: APPLE_EASE }}
-              className="absolute inset-x-0 top-full overflow-hidden border-b border-black/5 bg-[rgb(250,250,252)]/80 backdrop-blur-xl backdrop-saturate-[1.8]"
+              className="absolute inset-x-0 top-full overflow-hidden border-b border-neutral-200 bg-white shadow-[0_8px_24px_rgb(0_0_0/0.06)]"
               onPointerEnter={cancelScheduled}
               onPointerLeave={scheduleClose}
             >
@@ -151,7 +169,10 @@ export function DesktopNav({ cartCount }: DesktopNavProps) {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
-                      transition={{ duration: FADE_DURATION, ease: APPLE_EASE }}
+                      transition={{
+                        duration: FADE_DURATION,
+                        ease: APPLE_EASE,
+                      }}
                     >
                       <ProductFlyout
                         category={activeCategory}
@@ -164,7 +185,10 @@ export function DesktopNav({ cartCount }: DesktopNavProps) {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
-                      transition={{ duration: FADE_DURATION, ease: APPLE_EASE }}
+                      transition={{
+                        duration: FADE_DURATION,
+                        ease: APPLE_EASE,
+                      }}
                     >
                       <SearchFlyout onClose={closeAll} />
                     </motion.div>
@@ -174,9 +198,12 @@ export function DesktopNav({ cartCount }: DesktopNavProps) {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
-                      transition={{ duration: FADE_DURATION, ease: APPLE_EASE }}
+                      transition={{
+                        duration: FADE_DURATION,
+                        ease: APPLE_EASE,
+                      }}
                     >
-                      <BagFlyout onNavigate={closeAll} />
+                      <BagFlyout cartCount={cartCount} onNavigate={closeAll} />
                     </motion.div>
                   ) : null}
                 </AnimatePresence>
@@ -201,11 +228,11 @@ function Curtain({ open, onClick }: { open: boolean; onClick: () => void }) {
           transition={{
             duration: CURTAIN_DURATION,
             ease: APPLE_EASE,
-            delay: 0.08,
+            delay: 0.05,
           }}
           aria-hidden="true"
           onClick={onClick}
-          className="fixed inset-0 z-40 bg-[rgb(232,232,237)]/40 backdrop-blur-xl"
+          className="fixed inset-0 z-40 bg-black/15 backdrop-blur-[2px]"
         />
       ) : null}
     </AnimatePresence>
