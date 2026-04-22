@@ -1,7 +1,6 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
-
 import Image from "next/image"
 import Link from "next/link"
 
@@ -9,87 +8,72 @@ import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 
-/* ------------------------------------------------------------------ */
-/*  Types                                                             */
-/* ------------------------------------------------------------------ */
-
 interface HeroSlide {
   tag?: string
   title: string
   subtitle: string
   ctaText: string
   ctaLink: string
-  /** Clean product image on white/light background */
   image: string
   imageAlt: string
-  /** Optional light background color per slide */
   bg?: string
 }
 
 interface HeroSectionProps {
   slides?: HeroSlide[]
-  /** Auto-advance interval in ms (default 6 000) */
   interval?: number
 }
-
-/* ------------------------------------------------------------------ */
-/*  Default slides – clean product shots on light backgrounds         */
-/* ------------------------------------------------------------------ */
 
 const defaultSlides: HeroSlide[] = [
   {
     tag: "New Arrivals",
-    title: "iPhone 16 Pro",
+    title: "iPhone 17 Pro",
     subtitle:
       "Titanium. The thinnest borders ever. The most advanced camera system on iPhone.",
     ctaText: "Shop iPhone",
     ctaLink: "/products",
     image:
-      "https://images.unsplash.com/photo-1632661674596-df8be86a1e00?w=900&q=80&auto=format&fit=crop",
+      "https://dczkp6l3mmbt1dmm.public.blob.vercel-storage.com/public-assets/ip17po-Picsart-AiImageEnhancer.png",
     imageAlt: "iPhone on a clean light background",
     bg: "bg-stone-50",
   },
-  {
-    tag: "Just Launched",
-    title: "MacBook Air M4",
-    subtitle:
-      "Strikingly thin. Impossibly fast. Built for Apple Intelligence from the ground up.",
-    ctaText: "Shop MacBook",
-    ctaLink: "/products",
-    image:
-      "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=900&q=80&auto=format&fit=crop",
-    imageAlt: "MacBook on a minimal white desk",
-    bg: "bg-gray-50",
-  },
-  {
-    tag: "Best Seller",
-    title: "AirPods Pro 2",
-    subtitle:
-      "Adaptive Audio. Personalised Spatial Audio. A magical listening experience.",
-    ctaText: "Shop AirPods",
-    ctaLink: "/products",
-    image:
-      "https://images.unsplash.com/photo-1606741965326-cb990ae01bb2?w=900&q=80&auto=format&fit=crop",
-    imageAlt: "AirPods Pro on a clean white surface",
-    bg: "bg-neutral-50",
-  },
-  {
-    tag: "Featured",
-    title: "iPad Pro M4",
-    subtitle:
-      "The ultimate iPad experience. Incredibly powerful. Impossibly thin.",
-    ctaText: "Shop iPad",
-    ctaLink: "/products",
-    image:
-      "https://images.unsplash.com/photo-1585790050230-5dd28404ccb9?w=900&q=80&auto=format&fit=crop",
-    imageAlt: "iPad Pro on a light background",
-    bg: "bg-zinc-50",
-  },
+  // {
+  //   tag: "Just Launched",
+  //   title: "MacBook Air M4",
+  //   subtitle:
+  //     "Strikingly thin. Impossibly fast. Built for Apple Intelligence from the ground up.",
+  //   ctaText: "Shop MacBook",
+  //   ctaLink: "/products",
+  //   image:
+  //     "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?w=900&q=80&auto=format&fit=crop",
+  //   imageAlt: "MacBook on a minimal white desk",
+  //   bg: "bg-gray-50",
+  // },
+  // {
+  //   tag: "Best Seller",
+  //   title: "AirPods Pro 2",
+  //   subtitle:
+  //     "Adaptive Audio. Personalised Spatial Audio. A magical listening experience.",
+  //   ctaText: "Shop AirPods",
+  //   ctaLink: "/products",
+  //   image:
+  //     "https://images.unsplash.com/photo-1606741965326-cb990ae01bb2?w=900&q=80&auto=format&fit=crop",
+  //   imageAlt: "AirPods Pro on a clean white surface",
+  //   bg: "bg-neutral-50",
+  // },
+  // {
+  //   tag: "Featured",
+  //   title: "iPad Pro M4",
+  //   subtitle:
+  //     "The ultimate iPad experience. Incredibly powerful. Impossibly thin.",
+  //   ctaText: "Shop iPad",
+  //   ctaLink: "/products",
+  //   image:
+  //     "https://images.unsplash.com/photo-1585790050230-5dd28404ccb9?w=900&q=80&auto=format&fit=crop",
+  //   imageAlt: "iPad Pro on a light background",
+  //   bg: "bg-zinc-50",
+  // },
 ]
-
-/* ------------------------------------------------------------------ */
-/*  Component                                                         */
-/* ------------------------------------------------------------------ */
 
 export function HeroSection({
   slides = defaultSlides,

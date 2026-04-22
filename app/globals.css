@@ -171,3 +171,19 @@ body {
 .animate-hero-zoom {
   animation: hero-zoom 7s ease-out forwards;
 }
+
+/* Apple-first font stack: native SF Pro on Apple devices, Inter via next/font elsewhere. */
+body {
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "SF Pro Text",
+    "SF Pro Display",
+    var(--font-sans),
+    system-ui,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+}
