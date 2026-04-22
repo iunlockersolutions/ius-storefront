@@ -91,6 +91,25 @@ export function MobileNav({ user, cartCount }: MobileNavProps) {
         onOpenChange={setMenuOpen}
         ariaLabel="Navigation"
       >
+        <nav
+          role="tablist"
+          aria-label="Navigation sections"
+          className="flex gap-6 border-b border-neutral-200 px-5 py-3"
+        >
+          <TopTab
+            label="Shop"
+            icon={<ShoppingBag className="size-4" />}
+            selected={tab === "shop"}
+            onSelect={() => setTab("shop")}
+          />
+          <TopTab
+            label="Account"
+            icon={<User className="size-4" />}
+            selected={tab === "account"}
+            onSelect={() => setTab("account")}
+          />
+        </nav>
+
         <div className="flex flex-1 flex-col overflow-hidden">
           {tab === "shop" ? (
             <MobileShopTab onClose={() => setMenuOpen(false)} />
@@ -98,26 +117,6 @@ export function MobileNav({ user, cartCount }: MobileNavProps) {
             <MobileAccountTab user={user} onClose={() => setMenuOpen(false)} />
           )}
         </div>
-
-        {/* Bottom-docked tab bar */}
-        <nav
-          role="tablist"
-          aria-label="Navigation sections"
-          className="grid grid-cols-2 border-t border-neutral-200 bg-white pb-[env(safe-area-inset-bottom)]"
-        >
-          <BottomTab
-            label="Shop"
-            icon={<ShoppingBag className="size-5" />}
-            selected={tab === "shop"}
-            onSelect={() => setTab("shop")}
-          />
-          <BottomTab
-            label="Account"
-            icon={<User className="size-5" />}
-            selected={tab === "account"}
-            onSelect={() => setTab("account")}
-          />
-        </nav>
       </FullScreenDrawer>
 
       {/* Search drawer */}
@@ -154,7 +153,7 @@ function HamburgerIcon({ open }: { open: boolean }) {
   )
 }
 
-function BottomTab({
+function TopTab({
   label,
   icon,
   selected,
@@ -172,7 +171,7 @@ function BottomTab({
       aria-selected={selected}
       onClick={onSelect}
       className={cn(
-        "relative flex flex-col items-center justify-center gap-1 py-3 text-xs font-medium transition-colors",
+        "relative inline-flex items-center gap-1.5 pb-1.5 text-sm font-medium transition-colors",
         selected ? "text-indigo-600" : "text-neutral-500",
       )}
     >
@@ -180,8 +179,8 @@ function BottomTab({
       {label}
       {selected ? (
         <motion.span
-          layoutId="mobile-nav-bottom-indicator"
-          className="absolute inset-x-8 top-0 h-0.5 rounded-b bg-indigo-600"
+          layoutId="mobile-nav-top-indicator"
+          className="absolute inset-x-0 -bottom-3 h-0.5 rounded-t bg-indigo-600"
           transition={{ duration: 0.2, ease: [0.4, 0, 0.6, 1] }}
         />
       ) : null}

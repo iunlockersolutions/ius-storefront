@@ -32,13 +32,13 @@ export function MobileShopTab({ onClose }: { onClose: () => void }) {
         animate={{ x: activeId ? "-100%" : "0%" }}
         transition={{ duration: SLIDE_DURATION, ease: APPLE_EASE_MOBILE }}
       >
-        <ul className="divide-y divide-neutral-100">
+        <ul className="space-y-2 px-5 py-4">
           {appleCatalog.map((category) => (
             <li key={category.id}>
               <button
                 type="button"
                 onClick={() => setActiveId(category.id)}
-                className="flex w-full items-center justify-between gap-3 px-5 py-3.5 text-left transition-colors active:bg-neutral-50"
+                className="flex w-full items-center justify-between gap-3 rounded-lg py-2.5 text-left transition-colors active:bg-neutral-50"
               >
                 <div className="min-w-0 flex-1">
                   <p className="text-[20px] font-semibold tracking-tight text-neutral-900">
@@ -66,7 +66,7 @@ export function MobileShopTab({ onClose }: { onClose: () => void }) {
             transition={{ duration: SLIDE_DURATION, ease: APPLE_EASE_MOBILE }}
             className="absolute inset-0 overflow-y-auto bg-white"
           >
-            <div className="flex items-center gap-2 border-b border-neutral-100 px-3 py-2">
+            <div className="flex items-center gap-2 px-3 py-2">
               <button
                 type="button"
                 aria-label="Back"
@@ -89,13 +89,13 @@ export function MobileShopTab({ onClose }: { onClose: () => void }) {
                 Explore All {activeCategory.label}
               </Link>
 
-              <ul className="mt-1 divide-y divide-neutral-100">
+              <ul className="mt-3 space-y-2">
                 {activeCategory.models.map((model) => (
                   <li key={model.name}>
                     <Link
                       href={model.href}
                       onClick={onClose}
-                      className="flex items-center gap-3 py-3"
+                      className="flex items-center gap-3 py-2"
                     >
                       <div
                         className={cn(
@@ -156,17 +156,15 @@ function LinkSection({
   onClose: () => void
 }) {
   return (
-    <div className="mt-6">
-      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-500">
-        {heading}
-      </p>
-      <ul className="divide-y divide-neutral-100">
+    <div className="mt-8">
+      <p className="mb-3 text-sm font-medium text-neutral-500">{heading}</p>
+      <ul className="space-y-2">
         {items.map((link) => (
           <li key={link.href + link.label}>
             <Link
               href={link.href}
               onClick={onClose}
-              className="block py-2.5 text-[15px] text-neutral-800"
+              className="block py-1 text-[15px] text-neutral-800"
             >
               {link.label}
             </Link>
