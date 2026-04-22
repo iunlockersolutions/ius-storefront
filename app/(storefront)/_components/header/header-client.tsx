@@ -34,12 +34,14 @@ export function HeaderClient({ user }: HeaderClientProps) {
 
   return (
     <NavProvider>
-      <DealsStrip />
-      <div className="hidden lg:block">
-        <DesktopNav cartCount={cartCount} />
-      </div>
-      <div className="lg:hidden">
-        <MobileNav user={user} cartCount={cartCount} />
+      <div className="sticky top-0 z-50">
+        <DealsStrip />
+        <div className="hidden lg:block">
+          <DesktopNav cartCount={cartCount} />
+        </div>
+        <div className="lg:hidden">
+          <MobileNav user={user} cartCount={cartCount} />
+        </div>
       </div>
     </NavProvider>
   )

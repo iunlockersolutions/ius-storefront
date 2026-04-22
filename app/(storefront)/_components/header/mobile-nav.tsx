@@ -40,7 +40,7 @@ export function MobileNav({ user, cartCount }: MobileNavProps) {
   const [tab, setTab] = React.useState<"shop" | "account">("shop")
 
   return (
-    <div className="sticky top-0 z-40 border-b border-neutral-200 bg-white">
+    <div className="border-b border-neutral-200 bg-white">
       <div className="mx-auto flex h-14 w-full items-center justify-between px-4">
         <button
           type="button"
@@ -203,14 +203,14 @@ function FullScreenDrawer({
     <DrawerPrimitive.Root
       open={open}
       onOpenChange={onOpenChange}
-      direction="top"
+      direction="left"
       shouldScaleBackground={false}
     >
       <DrawerPrimitive.Portal>
         <DrawerPrimitive.Overlay className="fixed inset-0 z-50 bg-black/10" />
         <DrawerPrimitive.Content
           aria-label={ariaLabel}
-          className="fixed inset-x-0 top-0 z-50 flex h-dvh flex-col bg-white outline-none"
+          className="fixed inset-y-0 left-0 z-50 flex h-dvh w-full flex-col bg-white outline-none"
         >
           <DrawerPrimitive.Title className="sr-only">
             {ariaLabel}

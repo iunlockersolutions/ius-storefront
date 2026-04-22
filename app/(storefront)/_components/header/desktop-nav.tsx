@@ -46,7 +46,7 @@ export function DesktopNav({ cartCount }: DesktopNavProps) {
       <Curtain open={hasAny} onClick={closeAll} />
 
       <div
-        className="sticky top-0 z-50"
+        className="relative z-50"
         onPointerEnter={cancelScheduled}
         onPointerLeave={scheduleClose}
       >
