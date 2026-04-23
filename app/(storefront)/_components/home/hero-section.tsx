@@ -28,8 +28,9 @@ type HeroImageState = "active" | "exiting" | "idle"
 
 const IMAGE_EXIT_EASE = [0.55, 0.06, 0.68, 0.19] as const
 const IMAGE_ENTER_EASE = [0.16, 1, 0.3, 1] as const
-const IMAGE_EXIT_DURATION = 0.36
-const IMAGE_ENTER_DURATION = 0.56
+const IMAGE_EXIT_DURATION = 0.5
+const IMAGE_ENTER_DURATION = 0.4
+const OPACITY_IDLE = 0.5
 
 const defaultSlides: HeroSlide[] = [
   {
@@ -90,6 +91,71 @@ export function HeroSection({
     if (index === selected) return "active"
     if (index === previousSelected) return "exiting"
     return "idle"
+  }
+
+  const getImageAnimation = (imageState: HeroImageState) => {
+    if (prefersReducedMotion) {
+      if (imageState === "active") {
+        return { opacity: 1, y: 0, scale: 1 }
+      }
+
+      return { opacity: OPACITY_IDLE, y: 0, scale: 0.75 }
+    }
+
+    if (imageState === "active") {
+      return { opacity: 1, y: "0%", scale: 1 }
+    }
+
+    if (imageState === "exiting") {
+      return { opacity: 0.5, y: "120%", scale: 0.75 }
+    }
+
+    return { opacity: 0.5, y: "120%", scale: 0.75 }
+  }
+
+  const getImageTransition = (imageState: HeroImageState) => {
+    if (prefersReducedMotion) {
+      return { duration: 0.2, ease: "linear" as const }
+    }
+
+    if (imageState === "active") {
+      return {
+        opacity: {
+          duration: 0.5,
+          delay: IMAGE_EXIT_DURATION,
+          ease: IMAGE_ENTER_EASE,
+        },
+        y: {
+          duration: IMAGE_ENTER_DURATION,
+          delay: IMAGE_EXIT_DURATION,
+          ease: IMAGE_ENTER_EASE,
+        },
+        scale: {
+          duration: IMAGE_ENTER_DURATION,
+          delay: IMAGE_EXIT_DURATION,
+          ease: IMAGE_ENTER_EASE,
+        },
+      }
+    }
+
+    if (imageState === "exiting") {
+      return {
+        opacity: {
+          duration: 0.2,
+          ease: IMAGE_EXIT_EASE,
+        },
+        y: {
+          duration: IMAGE_EXIT_DURATION,
+          ease: IMAGE_EXIT_EASE,
+        },
+        scale: {
+          duration: IMAGE_EXIT_DURATION,
+          ease: IMAGE_EXIT_EASE,
+        },
+      }
+    }
+
+    return { duration: 0 }
   }
 
   return (
@@ -189,55 +255,8 @@ export function HeroSection({
               <motion.div
                 key={`${s.title}-${s.image}`}
                 initial={false}
-                animate={
-                  prefersReducedMotion
-                    ? imageState === "active"
-                      ? { opacity: 1, y: 0, scale: 1 }
-                      : { opacity: 0, y: 0, scale: 1 }
-                    : imageState === "active"
-                      ? { opacity: 1, y: "0%", scale: 1 }
-                      : imageState === "exiting"
-                        ? { opacity: 0, y: "120%", scale: 1 }
-                        : { opacity: 0, y: "120%", scale: 1 }
-                }
-                transition={
-                  prefersReducedMotion
-                    ? { duration: 0.2, ease: "linear" }
-                    : imageState === "active"
-                      ? {
-                          opacity: {
-                            duration: 0.24,
-                            delay: IMAGE_EXIT_DURATION,
-                            ease: IMAGE_ENTER_EASE,
-                          },
-                          y: {
-                            duration: IMAGE_ENTER_DURATION,
-                            delay: IMAGE_EXIT_DURATION,
-                            ease: IMAGE_ENTER_EASE,
-                          },
-                          scale: {
-                            duration: IMAGE_ENTER_DURATION,
-                            delay: IMAGE_EXIT_DURATION,
-                            ease: IMAGE_ENTER_EASE,
-                          },
-                        }
-                      : imageState === "exiting"
-                        ? {
-                            opacity: {
-                              duration: 0.2,
-                              ease: IMAGE_EXIT_EASE,
-                            },
-                            y: {
-                              duration: IMAGE_EXIT_DURATION,
-                              ease: IMAGE_EXIT_EASE,
-                            },
-                            scale: {
-                              duration: IMAGE_EXIT_DURATION,
-                              ease: IMAGE_EXIT_EASE,
-                            },
-                          }
-                        : { duration: 0 }
-                }
+                animate={getImageAnimation(imageState)}
+                transition={getImageTransition(imageState)}
                 className="absolute inset-0 origin-bottom will-change-transform"
                 style={{
                   zIndex:
