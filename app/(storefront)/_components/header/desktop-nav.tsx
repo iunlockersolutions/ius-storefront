@@ -58,7 +58,7 @@ export function DesktopNav({ cartCount }: DesktopNavProps) {
         >
           <nav
             aria-label="Primary"
-            className="mx-auto flex h-16 w-full max-w-7xl items-center gap-4 px-6 text-sm"
+            className="mx-auto flex h-nav w-full max-w-7xl items-center gap-4 px-6 text-sm"
           >
             {/* Logo */}
             <Link

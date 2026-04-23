@@ -59,41 +59,45 @@ export default async function HomePage() {
       {/* 1. Hero carousel */}
       <HeroSection />
 
-      {/* 2. Shop by Category — compact icon strip */}
-      <CategoriesSection categories={categories} />
+      {/* Everything below the hero sits on an opaque background so the fixed
+          hero never bleeds through as sections scroll over it. */}
+      <div className="relative z-0 bg-white">
+        {/* 2. Shop by Category — compact icon strip */}
+        <CategoriesSection categories={categories} />
 
-      {/* 3. Best Sellers — horizontal scroll */}
-      <BestSellersSection products={bestSellers} />
+        {/* 3. Best Sellers — horizontal scroll */}
+        <BestSellersSection products={bestSellers} />
 
-      {/* ── Promo: Trade In ── */}
-      <PromoTradeIn />
+        {/* ── Promo: Trade In ── */}
+        <PromoTradeIn />
 
-      {/* 4. New Arrivals — horizontal scroll */}
-      <NewArrivalsSection products={newArrivals} />
+        {/* 4. New Arrivals — horizontal scroll */}
+        <NewArrivalsSection products={newArrivals} />
 
-      {/* 5. Featured Products grid */}
-      <FeaturedProductsSection products={featuredProducts} />
+        {/* 5. Featured Products grid */}
+        <FeaturedProductsSection products={featuredProducts} />
 
-      {/* ── Promo: Free Delivery ── */}
-      <PromoFreeDelivery />
+        {/* ── Promo: Free Delivery ── */}
+        <PromoFreeDelivery />
 
-      {/* 6. Deals & Promotions — dark section */}
-      <DealsSection products={deals} />
+        {/* 6. Deals & Promotions — dark section */}
+        <DealsSection products={deals} />
 
-      {/* 7. Shop by Brand */}
-      <BrandsSection brands={brandsList} />
+        {/* 7. Shop by Brand */}
+        <BrandsSection brands={brandsList} />
 
-      {/* 8. Customer Reviews */}
-      <ReviewsSection reviews={topReviews} />
+        {/* 8. Customer Reviews */}
+        <ReviewsSection reviews={topReviews} />
 
-      {/* 9. Store info — Ways to Pay, Delivery, Collections */}
-      <StoreInfoSection />
+        {/* 9. Store info — Ways to Pay, Delivery, Collections */}
+        <StoreInfoSection />
 
-      {/* 10. Contact Us */}
-      <ContactSection />
+        {/* 10. Contact Us */}
+        <ContactSection />
 
-      {/* 11. Newsletter */}
-      <NewsletterSection />
+        {/* 11. Newsletter */}
+        <NewsletterSection />
+      </div>
     </div>
   )
 }

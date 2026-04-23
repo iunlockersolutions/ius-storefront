@@ -41,7 +41,7 @@ export function MobileNav({ user, cartCount }: MobileNavProps) {
 
   return (
     <div className="border-b border-neutral-200 bg-white">
-      <div className="mx-auto flex h-14 w-full items-center justify-between px-4">
+      <div className="mx-auto flex h-nav w-full items-center justify-between px-4">
         <button
           type="button"
           aria-label={menuOpen ? "Close menu" : "Open menu"}
