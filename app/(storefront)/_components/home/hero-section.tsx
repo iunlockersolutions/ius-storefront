@@ -1,10 +1,11 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 
 import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react"
+import { motion, useReducedMotion } from "motion/react"
 
 import { Button } from "@/components/ui/button"
 
@@ -22,6 +23,13 @@ interface HeroSectionProps {
   slides?: HeroSlide[]
   interval?: number
 }
+
+type HeroImageState = "active" | "exiting" | "idle"
+
+const IMAGE_EXIT_EASE = [0.55, 0.06, 0.68, 0.19] as const
+const IMAGE_ENTER_EASE = [0.16, 1, 0.3, 1] as const
+const IMAGE_EXIT_DURATION = 0.36
+const IMAGE_ENTER_DURATION = 0.56
 
 const defaultSlides: HeroSlide[] = [
   {
@@ -53,20 +61,36 @@ export function HeroSection({
   interval = 6000,
 }: HeroSectionProps) {
   const [selected, setSelected] = useState(0)
+  const [previousSelected, setPreviousSelected] = useState<number | null>(null)
+  const prefersReducedMotion = useReducedMotion()
+
+  const goToSlide = useCallback(
+    (nextIndex: number) => {
+      if (nextIndex === selected) return
+      setPreviousSelected(selected)
+      setSelected(nextIndex)
+    },
+    [selected],
+  )
 
   useEffect(() => {
     if (slides.length <= 1) return
-    const id = setInterval(
-      () => setSelected((i) => (i + 1) % slides.length),
-      interval,
-    )
+    const id = setInterval(() => {
+      goToSlide((selected + 1) % slides.length)
+    }, interval)
     return () => clearInterval(id)
-  }, [slides.length, interval])
+  }, [goToSlide, interval, selected, slides.length])
 
-  const next = () => setSelected((i) => (i + 1) % slides.length)
-  const prev = () => setSelected((i) => (i - 1 + slides.length) % slides.length)
+  const next = () => goToSlide((selected + 1) % slides.length)
+  const prev = () => goToSlide((selected - 1 + slides.length) % slides.length)
 
   const slide = slides[selected]
+
+  const getImageState = (index: number): HeroImageState => {
+    if (index === selected) return "active"
+    if (index === previousSelected) return "exiting"
+    return "idle"
+  }
 
   return (
     <section className="relative w-full overflow-hidden bg-zinc-50 lg:h-[55dvh]">
@@ -132,10 +156,10 @@ export function HeroSection({
               </button>
 
               <div className="flex items-center gap-2">
-                {slides.map((_, i) => (
+                {slides.map((slideItem, i) => (
                   <button
-                    key={i}
-                    onClick={() => setSelected(i)}
+                    key={`${slideItem.title}-${slideItem.image}`}
+                    onClick={() => goToSlide(i)}
                     aria-label={`Go to slide ${i + 1}`}
                     className={`h-1.5 rounded-full transition-all duration-300 ${
                       i === selected
@@ -157,20 +181,84 @@ export function HeroSection({
           )}
         </div>
 
-        <div className="relative mx-auto aspect-square w-full max-w-[24rem] lg:mx-0 lg:h-full lg:min-h-0 lg:max-w-none lg:aspect-auto">
-          {slides.map((s, i) => (
-            <Image
-              key={i}
-              src={s.image}
-              alt={s.imageAlt}
-              fill
-              sizes="(max-width: 1024px) 100vw, 50vw"
-              priority={i === 0}
-              className={`object-contain object-bottom transition-opacity duration-700 ${
-                i === selected ? "opacity-100" : "opacity-0"
-              }`}
-            />
-          ))}
+        <div className="relative mx-auto aspect-square w-full max-w-[24rem] overflow-hidden lg:mx-0 lg:h-full lg:min-h-0 lg:max-w-none lg:aspect-auto">
+          {slides.map((s, i) => {
+            const imageState = getImageState(i)
+
+            return (
+              <motion.div
+                key={`${s.title}-${s.image}`}
+                initial={false}
+                animate={
+                  prefersReducedMotion
+                    ? imageState === "active"
+                      ? { opacity: 1, y: 0, scale: 1 }
+                      : { opacity: 0, y: 0, scale: 1 }
+                    : imageState === "active"
+                      ? { opacity: 1, y: "0%", scale: 1 }
+                      : imageState === "exiting"
+                        ? { opacity: 0, y: "120%", scale: 1 }
+                        : { opacity: 0, y: "120%", scale: 1 }
+                }
+                transition={
+                  prefersReducedMotion
+                    ? { duration: 0.2, ease: "linear" }
+                    : imageState === "active"
+                      ? {
+                          opacity: {
+                            duration: 0.24,
+                            delay: IMAGE_EXIT_DURATION,
+                            ease: IMAGE_ENTER_EASE,
+                          },
+                          y: {
+                            duration: IMAGE_ENTER_DURATION,
+                            delay: IMAGE_EXIT_DURATION,
+                            ease: IMAGE_ENTER_EASE,
+                          },
+                          scale: {
+                            duration: IMAGE_ENTER_DURATION,
+                            delay: IMAGE_EXIT_DURATION,
+                            ease: IMAGE_ENTER_EASE,
+                          },
+                        }
+                      : imageState === "exiting"
+                        ? {
+                            opacity: {
+                              duration: 0.2,
+                              ease: IMAGE_EXIT_EASE,
+                            },
+                            y: {
+                              duration: IMAGE_EXIT_DURATION,
+                              ease: IMAGE_EXIT_EASE,
+                            },
+                            scale: {
+                              duration: IMAGE_EXIT_DURATION,
+                              ease: IMAGE_EXIT_EASE,
+                            },
+                          }
+                        : { duration: 0 }
+                }
+                className="absolute inset-0 origin-bottom will-change-transform"
+                style={{
+                  zIndex:
+                    imageState === "exiting"
+                      ? 2
+                      : imageState === "active"
+                        ? 1
+                        : 0,
+                }}
+              >
+                <Image
+                  src={s.image}
+                  alt={s.imageAlt}
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 50vw"
+                  priority={i === 0}
+                  className="object-contain object-bottom"
+                />
+              </motion.div>
+            )
+          })}
         </div>
       </div>
     </section>
