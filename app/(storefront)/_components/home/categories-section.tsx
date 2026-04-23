@@ -31,7 +31,7 @@ export function CategoriesSection({ categories }: CategoriesSectionProps) {
   if (categories.length === 0) return null
 
   return (
-    <section className="border-b border-zinc-100 py-8 sm:py-10 lg:py-12">
+    <section className="border-b border-zinc-100 pt-2 pb-8 sm:pt-3 sm:pb-10 lg:pt-4 lg:pb-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         {/* Horizontal scrollable on mobile, centered grid on desktop */}
         <div className="-mx-4 flex gap-2 overflow-x-auto px-4 scrollbar-none sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-4 sm:overflow-visible sm:px-0 md:grid-cols-4 lg:grid-cols-6">

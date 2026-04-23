@@ -37,7 +37,7 @@ export function DealsStrip() {
 
   return (
     <div className="relative overflow-hidden bg-indigo-600 text-white">
-      <div className="mx-auto flex h-8 max-w-7xl items-center justify-center px-4 text-xs">
+      <div className="mx-auto flex h-deals-strip max-w-7xl items-center justify-center px-4 text-xs">
         <AnimatePresence mode="wait">
           <motion.div
             key={index}
