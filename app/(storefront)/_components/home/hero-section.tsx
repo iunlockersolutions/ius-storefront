@@ -28,23 +28,23 @@ const defaultSlides: HeroSlide[] = [
     tag: "New Arrivals",
     title: "iPhone 17 Pro",
     subtitle:
-      "Titanium. The thinnest borders ever. The most advanced camera system on iPhone.",
+      "Introducing iPhone 17 Pro and iPhone 17 Pro Max, designed from the inside out to be the most powerful iPhone models ever made.",
     ctaText: "Shop iPhone",
     ctaLink: "/products",
     image:
-      "https://dczkp6l3mmbt1dmm.public.blob.vercel-storage.com/public-assets/ip17po-Picsart-AiImageEnhancer.png",
+      "https://n1hqdjz7virkwon8.public.blob.vercel-storage.com/hero/iphone-pro-17-uGsD9Vnx7yMlwpWUHH76bFJmTNabP9.png",
     imageAlt: "iPhone on a clean light background",
   },
   {
     tag: "New Arrivals",
-    title: "iPhone 17 Pro max",
+    title: "Apple Watch Series 11",
     subtitle:
-      "Titanium. The thinnest borders ever. The most advanced camera system on iPhone.",
-    ctaText: "Shop iPhone",
+      "Apple Watch Series 11 can spot signs of chronic high blood pressure and notify you of possible hypertension.",
+    ctaText: "Shop Apple Watch",
     ctaLink: "/products",
     image:
-      "https://dczkp6l3mmbt1dmm.public.blob.vercel-storage.com/public-assets/ip17po-Picsart-AiImageEnhancer.png",
-    imageAlt: "iPhone on a clean light background",
+      "https://n1hqdjz7virkwon8.public.blob.vercel-storage.com/hero/apple-watch-series-11-aNbQuXyo3MlbpQnpjFyyL0OqKd7keH.png",
+    imageAlt: "Apple Watch on a clean light background",
   },
 ]
 
