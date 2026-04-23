@@ -35,17 +35,17 @@ const defaultSlides: HeroSlide[] = [
       "https://dczkp6l3mmbt1dmm.public.blob.vercel-storage.com/public-assets/ip17po-Picsart-AiImageEnhancer.png",
     imageAlt: "iPhone on a clean light background",
   },
-  // {
-  //   tag: "New Arrivals",
-  //   title: "iPhone 17 Pro max",
-  //   subtitle:
-  //     "Titanium. The thinnest borders ever. The most advanced camera system on iPhone.",
-  //   ctaText: "Shop iPhone",
-  //   ctaLink: "/products",
-  //   image:
-  //     "https://dczkp6l3mmbt1dmm.public.blob.vercel-storage.com/public-assets/ip17po-Picsart-AiImageEnhancer.png",
-  //   imageAlt: "iPhone on a clean light background",
-  // },
+  {
+    tag: "New Arrivals",
+    title: "iPhone 17 Pro max",
+    subtitle:
+      "Titanium. The thinnest borders ever. The most advanced camera system on iPhone.",
+    ctaText: "Shop iPhone",
+    ctaLink: "/products",
+    image:
+      "https://dczkp6l3mmbt1dmm.public.blob.vercel-storage.com/public-assets/ip17po-Picsart-AiImageEnhancer.png",
+    imageAlt: "iPhone on a clean light background",
+  },
 ]
 
 export function HeroSection({
@@ -69,7 +69,7 @@ export function HeroSection({
   const slide = slides[selected]
 
   return (
-    <section className="relative w-full overflow-hidden bg-zinc-50 lg:h-[50dvh]">
+    <section className="relative w-full overflow-hidden bg-zinc-50 lg:h-[55dvh]">
       <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-6 px-6 pt-6 sm:gap-8 sm:pt-8 lg:h-full lg:grid-cols-2 lg:grid-rows-1 lg:items-center lg:gap-12 lg:pt-0">
         {/* ── Text column ─────────────────────────────────── */}
 
@@ -157,7 +157,7 @@ export function HeroSection({
           )}
         </div>
 
-        <div className="relative mx-auto aspect-square w-full max-w-[24rem] overflow-hidden lg:mx-0 lg:h-full lg:min-h-0 lg:max-w-none lg:aspect-auto">
+        <div className="relative mx-auto aspect-square w-full max-w-[24rem] lg:mx-0 lg:h-full lg:min-h-0 lg:max-w-none lg:aspect-auto">
           {slides.map((s, i) => (
             <Image
               key={i}
@@ -166,7 +166,7 @@ export function HeroSection({
               fill
               sizes="(max-width: 1024px) 100vw, 50vw"
               priority={i === 0}
-              className={`object-contain object-bottom drop-shadow-[0_30px_40px_rgba(0,0,0,0.18)] transition-opacity duration-700 ${
+              className={`object-contain object-bottom transition-opacity duration-700 ${
                 i === selected ? "opacity-100" : "opacity-0"
               }`}
             />
