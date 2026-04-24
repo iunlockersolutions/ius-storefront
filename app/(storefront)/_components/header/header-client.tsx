@@ -2,12 +2,13 @@
 
 import * as React from "react"
 
+import { domAnimation, LazyMotion } from "motion/react"
+
 import { getCartCount } from "@/lib/actions/cart"
 
 import { DealsStrip } from "./deals-strip"
 import { DesktopNav } from "./desktop-nav"
 import { MobileNav } from "./mobile-nav"
-import { NavProvider } from "./nav-context"
 import { type HeaderUser } from "./types"
 
 type HeaderClientProps = {
@@ -33,7 +34,7 @@ export function HeaderClient({ user }: HeaderClientProps) {
   }, [])
 
   return (
-    <NavProvider>
+    <LazyMotion features={domAnimation}>
       <div className="sticky top-0 z-50">
         <DealsStrip />
         <div className="hidden lg:block">
@@ -43,6 +44,6 @@ export function HeaderClient({ user }: HeaderClientProps) {
           <MobileNav user={user} cartCount={cartCount} />
         </div>
       </div>
-    </NavProvider>
+    </LazyMotion>
   )
 }

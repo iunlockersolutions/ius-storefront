@@ -4,21 +4,14 @@ import * as React from "react"
 import Link from "next/link"
 
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { AnimatePresence, motion } from "motion/react"
+import { AnimatePresence, m } from "motion/react"
 
 import { cn } from "@/lib/utils"
 
 import { appleCatalog, formatPriceFrom, getAppleCategoryById } from "./catalog"
-import { APPLE_EASE_MOBILE } from "./nav-context"
 
 const SLIDE_DURATION = 0.35
-
-function categorySubtitle(models: { name: string }[]): string {
-  if (models.length === 0) return ""
-  const visible = models.slice(0, 3).map((m) => m.name)
-  const hasMore = models.length > 3
-  return hasMore ? `${visible.join(", ")} & more` : visible.join(", ")
-}
+const APPLE_EASE_MOBILE = [0.52, 0.16, 0.24, 1] as const
 
 export function MobileShopTab({ onClose }: { onClose: () => void }) {
   const [activeId, setActiveId] = React.useState<string | null>(null)
@@ -26,7 +19,7 @@ export function MobileShopTab({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="relative flex-1 overflow-hidden">
-      <motion.div
+      <m.div
         className="absolute inset-0 overflow-y-auto bg-white"
         animate={{ x: activeId ? "-100%" : "0%" }}
         transition={{ duration: SLIDE_DURATION, ease: APPLE_EASE_MOBILE }}
@@ -49,12 +42,12 @@ export function MobileShopTab({ onClose }: { onClose: () => void }) {
             </li>
           ))}
         </ul>
-      </motion.div>
+      </m.div>
 
       {/* Detail level */}
       <AnimatePresence>
         {activeCategory ? (
-          <motion.div
+          <m.div
             key={activeCategory.id}
             initial={{ x: "100%" }}
             animate={{ x: "0%" }}
@@ -135,7 +128,7 @@ export function MobileShopTab({ onClose }: { onClose: () => void }) {
                 />
               ) : null}
             </div>
-          </motion.div>
+          </m.div>
         ) : null}
       </AnimatePresence>
     </div>
