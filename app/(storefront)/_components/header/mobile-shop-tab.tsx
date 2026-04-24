@@ -13,13 +13,6 @@ import { APPLE_EASE_MOBILE } from "./nav-context"
 
 const SLIDE_DURATION = 0.35
 
-function categorySubtitle(models: { name: string }[]): string {
-  if (models.length === 0) return ""
-  const visible = models.slice(0, 3).map((m) => m.name)
-  const hasMore = models.length > 3
-  return hasMore ? `${visible.join(", ")} & more` : visible.join(", ")
-}
-
 export function MobileShopTab({ onClose }: { onClose: () => void }) {
   const [activeId, setActiveId] = React.useState<string | null>(null)
   const activeCategory = activeId ? getAppleCategoryById(activeId) : undefined

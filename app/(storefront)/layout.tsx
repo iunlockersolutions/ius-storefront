@@ -18,7 +18,6 @@ export default async function StorefrontLayout({
     ? {
         name: session.user.name,
         email: session.user.email,
-        image: session.user.image,
         role: session.user.role,
       }
     : undefined
@@ -26,17 +25,17 @@ export default async function StorefrontLayout({
   const socialProviders = getEnabledSocialProviderIds()
 
   return (
-    <>
+    <div className="flex min-h-screen flex-col">
       <ForceLightTheme />
       <GuestAuthPromptProvider
         isAuthenticated={isAuthenticated}
         socialProviders={socialProviders}
       >
         <Header user={user} />
-        <main>{children}</main>
+        <main className="flex-1">{children}</main>
         <Footer />
       </GuestAuthPromptProvider>
       <Toaster theme="light" />
-    </>
+    </div>
   )
 }

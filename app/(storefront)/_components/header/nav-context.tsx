@@ -11,7 +11,7 @@ export const CURTAIN_DURATION = 0.2
 const OPEN_DELAY_MS = 120
 const CLOSE_DELAY_MS = 120
 
-export type NavOpenKind = "panel" | "search" | "bag" | null
+type NavOpenKind = "panel" | "search" | "bag" | null
 
 type NavContextValue = {
   openKind: NavOpenKind

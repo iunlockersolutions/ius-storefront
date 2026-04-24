@@ -2,7 +2,7 @@ import { routes } from "@/configs/routes"
 
 import { getStorefrontProductsHref } from "./header-utils"
 
-export type AppleCatalogModel = {
+type AppleCatalogModel = {
   name: string
   href: string
   priceFrom?: number
