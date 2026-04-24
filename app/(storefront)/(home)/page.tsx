@@ -8,21 +8,21 @@ import {
   getTopReviews,
 } from "@/lib/actions/storefront"
 
-import { BestSellersSection } from "./_components/best-sellers-section"
-import { BrandsSection } from "./_components/brands-section"
-import { CategoriesSection } from "./_components/categories-section"
-import { ContactSection } from "./_components/contact-section"
-import { DealsSection } from "./_components/deals-section"
-import { FeaturedProductsSection } from "./_components/featured-products-section"
-import { HeroSection } from "./_components/hero-section"
-import { NewArrivalsSection } from "./_components/new-arrivals-section"
-import { NewsletterSection } from "./_components/newsletter-section"
+import { BestSellersSection } from "./_sections/best-sellers-section"
+import { BrandsSection } from "./_sections/brands-section"
+import { CategoriesSection } from "./_sections/categories-section"
+import { ContactSection } from "./_sections/contact-section"
+import { DealsSection } from "./_sections/deals-section"
+import { FeaturedProductsSection } from "./_sections/featured-products-section"
+import { HeroSection } from "./_sections/hero-section"
+import { NewArrivalsSection } from "./_sections/new-arrivals-section"
+import { NewsletterSection } from "./_sections/newsletter-section"
 import {
   PromoFreeDelivery,
   PromoTradeIn,
-} from "./_components/promo-banners-section"
-import { ReviewsSection } from "./_components/reviews-section"
-import { StoreInfoSection } from "./_components/store-info-section"
+} from "./_sections/promo-banners-section"
+import { ReviewsSection } from "./_sections/reviews-section"
+import { StoreInfoSection } from "./_sections/store-info-section"
 
 export const revalidate = 1800
 
@@ -57,9 +57,9 @@ export default async function HomePage() {
     <>
       <HeroSection />
 
-      <CategoriesSection categories={categories} />
-
       <BestSellersSection products={bestSellers} />
+
+      <CategoriesSection categories={categories} />
 
       <PromoTradeIn />
 

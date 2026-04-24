@@ -250,27 +250,27 @@ export async function getFeaturedCategories(limit: number = 6) {
       const productCounts =
         catIds.length > 0
           ? await withStorefrontCatalogFallback(
-            "storefront:getFeaturedCategories:counts",
-            [] as Array<{ categoryId: string; count: number }>,
-            () =>
-              db
-                .select({
-                  categoryId: productCategoryAssignments.categoryId,
-                  count: sql<number>`count(*)::int`,
-                })
-                .from(productCategoryAssignments)
-                .innerJoin(
-                  products,
-                  eq(productCategoryAssignments.productId, products.id),
-                )
-                .where(
-                  and(
-                    eq(products.status, "active"),
-                    inArray(productCategoryAssignments.categoryId, catIds),
-                  ),
-                )
-                .groupBy(productCategoryAssignments.categoryId),
-          )
+              "storefront:getFeaturedCategories:counts",
+              [] as Array<{ categoryId: string; count: number }>,
+              () =>
+                db
+                  .select({
+                    categoryId: productCategoryAssignments.categoryId,
+                    count: sql<number>`count(*)::int`,
+                  })
+                  .from(productCategoryAssignments)
+                  .innerJoin(
+                    products,
+                    eq(productCategoryAssignments.productId, products.id),
+                  )
+                  .where(
+                    and(
+                      eq(products.status, "active"),
+                      inArray(productCategoryAssignments.categoryId, catIds),
+                    ),
+                  )
+                  .groupBy(productCategoryAssignments.categoryId),
+            )
           : []
 
       const countMap = new Map(
@@ -367,12 +367,7 @@ export async function getTopReviews(limit: number = 6) {
         .from(reviews)
         .innerJoin(products, eq(reviews.productId, products.id))
         .leftJoin(users, eq(reviews.userId, users.id))
-        .where(
-          and(
-            eq(reviews.status, "approved"),
-            gte(reviews.rating, 4),
-          ),
-        )
+        .where(and(eq(reviews.status, "approved"), gte(reviews.rating, 4)))
         .orderBy(desc(reviews.helpfulCount), desc(reviews.createdAt))
         .limit(limit)
 
