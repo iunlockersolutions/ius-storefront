@@ -33,7 +33,7 @@ export default async function StorefrontLayout({
         socialProviders={socialProviders}
       >
         <Header user={user} />
-        <main className="flex-1">{children}</main>
+        <main>{children}</main>
         <Footer />
       </GuestAuthPromptProvider>
       <Toaster theme="light" />

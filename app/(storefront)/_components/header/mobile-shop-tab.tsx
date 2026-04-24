@@ -26,13 +26,12 @@ export function MobileShopTab({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="relative flex-1 overflow-hidden">
-      {/* Root level — denser rows with subtitles */}
       <motion.div
         className="absolute inset-0 overflow-y-auto bg-white"
         animate={{ x: activeId ? "-100%" : "0%" }}
         transition={{ duration: SLIDE_DURATION, ease: APPLE_EASE_MOBILE }}
       >
-        <ul className="space-y-2 px-5 py-4">
+        <ul className="px-6 py-6 space-y-2">
           {appleCatalog.map((category) => (
             <li key={category.id}>
               <button
@@ -41,12 +40,9 @@ export function MobileShopTab({ onClose }: { onClose: () => void }) {
                 className="flex w-full items-center justify-between gap-3 rounded-lg py-2.5 text-left transition-colors active:bg-neutral-50"
               >
                 <div className="min-w-0 flex-1">
-                  <p className="text-[20px] font-semibold tracking-tight text-neutral-900">
+                  <h1 className="text-4xl font-semibold tracking-tight text-neutral-900">
                     {category.label}
-                  </p>
-                  <p className="mt-0.5 truncate text-xs text-neutral-500">
-                    {categorySubtitle(category.models)}
-                  </p>
+                  </h1>
                 </div>
                 <ChevronRight className="size-5 shrink-0 text-neutral-400" />
               </button>

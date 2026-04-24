@@ -1,19 +1,4 @@
-﻿import { orders } from "@/lib/db/schema"
-
-export interface QueryParams {
-  [key: string]: string | number | boolean | undefined
-}
-
-const generateQueryString = (params: QueryParams): string => {
-  const queryString = Object.entries(params)
-    .filter(([_, value]) => value !== undefined)
-    .map(
-      ([key, value]) =>
-        `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`,
-    )
-    .join("&")
-  return queryString ? `?${queryString}` : ""
-}
+﻿import { generateQueryString, QueryParams } from "@/lib/utils/routes-utils"
 
 export const routes = {
   auth: {

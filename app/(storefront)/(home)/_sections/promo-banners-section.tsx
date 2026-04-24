@@ -12,15 +12,9 @@ interface PromoBannerProps {
   ctaLink: string
   image: string
   imageAlt: string
-  /** Accent background color for the text side */
   bg?: string
-  /** Flip layout — image left, text right */
   reverse?: boolean
 }
-
-/* ------------------------------------------------------------------ */
-/*  Single full-width promo banner                                    */
-/* ------------------------------------------------------------------ */
 
 export function PromoBanner({
   title,
@@ -34,13 +28,12 @@ export function PromoBanner({
 }: PromoBannerProps) {
   return (
     <section className={`${bg} overflow-hidden`}>
-      <div className="mx-auto max-w-7xl">
+      <div className="section-container">
         <div
           className={`grid min-h-52 grid-cols-1 sm:min-h-64 sm:grid-cols-2 lg:min-h-72 ${
             reverse ? "sm:direction-rtl" : ""
           }`}
         >
-          {/* Text side */}
           <div
             className={`flex flex-col justify-center px-6 py-10 sm:px-8 sm:py-12 lg:px-12 lg:py-16 ${
               reverse ? "sm:order-2 sm:direction-ltr" : ""
