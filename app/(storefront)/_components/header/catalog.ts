@@ -1,24 +1,7 @@
 import { routes } from "@/configs/routes"
 
 import { getStorefrontProductsHref } from "./header-utils"
-
-type AppleCatalogModel = {
-  name: string
-  href: string
-  priceFrom?: number
-  gradient?: string
-  tagline?: string
-  featured?: boolean
-}
-
-export type AppleCatalogCategory = {
-  id: string
-  label: string
-  exploreAllHref: string
-  models: AppleCatalogModel[]
-  shopLinks: { label: string; href: string }[]
-  moreLinks: { label: string; href: string }[]
-}
+import { CatalogCategory, HeaderLink } from "./type"
 
 const iphoneHref = getStorefrontProductsHref({ category: "iphone" })
 const macHref = getStorefrontProductsHref({ category: "mac" })
@@ -27,6 +10,62 @@ const watchHref = getStorefrontProductsHref({ category: "watch" })
 const airpodsHref = getStorefrontProductsHref({ category: "airpods" })
 const tvHomeHref = getStorefrontProductsHref({ category: "tv-home" })
 const accessoriesHref = getStorefrontProductsHref({ category: "accessories" })
+
+export const searchQuickLinks: HeaderLink[] = [
+  {
+    id: "all-products",
+    label: "Shop All Products",
+    href: routes.storefront.prodcuts.root,
+  },
+  {
+    id: "deals",
+    label: "Deals & Offers",
+    href: routes.storefront.deals.root,
+  },
+  {
+    id: "iphone",
+    label: "iPhone",
+    href: `${routes.storefront.prodcuts.root}?category=iphone`,
+  },
+  {
+    id: "mac",
+    label: "Mac",
+    href: `${routes.storefront.prodcuts.root}?category=mac`,
+  },
+  {
+    id: "ipad",
+    label: "iPad",
+    href: `${routes.storefront.prodcuts.root}?category=ipad`,
+  },
+  {
+    id: "refurbished",
+    label: "Refurbished",
+    href: `${routes.storefront.prodcuts.root}?condition=refurbished`,
+  },
+]
+
+export const dealStripMessages: HeaderLink[] = [
+  {
+    id: "shipping",
+    label: "Free shipping on orders over $50",
+    href: routes.storefront.root,
+  },
+  {
+    id: "financing",
+    label: "0% financing available at checkout",
+    href: routes.storefront.deals.root,
+  },
+  {
+    id: "returns",
+    label: "30-day returns, no questions asked",
+    href: routes.storefront.root,
+  },
+  {
+    id: "trade-in",
+    label: "Trade in your old device for credit",
+    href: routes.storefront.prodcuts.root,
+  },
+]
 
 const commonShopLinks = (categoryHref: string, label: string) => [
   { label: `Shop ${label}`, href: categoryHref },
@@ -43,7 +82,7 @@ const commonMoreLinks = [
   { label: "Ask an Expert", href: routes.storefront.root },
 ]
 
-export const appleCatalog: AppleCatalogCategory[] = [
+export const appleCatalog: CatalogCategory[] = [
   {
     id: "iphone",
     label: "iPhone",
@@ -393,9 +432,7 @@ export const appleCatalog: AppleCatalogCategory[] = [
   },
 ]
 
-export function getAppleCategoryById(
-  id: string,
-): AppleCatalogCategory | undefined {
+export function getAppleCategoryById(id: string): CatalogCategory | undefined {
   return appleCatalog.find((c) => c.id === id)
 }
 

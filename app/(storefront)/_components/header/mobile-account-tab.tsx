@@ -4,8 +4,8 @@ import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
-import { Heart, LogOut, Package, User } from "lucide-react"
-import { motion } from "motion/react"
+import { Heart, LogOut, type LucideIcon, Package, User } from "lucide-react"
+import { m } from "motion/react"
 
 import { useGuestAuthPrompt } from "@/components/auth/guest-auth-prompt"
 import { routes } from "@/configs/routes"
@@ -18,6 +18,36 @@ type MobileAccountTabProps = {
   user?: HeaderUser
   onClose: () => void
 }
+
+type GuestAccountPromptSource =
+  | "favorites"
+  | "orders"
+  | "profile"
+  | "signin"
+  | "register"
+
+type AccountLink = {
+  href: string
+  icon: LucideIcon
+  label: string
+  source?: GuestAccountPromptSource
+}
+
+const authenticatedAccountLinks: AccountLink[] = [
+  { href: routes.storefront.orders.root, icon: Package, label: "My Orders" },
+  { href: routes.storefront.favorites.root, icon: Heart, label: "Favorites" },
+  { href: routes.storefront.profile.root, icon: User, label: "Profile" },
+]
+
+const guestQuickLinks: AccountLink[] = [
+  {
+    href: routes.storefront.orders.root,
+    icon: Package,
+    label: "My Orders",
+    source: "orders",
+  },
+  { href: routes.storefront.favorites.root, icon: Heart, label: "Favorites" },
+]
 
 export function MobileAccountTab({ user, onClose }: MobileAccountTabProps) {
   const router = useRouter()
@@ -34,10 +64,7 @@ export function MobileAccountTab({ user, onClose }: MobileAccountTabProps) {
   )
 
   const handleGuest = React.useCallback(
-    (
-      callbackUrl: string,
-      source: "favorites" | "orders" | "profile" | "signin" | "register",
-    ) => {
+    (callbackUrl: string, source: GuestAccountPromptSource) => {
       onClose()
       window.setTimeout(() => open({ callbackUrl, source }), 0)
     },
@@ -50,7 +77,7 @@ export function MobileAccountTab({ user, onClose }: MobileAccountTabProps) {
   }, [onClose, signOut])
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.15 }}
@@ -66,38 +93,21 @@ export function MobileAccountTab({ user, onClose }: MobileAccountTabProps) {
           </div>
 
           <ul className="space-y-1">
-            <li>
-              <button
-                type="button"
-                onClick={() => handleProtected(routes.storefront.orders.root)}
-                className="flex w-full items-center gap-3 py-2.5 text-left text-[28px] font-semibold tracking-tight text-neutral-900"
-              >
-                <Package className="size-5 text-neutral-500" />
-                My Orders
-              </button>
-            </li>
-            <li>
-              <button
-                type="button"
-                onClick={() =>
-                  handleProtected(routes.storefront.favorites.root)
-                }
-                className="flex w-full items-center gap-3 py-2.5 text-left text-[28px] font-semibold tracking-tight text-neutral-900"
-              >
-                <Heart className="size-5 text-neutral-500" />
-                Favorites
-              </button>
-            </li>
-            <li>
-              <button
-                type="button"
-                onClick={() => handleProtected(routes.storefront.profile.root)}
-                className="flex w-full items-center gap-3 py-2.5 text-left text-[28px] font-semibold tracking-tight text-neutral-900"
-              >
-                <User className="size-5 text-neutral-500" />
-                Profile
-              </button>
-            </li>
+            {authenticatedAccountLinks.map((link) => {
+              const Icon = link.icon
+              return (
+                <li key={link.href}>
+                  <button
+                    type="button"
+                    onClick={() => handleProtected(link.href)}
+                    className="flex w-full items-center gap-3 py-2.5 text-left text-[28px] font-semibold tracking-tight text-neutral-900"
+                  >
+                    <Icon className="size-5 text-neutral-500" />
+                    {link.label}
+                  </button>
+                </li>
+              )
+            })}
             <li>
               <button
                 type="button"
@@ -143,32 +153,37 @@ export function MobileAccountTab({ user, onClose }: MobileAccountTabProps) {
           <div className="mt-10">
             <p className="mb-3 text-xs text-neutral-500">Quick Links</p>
             <ul className="space-y-0">
-              <li>
-                <button
-                  type="button"
-                  onClick={() =>
-                    handleGuest(routes.storefront.orders.root, "orders")
-                  }
-                  className="flex w-full items-center gap-3 py-2 text-left text-base text-neutral-900"
-                >
-                  <Package className="size-4 text-neutral-500" />
-                  My Orders
-                </button>
-              </li>
-              <li>
-                <Link
-                  href={routes.storefront.favorites.root}
-                  onClick={onClose}
-                  className="flex items-center gap-3 py-2 text-base text-neutral-900"
-                >
-                  <Heart className="size-4 text-neutral-500" />
-                  Favorites
-                </Link>
-              </li>
+              {guestQuickLinks.map((link) => {
+                const Icon = link.icon
+                const source = link.source
+                return (
+                  <li key={link.href}>
+                    {source ? (
+                      <button
+                        type="button"
+                        onClick={() => handleGuest(link.href, source)}
+                        className="flex w-full items-center gap-3 py-2 text-left text-base text-neutral-900"
+                      >
+                        <Icon className="size-4 text-neutral-500" />
+                        {link.label}
+                      </button>
+                    ) : (
+                      <Link
+                        href={link.href}
+                        onClick={onClose}
+                        className="flex items-center gap-3 py-2 text-base text-neutral-900"
+                      >
+                        <Icon className="size-4 text-neutral-500" />
+                        {link.label}
+                      </Link>
+                    )}
+                  </li>
+                )
+              })}
             </ul>
           </div>
         </>
       )}
-    </motion.div>
+    </m.div>
   )
 }

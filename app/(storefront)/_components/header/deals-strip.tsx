@@ -3,22 +3,9 @@
 import * as React from "react"
 import Link from "next/link"
 
-import { AnimatePresence, motion } from "motion/react"
+import { AnimatePresence, m } from "motion/react"
 
-import { routes } from "@/configs/routes"
-
-const MESSAGES: { text: string; href: string }[] = [
-  { text: "Free shipping on orders over $50", href: routes.storefront.root },
-  {
-    text: "0% financing available at checkout",
-    href: routes.storefront.deals.root,
-  },
-  { text: "30-day returns, no questions asked", href: routes.storefront.root },
-  {
-    text: "Trade in your old device for credit",
-    href: routes.storefront.prodcuts.root,
-  },
-]
+import { dealStripMessages } from "./catalog"
 
 const ROTATE_INTERVAL_MS = 4500
 
@@ -27,20 +14,20 @@ export function DealsStrip() {
 
   React.useEffect(() => {
     const id = window.setInterval(
-      () => setIndex((i) => (i + 1) % MESSAGES.length),
+      () => setIndex((i) => (i + 1) % dealStripMessages.length),
       ROTATE_INTERVAL_MS,
     )
     return () => window.clearInterval(id)
   }, [])
 
-  const current = MESSAGES[index]
+  const current = dealStripMessages[index]
 
   return (
     <div className="relative overflow-hidden bg-indigo-600 text-white">
       <div className="mx-auto flex h-deals-strip max-w-7xl items-center justify-center px-4 text-xs">
         <AnimatePresence mode="wait">
-          <motion.div
-            key={index}
+          <m.div
+            key={current.id}
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
@@ -51,9 +38,9 @@ export function DealsStrip() {
               href={current.href}
               className="font-medium tracking-wide hover:underline"
             >
-              {current.text}
+              {current.label}
             </Link>
-          </motion.div>
+          </m.div>
         </AnimatePresence>
       </div>
     </div>

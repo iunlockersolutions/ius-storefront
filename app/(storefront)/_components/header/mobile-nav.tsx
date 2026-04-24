@@ -2,32 +2,18 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 
-import { ArrowRight, Search, ShoppingBag, User, X } from "lucide-react"
-import { motion } from "motion/react"
+import { Search, ShoppingBag, User, X } from "lucide-react"
+import { m } from "motion/react"
 import { Drawer as DrawerPrimitive } from "vaul"
 
 import { routes } from "@/configs/routes"
 import { cn } from "@/lib/utils"
 
+import { SearchPanel } from "./flyout-panels"
 import { MobileAccountTab } from "./mobile-account-tab"
 import { MobileShopTab } from "./mobile-shop-tab"
 import { type HeaderUser } from "./types"
-
-const SEARCH_QUICK_LINKS: { label: string; href: string }[] = [
-  { label: "Shop All Products", href: routes.storefront.prodcuts.root },
-  { label: "Deals & Offers", href: routes.storefront.deals.root },
-  {
-    label: "iPhone",
-    href: `${routes.storefront.prodcuts.root}?category=iphone`,
-  },
-  { label: "Mac", href: `${routes.storefront.prodcuts.root}?category=mac` },
-  {
-    label: "Refurbished",
-    href: `${routes.storefront.prodcuts.root}?condition=refurbished`,
-  },
-]
 
 type MobileNavProps = {
   user?: HeaderUser
@@ -125,7 +111,7 @@ export function MobileNav({ user, cartCount }: MobileNavProps) {
         onOpenChange={setSearchOpen}
         ariaLabel="Search"
       >
-        <MobileSearchBody onClose={() => setSearchOpen(false)} />
+        <SearchPanel onClose={() => setSearchOpen(false)} variant="mobile" />
       </FullScreenDrawer>
     </div>
   )
@@ -139,12 +125,12 @@ function HamburgerIcon({ open }: { open: boolean }) {
       aria-hidden="true"
       className="relative inline-flex size-5 items-center justify-center"
     >
-      <motion.span
+      <m.span
         className={bar}
         animate={{ y: open ? 0 : -3, rotate: open ? 45 : 0 }}
         transition={transition}
       />
-      <motion.span
+      <m.span
         className={bar}
         animate={{ y: open ? 0 : 3, rotate: open ? -45 : 0 }}
         transition={transition}
@@ -178,7 +164,7 @@ function TopTab({
       {icon}
       {label}
       {selected ? (
-        <motion.span
+        <m.span
           layoutId="mobile-nav-top-indicator"
           className="absolute inset-x-0 -bottom-3 h-0.5 rounded-t bg-indigo-600"
           transition={{ duration: 0.2, ease: [0.4, 0, 0.6, 1] }}
@@ -235,62 +221,5 @@ function FullScreenDrawer({
         </DrawerPrimitive.Content>
       </DrawerPrimitive.Portal>
     </DrawerPrimitive.Root>
-  )
-}
-
-function MobileSearchBody({ onClose }: { onClose: () => void }) {
-  const router = useRouter()
-  const inputRef = React.useRef<HTMLInputElement>(null)
-  const [query, setQuery] = React.useState("")
-
-  React.useEffect(() => {
-    const id = window.setTimeout(() => inputRef.current?.focus(), 120)
-    return () => window.clearTimeout(id)
-  }, [])
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    const trimmed = query.trim()
-    if (!trimmed) return
-    router.push(routes.storefront.search({ q: trimmed }))
-    onClose()
-  }
-
-  return (
-    <div className="flex-1 overflow-y-auto px-4 pt-5 pb-12">
-      <form
-        onSubmit={handleSubmit}
-        className="flex items-center gap-3 rounded-2xl border border-black/10 bg-white px-5 py-4"
-      >
-        <Search className="size-5 text-neutral-500" />
-        <input
-          ref={inputRef}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search products, brands, and more"
-          aria-label="Search"
-          className="flex-1 bg-transparent text-lg text-neutral-900 placeholder:text-neutral-400 focus:outline-none"
-        />
-      </form>
-
-      <div className="mt-8">
-        <p className="mb-3 text-sm font-medium text-neutral-500">
-          Popular searches
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {SEARCH_QUICK_LINKS.map((link) => (
-            <Link
-              key={link.href + link.label}
-              href={link.href}
-              onClick={onClose}
-              className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-white px-3.5 py-1.5 text-sm text-neutral-800 hover:border-indigo-300 hover:text-indigo-600"
-            >
-              <ArrowRight className="size-3.5 text-neutral-400" />
-              {link.label}
-            </Link>
-          ))}
-        </div>
-      </div>
-    </div>
   )
 }

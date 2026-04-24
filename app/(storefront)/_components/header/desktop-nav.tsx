@@ -1,39 +1,113 @@
 "use client"
 
+import * as React from "react"
 import Link from "next/link"
 
 import { Search, ShoppingBag, Tag } from "lucide-react"
-import { AnimatePresence, motion } from "motion/react"
+import { AnimatePresence, m } from "motion/react"
 
 import { routes } from "@/configs/routes"
 import { cn } from "@/lib/utils"
 
 import { appleCatalog } from "./catalog"
-import { BagFlyout, ProductFlyout, SearchFlyout } from "./flyout-panels"
-import {
-  APPLE_EASE,
-  CURTAIN_DURATION,
-  FADE_DURATION,
-  FLYOUT_DURATION,
-  useNav,
-} from "./nav-context"
+import { ProductFlyout, SearchPanel } from "./flyout-panels"
 
 type DesktopNavProps = {
   cartCount: number
 }
 
+type DesktopOpenKind = "panel" | "search" | null
+
+const APPLE_EASE = [0.4, 0, 0.6, 1] as const
+const OPEN_DELAY_MS = 120
+const CLOSE_DELAY_MS = 120
+const FLYOUT_DURATION = 0.35
+const FADE_DURATION = 0.15
+const CURTAIN_DURATION = 0.2
+
 export function DesktopNav({ cartCount }: DesktopNavProps) {
-  const {
-    openKind,
-    openPanelId,
-    schedulePanel,
-    scheduleClose,
-    cancelScheduled,
-    openPanel,
-    openSearch,
-    openBag,
-    closeAll,
-  } = useNav()
+  const [openKind, setOpenKind] = React.useState<DesktopOpenKind>(null)
+  const [openPanelId, setOpenPanelId] = React.useState<string | null>(null)
+  const openTimer = React.useRef<number | null>(null)
+  const closeTimer = React.useRef<number | null>(null)
+
+  const clearTimers = React.useCallback(() => {
+    if (openTimer.current !== null) {
+      window.clearTimeout(openTimer.current)
+      openTimer.current = null
+    }
+    if (closeTimer.current !== null) {
+      window.clearTimeout(closeTimer.current)
+      closeTimer.current = null
+    }
+  }, [])
+
+  const closeAll = React.useCallback(() => {
+    clearTimers()
+    setOpenKind(null)
+    setOpenPanelId(null)
+  }, [clearTimers])
+
+  const openPanel = React.useCallback(
+    (id: string) => {
+      clearTimers()
+      setOpenKind("panel")
+      setOpenPanelId(id)
+    },
+    [clearTimers],
+  )
+
+  const openSearch = React.useCallback(() => {
+    clearTimers()
+    setOpenKind("search")
+    setOpenPanelId(null)
+  }, [clearTimers])
+
+  const schedulePanel = React.useCallback(
+    (id: string) => {
+      if (closeTimer.current !== null) {
+        window.clearTimeout(closeTimer.current)
+        closeTimer.current = null
+      }
+      if (openKind === "panel" && openPanelId !== null) {
+        setOpenPanelId(id)
+        return
+      }
+      if (openTimer.current !== null) window.clearTimeout(openTimer.current)
+      openTimer.current = window.setTimeout(() => {
+        setOpenKind("panel")
+        setOpenPanelId(id)
+        openTimer.current = null
+      }, OPEN_DELAY_MS)
+    },
+    [openKind, openPanelId],
+  )
+
+  const scheduleClose = React.useCallback(() => {
+    if (openTimer.current !== null) {
+      window.clearTimeout(openTimer.current)
+      openTimer.current = null
+    }
+    if (closeTimer.current !== null) window.clearTimeout(closeTimer.current)
+    closeTimer.current = window.setTimeout(() => {
+      setOpenKind(null)
+      setOpenPanelId(null)
+      closeTimer.current = null
+    }, CLOSE_DELAY_MS)
+  }, [])
+
+  const cancelScheduled = React.useCallback(() => clearTimers(), [clearTimers])
+
+  React.useEffect(() => {
+    if (openKind === null) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeAll()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [openKind, closeAll])
+
+  React.useEffect(() => () => clearTimers(), [clearTimers])
 
   const hasAny = openKind !== null
   const activeCategory =
@@ -76,7 +150,7 @@ export function DesktopNav({ cartCount }: DesktopNavProps) {
 
                 return (
                   <li key={category.id}>
-                    <motion.button
+                    <m.button
                       type="button"
                       aria-expanded={isActive}
                       aria-haspopup="true"
@@ -96,7 +170,7 @@ export function DesktopNav({ cartCount }: DesktopNavProps) {
                     >
                       {category.label}
                       {isActive ? (
-                        <motion.span
+                        <m.span
                           layoutId="desktop-nav-underline"
                           className="absolute inset-x-3 -bottom-px h-0.5 bg-indigo-600"
                           transition={{
@@ -105,7 +179,7 @@ export function DesktopNav({ cartCount }: DesktopNavProps) {
                           }}
                         />
                       ) : null}
-                    </motion.button>
+                    </m.button>
                   </li>
                 )
               })}
@@ -133,11 +207,10 @@ export function DesktopNav({ cartCount }: DesktopNavProps) {
                 <Search className="size-5" />
               </button>
 
-              <button
-                type="button"
+              <Link
+                href={routes.storefront.cart.root}
                 aria-label={`Bag (${cartCount} items)`}
-                aria-expanded={openKind === "bag"}
-                onClick={() => (openKind === "bag" ? closeAll() : openBag())}
+                onClick={closeAll}
                 className="relative p-2 text-neutral-800 hover:text-neutral-950"
               >
                 <ShoppingBag className="size-5" />
@@ -146,14 +219,14 @@ export function DesktopNav({ cartCount }: DesktopNavProps) {
                     {cartCount > 99 ? "99+" : cartCount}
                   </span>
                 ) : null}
-              </button>
+              </Link>
             </div>
           </nav>
         </div>
 
         <AnimatePresence initial={false}>
           {hasAny ? (
-            <motion.div
+            <m.div
               key="flyout-wrap"
               initial={{ height: 0 }}
               animate={{ height: "auto" }}
@@ -163,13 +236,13 @@ export function DesktopNav({ cartCount }: DesktopNavProps) {
               onPointerEnter={cancelScheduled}
               onPointerLeave={scheduleClose}
             >
-              <motion.div
+              <m.div
                 layout
                 transition={{ duration: FLYOUT_DURATION, ease: APPLE_EASE }}
               >
                 <AnimatePresence mode="wait" initial={false}>
                   {openKind === "panel" && activeCategory ? (
-                    <motion.div
+                    <m.div
                       key={`panel-${activeCategory.id}`}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
@@ -183,9 +256,9 @@ export function DesktopNav({ cartCount }: DesktopNavProps) {
                         category={activeCategory}
                         onNavigate={closeAll}
                       />
-                    </motion.div>
+                    </m.div>
                   ) : openKind === "search" ? (
-                    <motion.div
+                    <m.div
                       key="panel-search"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
@@ -195,25 +268,12 @@ export function DesktopNav({ cartCount }: DesktopNavProps) {
                         ease: APPLE_EASE,
                       }}
                     >
-                      <SearchFlyout onClose={closeAll} />
-                    </motion.div>
-                  ) : openKind === "bag" ? (
-                    <motion.div
-                      key="panel-bag"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{
-                        duration: FADE_DURATION,
-                        ease: APPLE_EASE,
-                      }}
-                    >
-                      <BagFlyout cartCount={cartCount} onNavigate={closeAll} />
-                    </motion.div>
+                      <SearchPanel onClose={closeAll} variant="desktop" />
+                    </m.div>
                   ) : null}
                 </AnimatePresence>
-              </motion.div>
-            </motion.div>
+              </m.div>
+            </m.div>
           ) : null}
         </AnimatePresence>
       </div>
@@ -225,7 +285,7 @@ function Curtain({ open, onClick }: { open: boolean; onClick: () => void }) {
   return (
     <AnimatePresence>
       {open ? (
-        <motion.div
+        <m.div
           key="curtain"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
