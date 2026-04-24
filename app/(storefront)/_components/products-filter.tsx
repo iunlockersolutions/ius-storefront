@@ -60,7 +60,7 @@ export function ProductsFilter({
           Sort by:
         </span>
         <Select value={currentSort} onValueChange={handleSortChange}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-45">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
