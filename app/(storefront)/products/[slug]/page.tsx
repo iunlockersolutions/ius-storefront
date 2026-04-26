@@ -152,7 +152,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
       )}
 
       {/* Product Details */}
-      <div className="mt-12 max-w-3xl">
+      {/* <div className="mt-12 max-w-3xl">
         <h2 className="text-xl font-semibold mb-4">Product Details</h2>
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="border rounded-lg p-4">
@@ -238,10 +238,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
             </div>
           )}
         </dl>
-      </div>
+      </div> */}
 
       {/* Related Products */}
-      {filteredRelated.length > 0 && (
+      {/* {filteredRelated.length > 0 && (
         <div className="mt-16">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold">Related Products</h2>
@@ -261,10 +261,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
             ))}
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Customer Reviews */}
-      <div className="mt-16">
+      {/* <div className="mt-16">
         <ProductReviews
           productId={product.id}
           reviews={reviewsData.reviews}
@@ -274,7 +274,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
           hasPurchased={reviewPermission.hasPurchased}
           isAuthenticated={isAuthenticated}
         />
-      </div>
+      </div> */}
     </div>
   )
 }
