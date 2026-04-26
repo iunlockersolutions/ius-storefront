@@ -2,9 +2,8 @@
 
 import { useState } from "react"
 
-import { NewProductModelGroupWizardForm } from "@/app/ops/product-model-groups/_components/new-product-model-group-wizard-form"
-
 import { CreateFlowDialogShell } from "./create-flow-dialog-shell"
+import { NewProductModelGroupWizardForm } from "./new-product-model-group-wizard-form"
 
 interface ModelCreateDialogProps {
   open: boolean

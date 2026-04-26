@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { Heart } from "lucide-react"
 import { toast } from "sonner"
 
+import { useGuestAuthPrompt } from "@/components/auth/guest-auth-prompt"
 import { Button } from "@/components/ui/button"
 import { toggleFavorite } from "@/lib/actions/favorites"
 import { cn } from "@/lib/utils"
@@ -26,6 +27,7 @@ export function FavoriteButton({
   className,
 }: FavoriteButtonProps) {
   const router = useRouter()
+  const { open } = useGuestAuthPrompt()
   const [isFavorited, setIsFavorited] = useState(initialIsFavorited)
   const [isPending, startTransition] = useTransition()
 
@@ -42,10 +44,10 @@ export function FavoriteButton({
       } else {
         toast.error(result.error || "Failed to update favorites")
         if (result.error?.includes("sign in")) {
-          router.push(
-            "/auth/login?callbackUrl=" +
-              encodeURIComponent(window.location.pathname),
-          )
+          open({
+            callbackUrl: `${window.location.pathname}${window.location.search}`,
+            source: "favorite",
+          })
         }
       }
     })

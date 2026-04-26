@@ -26,13 +26,13 @@ export default async function ProfilePage() {
   const session = await getServerSession()
 
   if (!session?.user) {
-    redirect("/auth/sign-in?callbackUrl=/profile")
+    redirect("/auth/login?callbackUrl=/profile")
   }
 
   const userProfile = await getFullProfile()
 
   if (!userProfile) {
-    redirect("/auth/sign-in")
+    redirect("/auth/login")
   }
 
   const quickLinks = [

@@ -10,7 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { getCart } from "@/lib/actions/cart"
 
 export const metadata = {
-  title: "Shopping Cart | IUS Shop",
+  title: "Shopping Cart | EvoluX",
   description: "Review your shopping cart and proceed to checkout",
 }
 

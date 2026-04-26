@@ -19,12 +19,12 @@ export async function generateMetadata({ params }: ProductModelPageProps) {
 
   if (!model) {
     return {
-      title: "Model Not Found | IUS Shop",
+      title: "Model Not Found | EvoluX",
     }
   }
 
   return {
-    title: `${model.name} | IUS Shop`,
+    title: `${model.name} | EvoluX`,
     description:
       model.description ||
       `Browse all listings for ${model.name} from ${model.brandName}.`,

@@ -23,7 +23,7 @@ import {
 import { getServerSession } from "@/lib/auth/rbac"
 
 export const metadata = {
-  title: "My Orders | IUS Shop",
+  title: "My Orders | EvoluX",
   description: "View and track your orders",
 }
 

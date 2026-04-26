@@ -29,7 +29,7 @@ export default async function NewAddressPage({
   const session = await getServerSession()
 
   if (!session?.user) {
-    redirect("/auth/sign-in?callbackUrl=/profile/addresses/new")
+    redirect("/auth/login?callbackUrl=/profile/addresses/new")
   }
 
   const params = await searchParams

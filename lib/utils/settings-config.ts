@@ -32,7 +32,7 @@ export function getSettingCategories(): SettingCategory[] {
           key: "site_name",
           label: "Site Name",
           type: "text",
-          default: "IUS Shop",
+          default: "EvoluX",
         },
         {
           key: "site_description",

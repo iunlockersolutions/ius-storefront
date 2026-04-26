@@ -73,34 +73,14 @@ export const opsNavGroups: OpsNavGroup[] = [
         icon: Package,
       },
       {
-        title: "Brands",
-        href: "/ops/brands",
-        icon: Store,
-      },
-      {
         title: "Categories",
         href: "/ops/categories",
         icon: Tags,
       },
       {
-        title: "Models",
-        href: "/ops/models",
-        icon: SwatchBook,
-      },
-      {
-        title: "Product Model Groups",
-        href: "/ops/product-model-groups",
-        icon: SwatchBook,
-      },
-      {
-        title: "Product Menu Configs",
-        href: "/ops/product-menu-configs",
-        icon: SwatchBook,
-      },
-      {
-        title: "Catalog Setup",
+        title: "Brand & Models",
         href: "/ops/catalog-setup",
-        icon: Store,
+        icon: SwatchBook,
       },
     ],
   },

@@ -30,10 +30,10 @@ export default function OpsShell({
     <SidebarProvider>
       <OpsRightRailProvider>
         <OpsSidebar />
-        <SidebarInset className="max-h-svh min-h-svh overflow-hidden bg-white">
+        <SidebarInset className="max-h-svh min-h-svh overflow-hidden bg-background">
           <OpsRouteGuard mustChangePassword={mustChangePassword}>
             <OpsHeader user={user} />
-            <div className="flex-1 overflow-y-auto overscroll-none bg-white">
+            <div className="flex-1 overflow-y-auto overscroll-none bg-background">
               <div className="mx-auto min-h-full w-full px-4 py-6 lg:px-6">
                 {children}
               </div>

@@ -9,7 +9,7 @@ import { getCheckoutSummary, getUserAddresses } from "@/lib/actions/checkout"
 import { getServerSession } from "@/lib/auth/rbac"
 
 export const metadata = {
-  title: "Checkout | IUS Shop",
+  title: "Checkout | EvoluX",
   description: "Complete your order",
 }
 

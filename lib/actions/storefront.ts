@@ -12,6 +12,8 @@ import {
   productCategoryAssignments,
   products,
   productVariants,
+  reviews,
+  users,
 } from "@/lib/db/schema"
 import { getPrimaryProductImageMap } from "@/lib/media/service"
 
@@ -339,6 +341,42 @@ export async function getDealProducts(limit: number = 8) {
     {
       revalidate: 1800, // Cache for 30 minutes
       tags: ["deals", "products"],
+    },
+  )()
+}
+
+// ============================================
+// Get Top Reviews (public storefront)
+// ============================================
+
+export async function getTopReviews(limit: number = 6) {
+  return unstable_cache(
+    async () => {
+      const topReviews = await db
+        .select({
+          id: reviews.id,
+          rating: reviews.rating,
+          title: reviews.title,
+          content: reviews.content,
+          createdAt: reviews.createdAt,
+          productName: products.name,
+          productSlug: products.slug,
+          userName: users.name,
+          userImage: users.image,
+        })
+        .from(reviews)
+        .innerJoin(products, eq(reviews.productId, products.id))
+        .leftJoin(users, eq(reviews.userId, users.id))
+        .where(and(eq(reviews.status, "approved"), gte(reviews.rating, 4)))
+        .orderBy(desc(reviews.helpfulCount), desc(reviews.createdAt))
+        .limit(limit)
+
+      return topReviews
+    },
+    [`top-reviews-${limit}`],
+    {
+      revalidate: 3600,
+      tags: ["reviews"],
     },
   )()
 }

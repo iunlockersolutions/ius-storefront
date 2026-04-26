@@ -5,6 +5,10 @@ import { nextCookies } from "better-auth/next-js"
 import { admin, twoFactor } from "better-auth/plugins"
 
 import { ac, roles } from "@/lib/auth/permissions"
+import {
+  getAuthTrustedOrigins,
+  getSocialProvidersConfig,
+} from "@/lib/auth/social-providers"
 import { db } from "@/lib/db"
 import * as schema from "@/lib/db/schema"
 import { sendEmail } from "@/lib/email/send"
@@ -49,17 +53,8 @@ export const auth = betterAuth({
       })
     },
   },
-  socialProviders: {
-    google: {
-      clientId: serverEnv.GOOGLE_CLIENT_ID || "",
-      clientSecret: serverEnv.GOOGLE_CLIENT_SECRET || "",
-      prompt: "select_account",
-    },
-    github: {
-      clientId: serverEnv.GITHUB_CLIENT_ID || "",
-      clientSecret: serverEnv.GITHUB_CLIENT_SECRET || "",
-    },
-  },
+  socialProviders: getSocialProvidersConfig(),
+  trustedOrigins: getAuthTrustedOrigins(),
   session: {
     expiresIn: 60 * 60 * 24 * 7, // 7d
     updateAge: 60 * 60 * 24, // 1d

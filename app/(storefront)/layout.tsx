@@ -1,8 +1,12 @@
-﻿import { SidebarProvider } from "@/components/ui/sidebar"
+﻿import { GuestAuthPromptProvider } from "@/components/auth/guest-auth-prompt"
+import { ForceLightTheme } from "@/components/force-light-theme"
+import { Toaster } from "@/components/ui/sonner"
 import { getServerSession } from "@/lib/auth/rbac"
+import { getEnabledSocialProviderIds } from "@/lib/auth/social-providers"
 
 import { Footer } from "./_components/footer"
 import Header from "./_components/header"
+import { type HeaderUser } from "./_components/header/types"
 
 export default async function StorefrontLayout({
   children,
@@ -10,13 +14,28 @@ export default async function StorefrontLayout({
   children: React.ReactNode
 }) {
   const session = await getServerSession()
-  const isAuthenticated = !!session?.user
+  const user: HeaderUser | undefined = session?.user
+    ? {
+        name: session.user.name,
+        email: session.user.email,
+        role: session.user.role,
+      }
+    : undefined
+  const isAuthenticated = !!user
+  const socialProviders = getEnabledSocialProviderIds()
 
   return (
-    <SidebarProvider mobileBreakpoint={1024} unstyled>
-      <Header isAuthenticated={isAuthenticated} />
-      <main className="flex-1">{children}</main>
-      <Footer />
-    </SidebarProvider>
+    <div className="flex min-h-screen flex-col">
+      <ForceLightTheme />
+      <GuestAuthPromptProvider
+        isAuthenticated={isAuthenticated}
+        socialProviders={socialProviders}
+      >
+        <Header user={user} />
+        <main className="flex-1">{children}</main>
+        <Footer />
+      </GuestAuthPromptProvider>
+      <Toaster theme="light" />
+    </div>
   )
 }

@@ -1,14 +1,14 @@
 ﻿import type { Metadata } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
+import { Geist_Mono, Inter } from "next/font/google"
 
 import { Providers } from "@/components/providers"
-import { Toaster } from "@/components/ui/sonner"
 
 import "./globals.css"
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-sans",
   subsets: ["latin"],
+  display: "swap",
 })
 
 const geistMono = Geist_Mono({
@@ -18,17 +18,17 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "IUS Shop - Electronics Store",
-    template: "%s | IUS Shop",
+    default: "EvoluX - Electronics Store",
+    template: "%s | EvoluX",
   },
   description:
     "Your trusted destination for mobile phones, accessories, and electronics.",
   keywords: ["electronics", "mobile phones", "accessories", "e-commerce"],
-  authors: [{ name: "IUS Shop" }],
+  authors: [{ name: "EvoluX" }],
   openGraph: {
     type: "website",
     locale: "en_US",
-    siteName: "IUS Shop",
+    siteName: "EvoluX",
   },
 }
 
@@ -40,10 +40,9 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen`}
+        className={`${inter.variable} ${geistMono.variable} antialiased min-h-screen`}
       >
         <Providers>{children}</Providers>
-        <Toaster />
       </body>
     </html>
   )
