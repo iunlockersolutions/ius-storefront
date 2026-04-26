@@ -18,10 +18,12 @@ import {
 import { toast } from "sonner"
 
 import { FavoriteButton } from "@/app/(storefront)/products/_components/favorite-button"
+import { WhatsApp } from "@/components/icons/svg/whatsapp"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { BUSINESS_NUMBER } from "@/configs/config"
 import { addToCart } from "@/lib/actions/cart"
 import { cn, formatCurrency } from "@/lib/utils"
 
@@ -329,7 +331,7 @@ export function ProductInfo({
       </div>
 
       {/* Stock Status */}
-      <div className="flex items-center gap-2">
+      {/* <div className="flex items-center gap-2">
         {inStock ? (
           <>
             <Check className="h-5 w-5 text-green-500" />
@@ -347,7 +349,7 @@ export function ProductInfo({
         ) : (
           <span className="text-red-500 font-medium">Out of Stock</span>
         )}
-      </div>
+      </div> */}
 
       {product.options.length > 0 &&
         product.options.map((option) => {
@@ -391,7 +393,7 @@ export function ProductInfo({
         })}
 
       {/* Quantity Selector */}
-      <div className="space-y-2">
+      {/* <div className="space-y-2">
         <Label htmlFor="quantity">Quantity</Label>
         <div className="flex items-center gap-2">
           <Button
@@ -428,11 +430,11 @@ export function ProductInfo({
             <Plus className="h-4 w-4" />
           </Button>
         </div>
-      </div>
+      </div> */}
 
       {/* Action Buttons */}
       <div className="flex flex-col sm:flex-row gap-3">
-        <Button
+        {/* <Button
           size="lg"
           className="flex-1"
           disabled={!inStock || isPending || !selectedVariant}
@@ -444,6 +446,30 @@ export function ProductInfo({
             <ShoppingCart className="h-5 w-5 mr-2" />
           )}
           {isPending ? "Adding..." : "Add to Cart"}
+        </Button> */}
+        {/* WhatsApp Button */}
+        <Button
+          asChild
+          size="lg"
+          className="flex-1 bg-green-500 hover:bg-green-600 text-white"
+          disabled={!selectedVariant}
+        >
+          <a
+            href={`https://wa.me/${BUSINESS_NUMBER}?text=${encodeURIComponent(
+              `Hello, I am interested in the following product:
+              \nProduct: ${product.name}${
+                selectedVariant ? `\nVariant: ${selectedVariant.name}` : ""
+              }
+              \nLink: ${
+                typeof window !== "undefined" ? window.location.href : ""
+              }`,
+            )}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <WhatsApp className="h-5 w-5 mr-2" />
+            WhatsApp
+          </a>
         </Button>
         <FavoriteButton
           productId={product.id}
@@ -477,12 +503,12 @@ export function ProductInfo({
         </div>
       </div>
 
-      {/* SKU */}
+      {/* SKU
       {selectedVariant && (
         <div className="text-sm text-muted-foreground">
           <span className="font-medium">SKU:</span> {selectedVariant.sku}
         </div>
-      )}
+      )} */}
     </div>
   )
 }
