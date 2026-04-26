@@ -25,6 +25,26 @@ const providerIcons: Record<
   tiktok: TikTok,
 }
 
+function getCallbackUrl(callbackUrl: string) {
+  const fallbackUrl = "/"
+  try {
+    if (!callbackUrl) return fallbackUrl
+    const origin =
+      typeof window === "undefined"
+        ? "http://localhost:4000"
+        : window.location.origin
+    const normalizedUrl = new URL(callbackUrl, origin)
+
+    if (normalizedUrl.origin !== origin) return fallbackUrl
+    if (normalizedUrl.pathname.startsWith("/ops")) return fallbackUrl
+
+    const normalizedPath = `${normalizedUrl.pathname}${normalizedUrl.search}${normalizedUrl.hash}`
+    return normalizedPath.startsWith("/") ? normalizedPath : fallbackUrl
+  } catch {
+    return fallbackUrl
+  }
+}
+
 interface SocialLoginButtonsProps {
   callbackUrl: string
   providers: SocialProviderId[]
@@ -47,12 +67,11 @@ export function SocialLoginButtons({
     setLoadingProvider(provider)
 
     try {
-      // Use the auth callback page for role-based redirect.
-      const authCallbackUrl = `/auth/callback?callbackUrl=${encodeURIComponent(callbackUrl)}`
+      const normalizedCallbackUrl = getCallbackUrl(callbackUrl)
 
       await authClient.signIn.social({
         provider,
-        callbackURL: authCallbackUrl,
+        callbackURL: normalizedCallbackUrl,
       })
     } catch {
       toast.error(
