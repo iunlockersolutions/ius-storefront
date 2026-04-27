@@ -36,6 +36,11 @@ export type AdminMutationKey =
   | "staff.unban"
   | "staff.resetPassword"
   | "staff.delete"
+  | "contactMessage.updateStatus"
+  | "contactMessage.assign"
+  | "contactMessage.reply"
+  | "contactMessage.delete"
+  | "notification.markRead"
 
 export interface MutationInvalidationContext {
   brandId?: string
@@ -45,6 +50,7 @@ export interface MutationInvalidationContext {
   orderId?: string
   productId?: string
   variantId?: string
+  contactMessageId?: string
 }
 
 function getInvalidationTargets(
@@ -169,6 +175,33 @@ function getInvalidationTargets(
     case "staff.resetPassword":
     case "staff.delete":
       return [queryKeys.admin.staffUsers()]
+
+    case "contactMessage.updateStatus":
+    case "contactMessage.assign":
+      return context.contactMessageId
+        ? [
+            queryKeys.admin.contactMessages(),
+            queryKeys.admin.contactMessage(context.contactMessageId),
+          ]
+        : [queryKeys.admin.contactMessages()]
+
+    case "contactMessage.reply":
+      return context.contactMessageId
+        ? [
+            queryKeys.admin.contactMessages(),
+            queryKeys.admin.contactMessage(context.contactMessageId),
+            queryKeys.admin.notifications(),
+          ]
+        : [queryKeys.admin.contactMessages(), queryKeys.admin.notifications()]
+
+    case "contactMessage.delete":
+      return [
+        queryKeys.admin.contactMessages(),
+        queryKeys.admin.notifications(),
+      ]
+
+    case "notification.markRead":
+      return [queryKeys.admin.notifications()]
 
     default:
       return []

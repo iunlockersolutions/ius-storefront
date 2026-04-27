@@ -40,3 +40,9 @@ export * from "./favorites"
 
 // Newsletter Domain
 export * from "./newsletter"
+
+// Contact Domain
+export * from "./contact-messages"
+
+// Notifications Domain
+export * from "./notifications"

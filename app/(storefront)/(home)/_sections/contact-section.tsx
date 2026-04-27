@@ -1,23 +1,101 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 import { Send } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { authClient } from "@/lib/auth-client"
+
+interface FieldErrors {
+  name?: string
+  email?: string
+  phone?: string
+  message?: string
+}
+
+interface ApiErrorPayload {
+  success: false
+  error: {
+    code: string
+    message: string
+    details?: { fieldErrors?: FieldErrors }
+  }
+}
 
 export function ContactSection() {
-  const [submitted, setSubmitted] = useState(false)
+  const session = authClient.useSession()
+  const sessionUser = session.data?.user
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const [submitted, setSubmitted] = useState(false)
+  const [pending, setPending] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
+  const [formError, setFormError] = useState<string | null>(null)
+  const [name, setName] = useState("")
+  const [email, setEmail] = useState("")
+
+  useEffect(() => {
+    if (sessionUser?.name && !name) setName(sessionUser.name)
+    if (sessionUser?.email && !email) setEmail(sessionUser.email)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionUser?.name, sessionUser?.email])
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    // TODO: integrate with contact form API
-    setSubmitted(true)
+    if (pending) return
+    setFieldErrors({})
+    setFormError(null)
+    setPending(true)
+
+    const formData = new FormData(e.currentTarget)
+    const payload = {
+      name: String(formData.get("name") ?? "").trim(),
+      email: String(formData.get("email") ?? "").trim(),
+      phone: String(formData.get("phone") ?? "").trim(),
+      message: String(formData.get("message") ?? "").trim(),
+      hp: String(formData.get("hp") ?? ""),
+    }
+
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+
+      if (response.ok) {
+        setSubmitted(true)
+        return
+      }
+
+      if (response.status === 429) {
+        setFormError("Too many submissions. Please try again in an hour.")
+        return
+      }
+
+      const body = (await response
+        .json()
+        .catch(() => null)) as ApiErrorPayload | null
+
+      if (body?.error?.details?.fieldErrors) {
+        setFieldErrors(body.error.details.fieldErrors)
+        setFormError(null)
+        return
+      }
+
+      setFormError(
+        body?.error?.message ?? "Something went wrong. Please try again.",
+      )
+    } catch {
+      setFormError("Could not reach the server. Please try again.")
+    } finally {
+      setPending(false)
+    }
   }
 
   return (
-    <section className="section-container">
+    <section className="section-container" id="contact">
       <h2 className="mb-8 text-xl font-semibold tracking-tight text-zinc-900 sm:text-2xl lg:text-3xl">
         Contact Us
       </h2>
@@ -38,41 +116,97 @@ export function ContactSection() {
               </p>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <form
+              onSubmit={handleSubmit}
+              className="flex flex-col gap-4"
+              noValidate
+            >
+              {/* Honeypot — visually hidden but in the DOM */}
+              <input
+                type="text"
+                name="hp"
+                tabIndex={-1}
+                autoComplete="off"
+                aria-hidden="true"
+                style={{
+                  position: "absolute",
+                  left: "-9999px",
+                  width: "1px",
+                  height: "1px",
+                  opacity: 0,
+                }}
+              />
+
               <div className="grid gap-4 sm:grid-cols-2">
-                <Input
-                  name="name"
-                  placeholder="Name"
-                  required
-                  className="h-12 rounded-xl border-zinc-200 bg-white px-4 text-base placeholder:text-zinc-400"
-                />
-                <Input
-                  name="email"
-                  type="email"
-                  placeholder="Email"
-                  required
-                  className="h-12 rounded-xl border-zinc-200 bg-white px-4 text-base placeholder:text-zinc-400"
-                />
+                <div className="flex flex-col gap-1">
+                  <Input
+                    name="name"
+                    placeholder="Name"
+                    required
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    aria-invalid={Boolean(fieldErrors.name)}
+                    className="h-12 rounded-xl border-zinc-200 bg-white px-4 text-base placeholder:text-zinc-400"
+                  />
+                  {fieldErrors.name ? (
+                    <p className="text-xs text-red-600">{fieldErrors.name}</p>
+                  ) : null}
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Input
+                    name="email"
+                    type="email"
+                    placeholder="Email"
+                    required
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    aria-invalid={Boolean(fieldErrors.email)}
+                    className="h-12 rounded-xl border-zinc-200 bg-white px-4 text-base placeholder:text-zinc-400"
+                  />
+                  {fieldErrors.email ? (
+                    <p className="text-xs text-red-600">{fieldErrors.email}</p>
+                  ) : null}
+                </div>
               </div>
-              <Input
-                name="phone"
-                type="tel"
-                placeholder="Phone Number"
-                className="h-12 rounded-xl border-zinc-200 bg-white px-4 text-base placeholder:text-zinc-400"
-              />
-              <textarea
-                name="message"
-                placeholder="Message"
-                required
-                rows={5}
-                className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-base text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
-              />
+              <div className="flex flex-col gap-1">
+                <Input
+                  name="phone"
+                  type="tel"
+                  placeholder="Phone Number"
+                  aria-invalid={Boolean(fieldErrors.phone)}
+                  className="h-12 rounded-xl border-zinc-200 bg-white px-4 text-base placeholder:text-zinc-400"
+                />
+                {fieldErrors.phone ? (
+                  <p className="text-xs text-red-600">{fieldErrors.phone}</p>
+                ) : null}
+              </div>
+              <div className="flex flex-col gap-1">
+                <textarea
+                  name="message"
+                  placeholder="Message"
+                  required
+                  rows={5}
+                  aria-invalid={Boolean(fieldErrors.message)}
+                  className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-base text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                />
+                {fieldErrors.message ? (
+                  <p className="text-xs text-red-600">{fieldErrors.message}</p>
+                ) : null}
+              </div>
+
+              {formError ? (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {formError}
+                </div>
+              ) : null}
+
               <Button
                 type="submit"
                 size="lg"
+                disabled={pending}
                 className="h-12 w-full rounded-xl bg-zinc-900 font-medium text-white hover:bg-zinc-800 sm:w-auto sm:px-8"
               >
-                Send message
+                {pending ? "Sending..." : "Send message"}
               </Button>
             </form>
           )}

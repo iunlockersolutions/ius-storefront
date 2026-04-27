@@ -28,6 +28,7 @@ export type Resource =
   | "staff"
   | "settings"
   | "reports"
+  | "contact_message"
 
 /**
  * Action types for permission checks
@@ -47,6 +48,8 @@ export type Action =
   | "invite"
   | "adjust"
   | "export"
+  | "reply"
+  | "assign"
 
 /**
  * Permission format: resource.action
@@ -124,6 +127,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     // Customers
     "customer.read",
     "customer.list",
+    // Contact messages (triage, no delete)
+    "contact_message.list",
+    "contact_message.read",
+    "contact_message.reply",
+    "contact_message.assign",
+    "contact_message.update",
   ],
   manager: [
     // Brands
@@ -172,6 +181,13 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "customer.list",
     // Reports
     "reports.read",
+    // Contact messages (full)
+    "contact_message.list",
+    "contact_message.read",
+    "contact_message.reply",
+    "contact_message.assign",
+    "contact_message.update",
+    "contact_message.delete",
   ],
   admin: [
     // Admin has all permissions

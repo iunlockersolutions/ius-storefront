@@ -28,6 +28,7 @@ import { clearAuthCookies } from "@/lib/actions/admin-auth"
 import { authClient } from "@/lib/auth-client"
 
 import { getOpsPageHeading } from "./ops-navigation"
+import { OpsNotificationBell } from "./ops-notification-bell"
 
 type OpsHeaderProps = {
   user: {
@@ -94,6 +95,8 @@ function OpsHeader({ user }: OpsHeaderProps) {
           </div>
 
           <AnimatedThemeToggler />
+
+          <OpsNotificationBell />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

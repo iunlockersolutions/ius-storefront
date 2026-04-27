@@ -181,3 +181,31 @@ export const addressTypeEnum = pgEnum("address_type", [
   "billing",
   "both",
 ])
+
+/**
+ * Contact message lifecycle status.
+ */
+export const contactMessageStatusEnum = pgEnum("contact_message_status", [
+  "unread",
+  "open",
+  "replied",
+  "closed",
+  "spam",
+])
+
+/**
+ * Contact message thread/audit event types.
+ * v1 only renders `reply_sent` in the customer-visible thread; the others
+ * power a v2 audit log without a future migration.
+ */
+export const contactMessageEventTypeEnum = pgEnum(
+  "contact_message_event_type",
+  ["reply_sent", "status_changed", "assigned"],
+)
+
+/**
+ * Notification kinds delivered to staff users.
+ */
+export const notificationTypeEnum = pgEnum("notification_type", [
+  "contact_message_created",
+])

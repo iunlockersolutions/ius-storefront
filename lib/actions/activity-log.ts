@@ -48,6 +48,13 @@ export type ActivityAction =
   // Session actions
   | "session.revoke"
   | "session.revoke_all"
+  // Contact message inbox actions
+  | "contact_message.update_status"
+  | "contact_message.assign"
+  | "contact_message.reply"
+  | "contact_message.delete"
+  // Notification actions
+  | "notification.mark_read"
 
 interface LogActivityOptions {
   action: ActivityAction
