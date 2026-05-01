@@ -38,7 +38,7 @@ export function Header({ user }: HeaderProps) {
       <div className="sticky top-0 z-50">
         <DealsStrip />
         <div className="hidden lg:block">
-          <DesktopNavigation cartCount={cartCount} />
+          <DesktopNavigation cartCount={cartCount} user={user} />
         </div>
         <div className="lg:hidden">
           <MobileNavigation user={user} cartCount={cartCount} />

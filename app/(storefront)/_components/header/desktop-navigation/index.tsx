@@ -11,10 +11,13 @@ import { cn } from "@/lib/utils"
 
 import { appleCatalog } from "../catalog"
 import { Search } from "../search"
+import { type HeaderUser } from "../types"
+import { DesktopAccountMenu } from "./desktop-account-menu"
 import { ProductFlyout } from "./product-flyout"
 
 type DesktopNavigationProps = {
   cartCount: number
+  user?: HeaderUser
 }
 
 type DesktopOpenKind = "panel" | "search" | null
@@ -26,7 +29,7 @@ const FLYOUT_DURATION = 0.35
 const FADE_DURATION = 0.15
 const CURTAIN_DURATION = 0.2
 
-export function DesktopNavigation({ cartCount }: DesktopNavigationProps) {
+export function DesktopNavigation({ cartCount, user }: DesktopNavigationProps) {
   const [openKind, setOpenKind] = React.useState<DesktopOpenKind>(null)
   const [openPanelId, setOpenPanelId] = React.useState<string | null>(null)
   const openTimer = React.useRef<number | null>(null)
@@ -221,6 +224,8 @@ export function DesktopNavigation({ cartCount }: DesktopNavigationProps) {
                   </span>
                 ) : null}
               </Link>
+
+              <DesktopAccountMenu user={user} />
             </div>
           </nav>
         </div>

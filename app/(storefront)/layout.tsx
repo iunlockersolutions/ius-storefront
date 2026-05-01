@@ -19,6 +19,7 @@ export default async function StorefrontLayout({
         name: session.user.name,
         email: session.user.email,
         role: session.user.role,
+        image: session.user.image,
       }
     : undefined
   const isAuthenticated = !!user
