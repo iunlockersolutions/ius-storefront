@@ -6,9 +6,7 @@ import Link from "next/link"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { AnimatePresence, m } from "motion/react"
 
-import { cn } from "@/lib/utils"
-
-import { appleCatalog, formatPriceFrom, getAppleCategoryById } from "./catalog"
+import { appleCatalog, getAppleCategoryById } from "./catalog"
 
 const SLIDE_DURATION = 0.35
 const APPLE_EASE_MOBILE = [0.52, 0.16, 0.24, 1] as const
@@ -84,29 +82,12 @@ export function MobileShopTab({ onClose }: { onClose: () => void }) {
                     <Link
                       href={model.href}
                       onClick={onClose}
-                      className="flex items-center gap-3 py-2"
+                      className="flex w-full items-center justify-between gap-3 rounded-lg py-2.5 transition-colors active:bg-neutral-50"
                     >
-                      <div
-                        className={cn(
-                          "size-12 shrink-0 rounded-lg bg-linear-to-br",
-                          model.gradient ?? "from-neutral-200 to-neutral-400",
-                        )}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-base font-semibold tracking-tight text-neutral-900">
-                          {model.name}
-                        </p>
-                        {model.priceFrom ? (
-                          <p className="mt-0.5 text-xs font-medium text-indigo-600">
-                            {formatPriceFrom(model.priceFrom)}
-                          </p>
-                        ) : model.tagline ? (
-                          <p className="mt-0.5 truncate text-xs text-neutral-500">
-                            {model.tagline}
-                          </p>
-                        ) : null}
-                      </div>
-                      <ChevronRight className="size-4 shrink-0 text-neutral-300" />
+                      <h2 className="min-w-0 flex-1 text-4xl font-semibold tracking-tight text-neutral-900">
+                        {model.name}
+                      </h2>
+                      <ChevronRight className="size-5 shrink-0 text-neutral-400" />
                     </Link>
                   </li>
                 ))}
