@@ -1,18 +1,49 @@
-import { HeaderClient } from "./header-client"
-import TopBar from "./top-bar"
+"use client"
+
+import * as React from "react"
+
+import { domAnimation, LazyMotion } from "motion/react"
+
+import { getCartCount } from "@/lib/actions/cart"
+
+import { DealsStrip } from "./deals-strip"
+import { DesktopNavigation } from "./desktop-navigation"
+import { MobileNavigation } from "./mobile-navigation"
 import { type HeaderUser } from "./types"
 
 type HeaderProps = {
   user?: HeaderUser
 }
 
-function Header({ user }: HeaderProps) {
+export function Header({ user }: HeaderProps) {
+  const [cartCount, setCartCount] = React.useState(0)
+
+  React.useEffect(() => {
+    let cancelled = false
+    const refresh = async () => {
+      const count = await getCartCount()
+      if (!cancelled) setCartCount(count)
+    }
+    refresh()
+    const onUpdate = () => refresh()
+    window.addEventListener("cart-updated", onUpdate)
+    return () => {
+      cancelled = true
+      window.removeEventListener("cart-updated", onUpdate)
+    }
+  }, [])
+
   return (
-    <>
-      {user?.role === "admin" ? <TopBar /> : null}
-      <HeaderClient user={user} />
-    </>
+    <LazyMotion features={domAnimation}>
+      <div className="sticky top-0 z-50">
+        <DealsStrip />
+        <div className="hidden lg:block">
+          <DesktopNavigation cartCount={cartCount} />
+        </div>
+        <div className="lg:hidden">
+          <MobileNavigation user={user} cartCount={cartCount} />
+        </div>
+      </div>
+    </LazyMotion>
   )
 }
-
-export default Header

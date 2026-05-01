@@ -5,7 +5,7 @@ import { getServerSession } from "@/lib/auth/rbac"
 import { getEnabledSocialProviderIds } from "@/lib/auth/social-providers"
 
 import { Footer } from "./_components/footer"
-import Header from "./_components/header"
+import { Header } from "./_components/header"
 import { type HeaderUser } from "./_components/header/types"
 
 export default async function StorefrontLayout({

@@ -1,7 +1,7 @@
 import { routes } from "@/configs/routes"
 
 import { getStorefrontProductsHref } from "./header-utils"
-import { CatalogCategory, HeaderLink } from "./type"
+import { CatalogCategory, HeaderLink } from "./types"
 
 const iphoneHref = getStorefrontProductsHref({ category: "iphone" })
 const macHref = getStorefrontProductsHref({ category: "mac" })

@@ -3,16 +3,17 @@
 import * as React from "react"
 import Link from "next/link"
 
-import { Search, ShoppingBag, Tag } from "lucide-react"
+import { Search as SearchIcon, ShoppingBag, Tag } from "lucide-react"
 import { AnimatePresence, m } from "motion/react"
 
 import { routes } from "@/configs/routes"
 import { cn } from "@/lib/utils"
 
-import { appleCatalog } from "./catalog"
-import { ProductFlyout, SearchPanel } from "./flyout-panels"
+import { appleCatalog } from "../catalog"
+import { Search } from "../search"
+import { ProductFlyout } from "./product-flyout"
 
-type DesktopNavProps = {
+type DesktopNavigationProps = {
   cartCount: number
 }
 
@@ -25,7 +26,7 @@ const FLYOUT_DURATION = 0.35
 const FADE_DURATION = 0.15
 const CURTAIN_DURATION = 0.2
 
-export function DesktopNav({ cartCount }: DesktopNavProps) {
+export function DesktopNavigation({ cartCount }: DesktopNavigationProps) {
   const [openKind, setOpenKind] = React.useState<DesktopOpenKind>(null)
   const [openPanelId, setOpenPanelId] = React.useState<string | null>(null)
   const openTimer = React.useRef<number | null>(null)
@@ -204,7 +205,7 @@ export function DesktopNav({ cartCount }: DesktopNavProps) {
                 }
                 className="p-2 text-neutral-800 hover:text-neutral-950"
               >
-                <Search className="size-5" />
+                <SearchIcon className="size-5" />
               </button>
 
               <Link
@@ -268,7 +269,7 @@ export function DesktopNav({ cartCount }: DesktopNavProps) {
                         ease: APPLE_EASE,
                       }}
                     >
-                      <SearchPanel onClose={closeAll} variant="desktop" />
+                      <Search onClose={closeAll} variant="desktop" />
                     </m.div>
                   ) : null}
                 </AnimatePresence>

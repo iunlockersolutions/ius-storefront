@@ -4,14 +4,18 @@ import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
-import { ArrowRight, Search } from "lucide-react"
+import { ArrowRight, Search as SearchIcon } from "lucide-react"
 import { m } from "motion/react"
 
 import { routes } from "@/configs/routes"
 import { cn } from "@/lib/utils"
 
-import { formatPriceFrom, searchQuickLinks } from "./catalog"
-import { CatalogCategory } from "./type"
+import { searchQuickLinks } from "./catalog"
+
+type SearchProps = {
+  onClose: () => void
+  variant: "desktop" | "mobile"
+}
 
 const listVariants = {
   hidden: {},
@@ -29,102 +33,8 @@ const itemVariants = {
   },
 }
 
-export function ProductFlyout({
-  category,
-  onNavigate,
-}: {
-  category: CatalogCategory
-  onNavigate: () => void
-}) {
-  const featured = category.models.filter((m) => m.featured)
-  const rest = category.models.filter((m) => !m.featured)
-  const cardCount = featured.length
-
-  return (
-    <m.div
-      className="mx-auto flex w-full max-w-6xl flex-col gap-12 px-8 pt-6 pb-10"
-      variants={listVariants}
-      initial="hidden"
-      animate="show"
-    >
-
-      <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-        <ColumnLinks
-          heading={`Explore ${category.label}`}
-          items={[
-            {
-              label: `Explore All ${category.label}`,
-              href: category.exploreAllHref,
-              bold: true,
-            },
-            ...rest.map((m) => ({ label: m.name, href: m.href })),
-          ]}
-          onNavigate={onNavigate}
-        />
-
-        <ColumnLinks
-          heading={`Shop ${category.label}`}
-          items={category.shopLinks}
-          onNavigate={onNavigate}
-        />
-
-        <ColumnLinks
-          heading={`More from ${category.label}`}
-          items={category.moreLinks}
-          onNavigate={onNavigate}
-        />
-      </div>
-    </m.div>
-  )
-}
-
-function ColumnLinks({
-  heading,
-  items,
-  onNavigate,
-}: {
-  heading: string
-  items: { label: string; href: string; bold?: boolean }[]
-  onNavigate: () => void
-}) {
-  if (items.length === 0) return <div />
-  return (
-    <div>
-      <m.p
-        variants={itemVariants}
-        className="mb-5 text-sm font-medium text-neutral-500"
-      >
-        {heading}
-      </m.p>
-      <ul className="space-y-3.5">
-        {items.map((item) => (
-          <m.li key={item.label + item.href} variants={itemVariants}>
-            <Link
-              href={item.href}
-              onClick={onNavigate}
-              className={cn(
-                "block text-[15px] text-neutral-800 transition-colors hover:text-indigo-600",
-                item.bold &&
-                  "text-lg font-semibold tracking-tight text-neutral-900",
-              )}
-            >
-              {item.label}
-            </Link>
-          </m.li>
-        ))}
-      </ul>
-    </div>
-  )
-}
-
-export function SearchPanel({
-  onClose,
-  variant,
-}: {
-  onClose: () => void
-  variant: "desktop" | "mobile"
-}) {
-  const router = useRouter()
+export function Search({ onClose, variant }: SearchProps) {
+  const { push } = useRouter()
   const inputRef = React.useRef<HTMLInputElement>(null)
   const [query, setQuery] = React.useState("")
 
@@ -140,7 +50,7 @@ export function SearchPanel({
     e.preventDefault()
     const trimmed = query.trim()
     if (!trimmed) return
-    router.push(routes.storefront.search({ q: trimmed }))
+    push(routes.storefront.search({ q: trimmed }))
     onClose()
   }
 
@@ -154,7 +64,7 @@ export function SearchPanel({
           variant === "desktop" ? "gap-4 px-6 py-5" : "gap-3 px-5 py-4",
         )}
       >
-        <Search className="size-5 text-neutral-500" />
+        <SearchIcon className="size-5 text-neutral-500" />
         <input
           ref={inputRef}
           value={query}

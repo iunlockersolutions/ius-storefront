@@ -6,7 +6,7 @@ import Link from "next/link"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { AnimatePresence, m } from "motion/react"
 
-import { appleCatalog, getAppleCategoryById } from "./catalog"
+import { appleCatalog, getAppleCategoryById } from "../catalog"
 
 const SLIDE_DURATION = 0.35
 const APPLE_EASE_MOBILE = [0.52, 0.16, 0.24, 1] as const

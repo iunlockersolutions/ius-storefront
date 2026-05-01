@@ -10,9 +10,9 @@ import { m } from "motion/react"
 import { useGuestAuthPrompt } from "@/components/auth/guest-auth-prompt"
 import { routes } from "@/configs/routes"
 
-import { getCurrentStorefrontPathWithQuery } from "./header-utils"
-import { type HeaderUser } from "./types"
-import { useStorefrontSignOut } from "./use-storefront-sign-out"
+import { getCurrentStorefrontPathWithQuery } from "../header-utils"
+import { HeaderUser } from "../types"
+import { useStorefrontSignOut } from "../use-storefront-sign-out"
 
 type MobileAccountTabProps = {
   user?: HeaderUser
