@@ -10,6 +10,8 @@ import { user } from "@/lib/db/schema/auth"
 
 import OpsShell from "./_components/ops-shell"
 
+export const dynamic = "force-dynamic"
+
 export default async function AdminLayout({
   children,
 }: {
