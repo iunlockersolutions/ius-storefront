@@ -24,27 +24,6 @@ export function MobileShopTab({ onClose }: { onClose: () => void }) {
         animate={{ x: activeId ? "-100%" : "0%" }}
         transition={{ duration: SLIDE_DURATION, ease: APPLE_EASE_MOBILE }}
       >
-        <div className="px-6 pt-6">
-          <div className="grid grid-cols-2 gap-3">
-            <Link
-              href={routes.storefront.installmentPlans.root}
-              onClick={onClose}
-              className="flex items-center gap-2 rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-3 text-sm font-semibold text-indigo-700 active:bg-indigo-100"
-            >
-              <CreditCard className="size-4" />
-              0% Plans
-            </Link>
-            <Link
-              href={routes.storefront.deals.root}
-              onClick={onClose}
-              className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-3 text-sm font-semibold text-neutral-900 active:bg-neutral-50"
-            >
-              <Tag className="size-4" />
-              Deals
-            </Link>
-          </div>
-        </div>
-
         <ul className="space-y-2 px-6 py-6">
           {appleCatalog.map((category) => (
             <li key={category.id}>
