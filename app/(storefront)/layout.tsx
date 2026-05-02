@@ -26,7 +26,10 @@ export default async function StorefrontLayout({
   const socialProviders = getEnabledSocialProviderIds()
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div
+      className="flex min-h-screen flex-col"
+      data-storefront-mobile-align="center"
+    >
       <ForceLightTheme />
       <GuestAuthPromptProvider
         isAuthenticated={isAuthenticated}

@@ -210,3 +210,39 @@ body {
 .section-container {
   @apply mx-auto container py-12 px-4 sm:px-6 lg:px-8;
 }
+
+/* Storefront mobile alignment defaults.
+   Keep this scoped to the storefront shell so admin/auth screens keep their
+   operational layout. Add data-mobile-align="start" to any nested region that
+   should opt out, such as dense forms or comparison rows. */
+@media (max-width: 767px) {
+  [data-storefront-mobile-align="center"] :where(main, footer) {
+    text-align: center;
+  }
+
+  [data-storefront-mobile-align="center"] :where(main, footer)
+    :where(.text-left) {
+    text-align: center;
+  }
+
+  [data-storefront-mobile-align="center"] :where(main, footer)
+    :where(.section-container > *, .container > *, [class*="max-w-"]) {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  [data-storefront-mobile-align="center"] :where(main, footer)
+    :where(.flex-col.items-start) {
+    align-items: center;
+  }
+
+  [data-storefront-mobile-align="center"] :where(main, footer)
+    :where([data-mobile-align="start"], [data-mobile-align="start"] *) {
+    text-align: start;
+  }
+
+  [data-storefront-mobile-align="center"] :where(main, footer)
+    :where([data-mobile-align="start"] .flex-col.items-start) {
+    align-items: flex-start;
+  }
+}

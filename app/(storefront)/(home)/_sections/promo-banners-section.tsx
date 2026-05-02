@@ -4,6 +4,7 @@ import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { routes } from "@/configs/routes"
 
 interface PromoBannerProps {
   title: string
@@ -102,8 +103,8 @@ export function PromoFreeDelivery() {
     <PromoBanner
       title="Free Island-Wide Delivery"
       subtitle="Enjoy free delivery on all orders over LKR 25,000. Fast, reliable and tracked to your door."
-      ctaText="Shop Now"
-      ctaLink="/products"
+      ctaText="Learn More"
+      ctaLink={routes.storefront.support.freeSetupAndDelivery}
       image="https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=1000&q=80&auto=format&fit=crop"
       imageAlt="Free delivery on orders"
       bg="bg-emerald-50"

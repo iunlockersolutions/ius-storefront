@@ -34,6 +34,12 @@ export const routes = {
     profile: {
       root: "/profile",
     },
+    support: {
+      freeSetupAndDelivery: "/free-setup-and-delivery",
+      askAnExpert: "/ask-an-expert",
+      shippingAndReturns: "/shipping-and-returns",
+      contact: "/contact",
+    },
     search: (params: QueryParams) => `/search${generateQueryString(params)}`,
   },
   ops: {

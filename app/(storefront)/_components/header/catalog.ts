@@ -46,8 +46,8 @@ export const searchQuickLinks: HeaderLink[] = [
 export const dealStripMessages: HeaderLink[] = [
   {
     id: "shipping",
-    label: "Free shipping on orders over $50",
-    href: routes.storefront.root,
+    label: "Free islandwide delivery",
+    href: routes.storefront.support.freeSetupAndDelivery,
   },
   {
     id: "financing",
@@ -56,8 +56,8 @@ export const dealStripMessages: HeaderLink[] = [
   },
   {
     id: "returns",
-    label: "30-day returns, no questions asked",
-    href: routes.storefront.root,
+    label: "Shipping and returns support",
+    href: routes.storefront.support.shippingAndReturns,
   },
   {
     id: "trade-in",
@@ -74,8 +74,11 @@ const commonMoreLinks = [
   // { label: "Extended Warranty", href: routes.storefront.prodcuts.root },
   // { label: "Trade-In & Sell", href: routes.storefront.prodcuts.root },
   { label: "0% Financing", href: routes.storefront.prodcuts.root },
-  { label: "Free Setup & Delivery", href: routes.storefront.prodcuts.root },
-  { label: "Ask an Expert", href: routes.storefront.root },
+  {
+    label: "Free Setup & Delivery",
+    href: routes.storefront.support.freeSetupAndDelivery,
+  },
+  { label: "Ask an Expert", href: routes.storefront.support.askAnExpert },
 ]
 
 export const appleCatalog: CatalogCategory[] = [
@@ -263,18 +266,21 @@ export const appleCatalog: CatalogCategory[] = [
       { label: "Cases & Protection", href: accessoriesHref },
     ],
     moreLinks: [
-      { label: "Free Setup & Delivery", href: routes.storefront.prodcuts.root },
-      { label: "Ask an Expert", href: routes.storefront.root },
+      {
+        label: "Free Setup & Delivery",
+        href: routes.storefront.support.freeSetupAndDelivery,
+      },
+      { label: "Ask an Expert", href: routes.storefront.support.askAnExpert },
     ],
   },
   {
     id: "support",
     label: "Support",
-    exploreAllHref: routes.storefront.prodcuts.root,
+    exploreAllHref: routes.storefront.support.contact,
     models: [
       {
         name: "Ask an Expert",
-        href: routes.storefront.root,
+        href: routes.storefront.support.askAnExpert,
         tagline: "Chat, call, or book a consult.",
       },
       {
@@ -284,10 +290,13 @@ export const appleCatalog: CatalogCategory[] = [
       },
     ],
     shopLinks: [
-      { label: "Ask an Expert", href: routes.storefront.root },
+      { label: "Ask an Expert", href: routes.storefront.support.askAnExpert },
       { label: "Order Status", href: routes.storefront.orders.root },
-      { label: "Shipping & Returns", href: routes.storefront.root },
-      { label: "Contact Us", href: routes.storefront.root },
+      {
+        label: "Shipping & Returns",
+        href: routes.storefront.support.shippingAndReturns,
+      },
+      { label: "Contact Us", href: routes.storefront.support.contact },
     ],
     moreLinks: [],
   },
