@@ -131,7 +131,7 @@ export const appleCatalog: CatalogCategory[] = [
     shopLinks: [...commonShopLinks(iphoneHref, "iPhone")],
     moreLinks: [
       ...commonMoreLinks,
-      { label: "Compare iPhone", href: iphoneHref },
+      // { label: "Compare iPhone", href: iphoneHref },
     ],
   },
   {
@@ -151,7 +151,7 @@ export const appleCatalog: CatalogCategory[] = [
     shopLinks: commonShopLinks(macHref, "MacBook"),
     moreLinks: [
       ...commonMoreLinks,
-      { label: "Compare MacBook", href: macHref },
+      // { label: "Compare MacBook", href: macHref },
     ],
   },
   {
@@ -180,7 +180,10 @@ export const appleCatalog: CatalogCategory[] = [
       ...commonShopLinks(ipadHref, "iPad"),
       { label: "Apple Pencil", href: accessoriesHref },
     ],
-    moreLinks: [...commonMoreLinks, { label: "Compare iPad", href: ipadHref }],
+    moreLinks: [
+      ...commonMoreLinks,
+      // { label: "Compare iPad", href: ipadHref }
+    ],
   },
   {
     id: "watch",
@@ -206,7 +209,7 @@ export const appleCatalog: CatalogCategory[] = [
     ],
     moreLinks: [
       ...commonMoreLinks,
-      { label: "Compare Watches", href: watchHref },
+      // { label: "Compare Watches", href: watchHref },
     ],
   },
   {
@@ -230,7 +233,7 @@ export const appleCatalog: CatalogCategory[] = [
     shopLinks: commonShopLinks(airpodsHref, "AirPods"),
     moreLinks: [
       ...commonMoreLinks,
-      { label: "Compare AirPods", href: airpodsHref },
+      // { label: "Compare AirPods", href: airpodsHref },
     ],
   },
   {
