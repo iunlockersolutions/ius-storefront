@@ -16,7 +16,7 @@ export function ProductFlyout({ category, onNavigate }: ProductFlyoutProps) {
 
   return (
     <m.div
-      className="mx-auto flex w-full max-w-6xl flex-col gap-12 px-8 pt-6 pb-10"
+      className=" flex w-full mx-auto container flex-col gap-12 px-6 pt-6 pb-10"
       variants={listVariants}
       initial="hidden"
       animate="show"
