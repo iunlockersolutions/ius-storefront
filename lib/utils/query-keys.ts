@@ -34,6 +34,14 @@
       status?: string
       method?: string
     }) => ["admin", "payments", params ?? {}] as const,
+    installmentPlans: (params?: {
+      page?: number
+      limit?: number
+      search?: string
+      status?: string
+    }) => ["admin", "installment-plans", params ?? {}] as const,
+    installmentPlan: (id: string) =>
+      ["admin", "installment-plans", id] as const,
     paymentStats: () => ["admin", "payments", "stats"] as const,
     pendingBankTransfers: () =>
       ["admin", "payments", "pending-bank-transfers"] as const,

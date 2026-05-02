@@ -29,6 +29,9 @@ export const statement = {
   // Payment management
   payment: ["read", "verify", "refund", "list"],
 
+  // Installment plan content management
+  installment_plan: ["create", "read", "update", "delete", "list"],
+
   // Review moderation
   review: ["read", "approve", "reject", "delete", "list"],
 
@@ -123,6 +126,9 @@ export const manager = ac.newRole({
   // Payment management
   payment: ["read", "verify", "refund", "list"],
 
+  // Installment plan content management
+  installment_plan: ["create", "read", "update", "delete", "list"],
+
   // Review moderation
   review: ["read", "approve", "reject", "delete", "list"],
 
@@ -162,6 +168,9 @@ export const admin = ac.newRole({
 
   // Full payment management
   payment: ["read", "verify", "refund", "list"],
+
+  // Installment plan content management
+  installment_plan: ["create", "read", "update", "delete", "list"],
 
   // Full review management
   review: ["read", "approve", "reject", "delete", "list"],

@@ -3,8 +3,10 @@
 import * as React from "react"
 import Link from "next/link"
 
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronLeft, ChevronRight, CreditCard, Tag } from "lucide-react"
 import { AnimatePresence, m } from "motion/react"
+
+import { routes } from "@/configs/routes"
 
 import { appleCatalog, getAppleCategoryById } from "../catalog"
 
@@ -22,7 +24,28 @@ export function MobileShopTab({ onClose }: { onClose: () => void }) {
         animate={{ x: activeId ? "-100%" : "0%" }}
         transition={{ duration: SLIDE_DURATION, ease: APPLE_EASE_MOBILE }}
       >
-        <ul className="px-6 py-6 space-y-2">
+        <div className="px-6 pt-6">
+          <div className="grid grid-cols-2 gap-3">
+            <Link
+              href={routes.storefront.installmentPlans.root}
+              onClick={onClose}
+              className="flex items-center gap-2 rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-3 text-sm font-semibold text-indigo-700 active:bg-indigo-100"
+            >
+              <CreditCard className="size-4" />
+              0% Plans
+            </Link>
+            <Link
+              href={routes.storefront.deals.root}
+              onClick={onClose}
+              className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-3 text-sm font-semibold text-neutral-900 active:bg-neutral-50"
+            >
+              <Tag className="size-4" />
+              Deals
+            </Link>
+          </div>
+        </div>
+
+        <ul className="space-y-2 px-6 py-6">
           {appleCatalog.map((category) => (
             <li key={category.id}>
               <button

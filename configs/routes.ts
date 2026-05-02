@@ -21,6 +21,10 @@ export const routes = {
     deals: {
       root: "/deals",
     },
+    installmentPlans: {
+      root: "/installment-plans",
+      id: (slug: string) => `/installment-plans/${slug}`,
+    },
     cart: {
       root: "/cart",
     },
@@ -55,6 +59,11 @@ export const routes = {
       root: "/ops/brands",
       new: "/ops/brands/new",
       id: (id: string) => `/ops/brands/${id}`,
+    },
+    installmentPlans: {
+      root: "/ops/installment-plans",
+      new: "/ops/installment-plans/new",
+      id: (id: string) => `/ops/installment-plans/${id}`,
     },
   },
   errors: {

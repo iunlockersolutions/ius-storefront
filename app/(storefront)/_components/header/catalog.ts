@@ -22,6 +22,11 @@ export const searchQuickLinks: HeaderLink[] = [
     href: routes.storefront.deals.root,
   },
   {
+    id: "installments",
+    label: "0% Installment Plans",
+    href: routes.storefront.installmentPlans.root,
+  },
+  {
     id: "iphone",
     label: "iPhone",
     href: `${routes.storefront.prodcuts.root}?category=iphone`,
@@ -52,7 +57,7 @@ export const dealStripMessages: HeaderLink[] = [
   {
     id: "financing",
     label: "0% financing available at checkout",
-    href: routes.storefront.deals.root,
+    href: routes.storefront.installmentPlans.root,
   },
   {
     id: "returns",
@@ -73,7 +78,7 @@ const commonShopLinks = (categoryHref: string, label: string) => [
 const commonMoreLinks = [
   // { label: "Extended Warranty", href: routes.storefront.prodcuts.root },
   // { label: "Trade-In & Sell", href: routes.storefront.prodcuts.root },
-  { label: "0% Financing", href: routes.storefront.prodcuts.root },
+  { label: "0% Financing", href: routes.storefront.installmentPlans.root },
   {
     label: "Free Setup & Delivery",
     href: routes.storefront.support.freeSetupAndDelivery,
@@ -262,6 +267,10 @@ export const appleCatalog: CatalogCategory[] = [
     shopLinks: [
       { label: "Shop All Accessories", href: accessoriesHref },
       { label: "Deals & Offers", href: routes.storefront.deals.root },
+      {
+        label: "0% Installment Plans",
+        href: routes.storefront.installmentPlans.root,
+      },
       { label: "Cables & Chargers", href: accessoriesHref },
       { label: "Cases & Protection", href: accessoriesHref },
     ],
@@ -292,6 +301,10 @@ export const appleCatalog: CatalogCategory[] = [
     shopLinks: [
       { label: "Ask an Expert", href: routes.storefront.support.askAnExpert },
       { label: "Order Status", href: routes.storefront.orders.root },
+      {
+        label: "0% Installment Plans",
+        href: routes.storefront.installmentPlans.root,
+      },
       {
         label: "Shipping & Returns",
         href: routes.storefront.support.shippingAndReturns,

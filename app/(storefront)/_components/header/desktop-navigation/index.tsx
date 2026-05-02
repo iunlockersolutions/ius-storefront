@@ -3,7 +3,12 @@
 import * as React from "react"
 import Link from "next/link"
 
-import { Search as SearchIcon, ShoppingBag, Tag } from "lucide-react"
+import {
+  CreditCard,
+  Search as SearchIcon,
+  ShoppingBag,
+  Tag,
+} from "lucide-react"
 import { AnimatePresence, m } from "motion/react"
 
 import { routes } from "@/configs/routes"
@@ -191,6 +196,14 @@ export function DesktopNavigation({ cartCount, user }: DesktopNavigationProps) {
 
             {/* Right-side action group: Deals pill · Search · Bag */}
             <div className="flex shrink-0 items-center gap-1">
+              <Link
+                href={routes.storefront.installmentPlans.root}
+                className="mr-1 inline-flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition hover:bg-indigo-100"
+              >
+                <CreditCard className="size-3.5" />
+                0% Plans
+              </Link>
+
               <Link
                 href={routes.storefront.deals.root}
                 className="mr-1 inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-500"

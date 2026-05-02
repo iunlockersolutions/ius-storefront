@@ -39,6 +39,10 @@ export type ActivityAction =
   // Payment actions
   | "payment.verify"
   | "payment.refund"
+  // Installment plan content actions
+  | "installment_plan.create"
+  | "installment_plan.update"
+  | "installment_plan.delete"
   // Review actions
   | "review.approve"
   | "review.reject"

@@ -15,6 +15,13 @@
       "when": 1777315039852,
       "tag": "0001_heavy_smasher",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1777709863631,
+      "tag": "0002_woozy_cyclops",
+      "breakpoints": true
     }
   ]
 }

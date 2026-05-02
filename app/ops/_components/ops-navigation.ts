@@ -3,6 +3,7 @@ import {
   BarChart3,
   Boxes,
   CreditCard,
+  HandCoins,
   LayoutDashboard,
   Mail,
   MessageSquare,
@@ -102,6 +103,11 @@ export const opsNavGroups: OpsNavGroup[] = [
         title: "Payments",
         href: "/ops/payments",
         icon: CreditCard,
+      },
+      {
+        title: "Installment Plans",
+        href: "/ops/installment-plans",
+        icon: HandCoins,
       },
       {
         title: "Reviews",

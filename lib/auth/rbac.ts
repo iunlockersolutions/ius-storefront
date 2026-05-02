@@ -23,6 +23,7 @@ export type Resource =
   | "order"
   | "inventory"
   | "payment"
+  | "installment_plan"
   | "review"
   | "customer"
   | "staff"
@@ -169,6 +170,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     "payment.verify",
     "payment.refund",
     "payment.list",
+    // Installment Plans
+    "installment_plan.create",
+    "installment_plan.read",
+    "installment_plan.update",
+    "installment_plan.delete",
+    "installment_plan.list",
     // Reviews
     "review.read",
     "review.approve",

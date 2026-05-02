@@ -21,6 +21,11 @@ export type AdminMutationKey =
   | "order.updateStatus"
   | "order.updateNotes"
   | "payment.verifyBankTransfer"
+  | "installmentPlan.create"
+  | "installmentPlan.update"
+  | "installmentPlan.publish"
+  | "installmentPlan.unpublish"
+  | "installmentPlan.delete"
   | "product.create"
   | "product.update"
   | "product.publish"
@@ -51,6 +56,7 @@ export interface MutationInvalidationContext {
   productId?: string
   variantId?: string
   contactMessageId?: string
+  installmentPlanId?: string
 }
 
 function getInvalidationTargets(
@@ -143,6 +149,20 @@ function getInvalidationTargets(
             queryKeys.admin.pendingBankTransfers(),
             queryKeys.admin.orders(),
           ]
+
+    case "installmentPlan.create":
+    case "installmentPlan.delete":
+      return [queryKeys.admin.installmentPlans()]
+
+    case "installmentPlan.update":
+    case "installmentPlan.publish":
+    case "installmentPlan.unpublish":
+      return context.installmentPlanId
+        ? [
+            queryKeys.admin.installmentPlans(),
+            queryKeys.admin.installmentPlan(context.installmentPlanId),
+          ]
+        : [queryKeys.admin.installmentPlans()]
 
     case "product.create":
       return [queryKeys.admin.products()]

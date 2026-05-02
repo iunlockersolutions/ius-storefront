@@ -42,6 +42,14 @@ export function Footer() {
                   Deals
                 </Link>
               </li>
+              <li>
+                <Link
+                  href={routes.storefront.installmentPlans.root}
+                  className="text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+                >
+                  0% Installment Plans
+                </Link>
+              </li>
             </ul>
           </div>
 
