@@ -2,6 +2,8 @@ import Link from "next/link"
 
 import { ArrowRight, CreditCard, Package, Store } from "lucide-react"
 
+import { routes } from "@/configs/routes"
+
 const features = [
   {
     icon: CreditCard,
@@ -16,7 +18,7 @@ const features = [
     title: "Delivery",
     description:
       "FREE and fast delivery methods so you don't have to wait. Island-wide coverage.",
-    link: "/products",
+    link: routes.storefront.support.freeSetupAndDelivery,
     linkText: "Learn more",
   },
   {

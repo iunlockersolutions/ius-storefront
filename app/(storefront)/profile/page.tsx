@@ -1,7 +1,7 @@
 ﻿import Link from "next/link"
 import { redirect } from "next/navigation"
 
-import { ChevronRight, Heart, MapPin, Package, Star } from "lucide-react"
+import { ChevronRight, Heart, Mail, MapPin, Package, Star } from "lucide-react"
 
 import { SecuritySection } from "@/app/(storefront)/profile/_components/security-section"
 import {
@@ -59,6 +59,12 @@ export default async function ProfilePage() {
       label: "My Reviews",
       description: "View and manage your reviews",
       href: "/profile/reviews",
+    },
+    {
+      icon: Mail,
+      label: "My Messages",
+      description: "Replies to your contact submissions",
+      href: "/profile/messages",
     },
   ]
 

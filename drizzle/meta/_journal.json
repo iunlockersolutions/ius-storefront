@@ -8,6 +8,20 @@
       "when": 1773560440398,
       "tag": "0000_clumsy_major_mapleleaf",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1777315039852,
+      "tag": "0001_heavy_smasher",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1777709863631,
+      "tag": "0002_woozy_cyclops",
+      "breakpoints": true
     }
   ]
 }

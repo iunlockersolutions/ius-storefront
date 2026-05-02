@@ -29,6 +29,9 @@ export const statement = {
   // Payment management
   payment: ["read", "verify", "refund", "list"],
 
+  // Installment plan content management
+  installment_plan: ["create", "read", "update", "delete", "list"],
+
   // Review moderation
   review: ["read", "approve", "reject", "delete", "list"],
 
@@ -43,6 +46,9 @@ export const statement = {
 
   // Reports access
   reports: ["read", "export"],
+
+  // Contact message inbox
+  contact_message: ["list", "read", "reply", "assign", "update", "delete"],
 } as const
 
 /**
@@ -87,6 +93,9 @@ export const support = ac.newRole({
 
   // Basic payment viewing
   payment: ["read", "list"],
+
+  // Contact message triage (no delete for support)
+  contact_message: ["list", "read", "reply", "assign", "update"],
 })
 
 /**
@@ -117,6 +126,9 @@ export const manager = ac.newRole({
   // Payment management
   payment: ["read", "verify", "refund", "list"],
 
+  // Installment plan content management
+  installment_plan: ["create", "read", "update", "delete", "list"],
+
   // Review moderation
   review: ["read", "approve", "reject", "delete", "list"],
 
@@ -125,6 +137,9 @@ export const manager = ac.newRole({
 
   // Reports viewing
   reports: ["read"],
+
+  // Full contact message management
+  contact_message: ["list", "read", "reply", "assign", "update", "delete"],
 })
 
 /**
@@ -154,6 +169,9 @@ export const admin = ac.newRole({
   // Full payment management
   payment: ["read", "verify", "refund", "list"],
 
+  // Installment plan content management
+  installment_plan: ["create", "read", "update", "delete", "list"],
+
   // Full review management
   review: ["read", "approve", "reject", "delete", "list"],
 
@@ -168,6 +186,9 @@ export const admin = ac.newRole({
 
   // Full reports access
   reports: ["read", "export"],
+
+  // Full contact message management
+  contact_message: ["list", "read", "reply", "assign", "update", "delete"],
 })
 
 /**

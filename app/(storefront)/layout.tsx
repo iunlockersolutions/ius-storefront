@@ -5,7 +5,7 @@ import { getServerSession } from "@/lib/auth/rbac"
 import { getEnabledSocialProviderIds } from "@/lib/auth/social-providers"
 
 import { Footer } from "./_components/footer"
-import Header from "./_components/header"
+import { Header } from "./_components/header"
 import { type HeaderUser } from "./_components/header/types"
 
 export default async function StorefrontLayout({
@@ -19,13 +19,17 @@ export default async function StorefrontLayout({
         name: session.user.name,
         email: session.user.email,
         role: session.user.role,
+        image: session.user.image,
       }
     : undefined
   const isAuthenticated = !!user
   const socialProviders = getEnabledSocialProviderIds()
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div
+      className="flex min-h-screen flex-col"
+      data-storefront-mobile-align="center"
+    >
       <ForceLightTheme />
       <GuestAuthPromptProvider
         isAuthenticated={isAuthenticated}

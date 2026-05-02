@@ -40,3 +40,12 @@ export * from "./favorites"
 
 // Newsletter Domain
 export * from "./newsletter"
+
+// Contact Domain
+export * from "./contact-messages"
+
+// Notifications Domain
+export * from "./notifications"
+
+// Installment Offers Domain
+export * from "./installments"

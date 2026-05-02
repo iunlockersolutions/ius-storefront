@@ -3,17 +3,26 @@
 import * as React from "react"
 import Link from "next/link"
 
-import { Search, ShoppingBag, Tag } from "lucide-react"
+import {
+  CreditCard,
+  Search as SearchIcon,
+  ShoppingBag,
+  Tag,
+} from "lucide-react"
 import { AnimatePresence, m } from "motion/react"
 
 import { routes } from "@/configs/routes"
 import { cn } from "@/lib/utils"
 
-import { appleCatalog } from "./catalog"
-import { ProductFlyout, SearchPanel } from "./flyout-panels"
+import { appleCatalog } from "../catalog"
+import { Search } from "../search"
+import { type HeaderUser } from "../types"
+import { DesktopAccountMenu } from "./desktop-account-menu"
+import { ProductFlyout } from "./product-flyout"
 
-type DesktopNavProps = {
+type DesktopNavigationProps = {
   cartCount: number
+  user?: HeaderUser
 }
 
 type DesktopOpenKind = "panel" | "search" | null
@@ -25,7 +34,7 @@ const FLYOUT_DURATION = 0.35
 const FADE_DURATION = 0.15
 const CURTAIN_DURATION = 0.2
 
-export function DesktopNav({ cartCount }: DesktopNavProps) {
+export function DesktopNavigation({ cartCount, user }: DesktopNavigationProps) {
   const [openKind, setOpenKind] = React.useState<DesktopOpenKind>(null)
   const [openPanelId, setOpenPanelId] = React.useState<string | null>(null)
   const openTimer = React.useRef<number | null>(null)
@@ -187,14 +196,6 @@ export function DesktopNav({ cartCount }: DesktopNavProps) {
 
             {/* Right-side action group: Deals pill · Search · Bag */}
             <div className="flex shrink-0 items-center gap-1">
-              <Link
-                href={routes.storefront.deals.root}
-                className="mr-1 inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-500"
-              >
-                <Tag className="size-3.5" />
-                Deals
-              </Link>
-
               <button
                 type="button"
                 aria-label="Search"
@@ -204,7 +205,7 @@ export function DesktopNav({ cartCount }: DesktopNavProps) {
                 }
                 className="p-2 text-neutral-800 hover:text-neutral-950"
               >
-                <Search className="size-5" />
+                <SearchIcon className="size-5" />
               </button>
 
               <Link
@@ -220,6 +221,8 @@ export function DesktopNav({ cartCount }: DesktopNavProps) {
                   </span>
                 ) : null}
               </Link>
+
+              <DesktopAccountMenu user={user} />
             </div>
           </nav>
         </div>
@@ -268,7 +271,7 @@ export function DesktopNav({ cartCount }: DesktopNavProps) {
                         ease: APPLE_EASE,
                       }}
                     >
-                      <SearchPanel onClose={closeAll} variant="desktop" />
+                      <Search onClose={closeAll} variant="desktop" />
                     </m.div>
                   ) : null}
                 </AnimatePresence>

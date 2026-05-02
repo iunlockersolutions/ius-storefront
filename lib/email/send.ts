@@ -12,6 +12,7 @@ export type EmailTemplate =
   | "order-confirmation"
   | "order-shipped"
   | "order-delivered"
+  | "contact-reply"
 
 /**
  * Email template data types
@@ -45,6 +46,13 @@ interface PasswordResetByAdminData {
   adminName: string
 }
 
+interface ContactReplyData {
+  customerName: string
+  replyBody: string
+  originalMessage: string
+  staffName: string
+}
+
 type TemplateDataMap = {
   welcome: WelcomeData
   "staff-invitation": StaffInvitationData
@@ -54,6 +62,7 @@ type TemplateDataMap = {
   "order-confirmation": Record<string, unknown>
   "order-shipped": Record<string, unknown>
   "order-delivered": Record<string, unknown>
+  "contact-reply": ContactReplyData
 }
 
 /**
@@ -84,9 +93,20 @@ function generateEmailHtml<T extends EmailTemplate>(
       return generatePasswordChangedEmail(data as PasswordChangedData)
     case "password-reset-by-admin":
       return generatePasswordResetByAdminEmail(data as PasswordResetByAdminData)
+    case "contact-reply":
+      return generateContactReplyEmail(data as ContactReplyData)
     default:
       return `<p>Email template not found</p>`
   }
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
 }
 
 /**
@@ -300,8 +320,44 @@ function generatePasswordResetByAdminEmail(
             </div>
 
             <p style="font-size: 14px; color: #666; margin-top: 20px;">If you did not expect this password reset, please contact support immediately.</p>
-            
+
             <p style="font-size: 16px; margin-top: 30px;">Best regards,<br>The EvoluX Team</p>
+        </div>
+    </body>
+    </html>
+    `
+}
+
+function generateContactReplyEmail(data: ContactReplyData): string {
+  const replyHtml = escapeHtml(data.replyBody).replace(/\n/g, "<br>")
+  const originalHtml = escapeHtml(data.originalMessage).replace(/\n/g, "<br>")
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 24px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 22px;">A reply to your message</h1>
+        </div>
+        <div style="background: #ffffff; padding: 28px; border: 1px solid #e5e5e5; border-top: none; border-radius: 0 0 10px 10px;">
+            <p style="font-size: 16px;">Hi ${escapeHtml(data.customerName)},</p>
+            <p style="font-size: 16px;">Thanks for reaching out to us. ${escapeHtml(data.staffName)} from our team has replied to your message:</p>
+
+            <div style="background: #f8f9fa; padding: 16px 20px; border-left: 4px solid #667eea; border-radius: 4px; margin: 18px 0; font-size: 15px; color: #1f2937;">
+                ${replyHtml}
+            </div>
+
+            <p style="font-size: 14px; color: #6b7280; margin-top: 24px;">For your reference, this was the original message you sent:</p>
+            <div style="background: #f3f4f6; padding: 14px 18px; border-radius: 4px; font-size: 13px; color: #4b5563; white-space: pre-wrap;">
+                ${originalHtml}
+            </div>
+
+            <p style="font-size: 14px; color: #666; margin-top: 28px;">If you have more questions, just reply to this email and our team will pick it up.</p>
+            <p style="font-size: 16px; margin-top: 20px;">Best regards,<br>The EvoluX Team</p>
         </div>
     </body>
     </html>

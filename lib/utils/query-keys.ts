@@ -34,6 +34,14 @@
       status?: string
       method?: string
     }) => ["admin", "payments", params ?? {}] as const,
+    installmentPlans: (params?: {
+      page?: number
+      limit?: number
+      search?: string
+      status?: string
+    }) => ["admin", "installment-plans", params ?? {}] as const,
+    installmentPlan: (id: string) =>
+      ["admin", "installment-plans", id] as const,
     paymentStats: () => ["admin", "payments", "stats"] as const,
     pendingBankTransfers: () =>
       ["admin", "payments", "pending-bank-transfers"] as const,
@@ -92,5 +100,14 @@
       search?: string
       role?: "admin" | "manager" | "support"
     }) => ["admin", "staff-users", params ?? {}] as const,
+    contactMessages: (params?: {
+      page?: number
+      limit?: number
+      search?: string
+      status?: "unread" | "open" | "replied" | "closed" | "spam"
+      assigneeId?: string
+    }) => ["admin", "contact-messages", params ?? {}] as const,
+    contactMessage: (id: string) => ["admin", "contact-messages", id] as const,
+    notifications: () => ["admin", "notifications"] as const,
   },
 }

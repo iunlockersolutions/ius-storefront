@@ -21,6 +21,11 @@ export type AdminMutationKey =
   | "order.updateStatus"
   | "order.updateNotes"
   | "payment.verifyBankTransfer"
+  | "installmentPlan.create"
+  | "installmentPlan.update"
+  | "installmentPlan.publish"
+  | "installmentPlan.unpublish"
+  | "installmentPlan.delete"
   | "product.create"
   | "product.update"
   | "product.publish"
@@ -36,6 +41,11 @@ export type AdminMutationKey =
   | "staff.unban"
   | "staff.resetPassword"
   | "staff.delete"
+  | "contactMessage.updateStatus"
+  | "contactMessage.assign"
+  | "contactMessage.reply"
+  | "contactMessage.delete"
+  | "notification.markRead"
 
 export interface MutationInvalidationContext {
   brandId?: string
@@ -45,6 +55,8 @@ export interface MutationInvalidationContext {
   orderId?: string
   productId?: string
   variantId?: string
+  contactMessageId?: string
+  installmentPlanId?: string
 }
 
 function getInvalidationTargets(
@@ -138,6 +150,20 @@ function getInvalidationTargets(
             queryKeys.admin.orders(),
           ]
 
+    case "installmentPlan.create":
+    case "installmentPlan.delete":
+      return [queryKeys.admin.installmentPlans()]
+
+    case "installmentPlan.update":
+    case "installmentPlan.publish":
+    case "installmentPlan.unpublish":
+      return context.installmentPlanId
+        ? [
+            queryKeys.admin.installmentPlans(),
+            queryKeys.admin.installmentPlan(context.installmentPlanId),
+          ]
+        : [queryKeys.admin.installmentPlans()]
+
     case "product.create":
       return [queryKeys.admin.products()]
 
@@ -169,6 +195,33 @@ function getInvalidationTargets(
     case "staff.resetPassword":
     case "staff.delete":
       return [queryKeys.admin.staffUsers()]
+
+    case "contactMessage.updateStatus":
+    case "contactMessage.assign":
+      return context.contactMessageId
+        ? [
+            queryKeys.admin.contactMessages(),
+            queryKeys.admin.contactMessage(context.contactMessageId),
+          ]
+        : [queryKeys.admin.contactMessages()]
+
+    case "contactMessage.reply":
+      return context.contactMessageId
+        ? [
+            queryKeys.admin.contactMessages(),
+            queryKeys.admin.contactMessage(context.contactMessageId),
+            queryKeys.admin.notifications(),
+          ]
+        : [queryKeys.admin.contactMessages(), queryKeys.admin.notifications()]
+
+    case "contactMessage.delete":
+      return [
+        queryKeys.admin.contactMessages(),
+        queryKeys.admin.notifications(),
+      ]
+
+    case "notification.markRead":
+      return [queryKeys.admin.notifications()]
 
     default:
       return []

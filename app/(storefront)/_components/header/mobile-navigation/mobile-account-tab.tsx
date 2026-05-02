@@ -10,9 +10,10 @@ import { m } from "motion/react"
 import { useGuestAuthPrompt } from "@/components/auth/guest-auth-prompt"
 import { routes } from "@/configs/routes"
 
-import { getCurrentStorefrontPathWithQuery } from "./header-utils"
-import { type HeaderUser } from "./types"
-import { useStorefrontSignOut } from "./use-storefront-sign-out"
+import { AccountAvatar } from "../account-avatar"
+import { getCurrentStorefrontPathWithQuery } from "../header-utils"
+import { HeaderUser } from "../types"
+import { useStorefrontSignOut } from "../use-storefront-sign-out"
 
 type MobileAccountTabProps = {
   user?: HeaderUser
@@ -54,6 +55,14 @@ export function MobileAccountTab({ user, onClose }: MobileAccountTabProps) {
   const { open } = useGuestAuthPrompt()
   const signOut = useStorefrontSignOut()
   const isAuthenticated = !!user
+  const [signInHref, setSignInHref] = React.useState(routes.auth.login)
+
+  React.useEffect(() => {
+    const callbackUrl = getCurrentStorefrontPathWithQuery()
+    setSignInHref(
+      `${routes.auth.login}?callbackUrl=${encodeURIComponent(callbackUrl)}`,
+    )
+  }, [])
 
   const handleProtected = React.useCallback(
     (href: string) => {
@@ -85,11 +94,14 @@ export function MobileAccountTab({ user, onClose }: MobileAccountTabProps) {
     >
       {isAuthenticated ? (
         <>
-          <div className="mb-6">
-            <p className="text-xs text-neutral-500">Signed in as</p>
-            <p className="mt-1 text-lg font-semibold text-neutral-900">
-              {user.name || user.email}
-            </p>
+          <div className="mb-6 flex items-center gap-4">
+            <AccountAvatar user={user} size="lg" />
+            <div className="min-w-0">
+              <p className="text-xs text-neutral-500">Signed in as</p>
+              <p className="mt-0.5 truncate text-lg font-semibold text-neutral-900">
+                {user.name || user.email}
+              </p>
+            </div>
           </div>
 
           <ul className="space-y-1">
@@ -112,7 +124,7 @@ export function MobileAccountTab({ user, onClose }: MobileAccountTabProps) {
               <button
                 type="button"
                 onClick={handleSignOut}
-                className="flex w-full items-center gap-3 py-2.5 text-left text-[28px] font-semibold tracking-tight text-red-600"
+                className="flex w-full items-center gap-3 py-2.5 text-left text-[28px] font-semibold tracking-tight text-destructive"
               >
                 <LogOut className="size-5" />
                 Sign out
@@ -130,15 +142,13 @@ export function MobileAccountTab({ user, onClose }: MobileAccountTabProps) {
           </p>
 
           <div className="mt-6 flex flex-col gap-3">
-            <button
-              type="button"
-              onClick={() =>
-                handleGuest(getCurrentStorefrontPathWithQuery(), "signin")
-              }
-              className="h-11 rounded-full bg-blue-600 px-5 text-sm font-medium text-white hover:bg-blue-500"
+            <Link
+              href={signInHref}
+              onClick={onClose}
+              className="inline-flex h-11 items-center justify-center rounded-full bg-indigo-600 px-5 text-sm font-medium text-white transition hover:bg-indigo-500"
             >
               Sign in
-            </button>
+            </Link>
             <button
               type="button"
               onClick={() =>
