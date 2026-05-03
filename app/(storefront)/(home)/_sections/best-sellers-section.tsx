@@ -36,7 +36,7 @@ export function BestSellersSection({ products }: BestSellersSectionProps) {
   const scroll = (direction: "left" | "right") => {
     if (!scrollRef.current) return
     const cardWidth = scrollRef.current.firstElementChild
-      ? (scrollRef.current.firstElementChild as HTMLElement).offsetWidth + 16
+      ? (scrollRef.current.firstElementChild as HTMLElement).offsetWidth + 32
       : 300
     scrollRef.current.scrollBy({
       left: direction === "left" ? -cardWidth * 2 : cardWidth * 2,
@@ -88,12 +88,12 @@ export function BestSellersSection({ products }: BestSellersSectionProps) {
       {/* Horizontal scroll — snap on mobile, free on desktop */}
       <div
         ref={scrollRef}
-        className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-4 scrollbar-none sm:-mx-6 sm:gap-4 sm:px-6 sm:snap-none"
+        className="flex snap-x snap-mandatory gap-8 overflow-x-auto px-4 pb-5 scrollbar-none md:snap-none py-4"
       >
         {products.map((product) => (
           <div
             key={product.id}
-            className="w-44 shrink-0 snap-start sm:w-56 lg:w-64"
+            className="w-[80%] min-w-70 max-w-95 shrink-0 snap-start md:w-[calc((100%-2rem)/2.5)] lg:w-[calc((100%-4rem)/3.5)] xl:w-95"
           >
             <ProductCard product={product} />
           </div>

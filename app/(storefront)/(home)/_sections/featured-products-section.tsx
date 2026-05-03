@@ -1,6 +1,9 @@
+"use client"
+
+import { useRef } from "react"
 import Link from "next/link"
 
-import { ArrowRight } from "lucide-react"
+import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react"
 
 import { ProductCard } from "@/app/(storefront)/_components/product-card"
 import { Button } from "@/components/ui/button"
@@ -28,7 +31,21 @@ interface FeaturedProductsSectionProps {
 export function FeaturedProductsSection({
   products,
 }: FeaturedProductsSectionProps) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+
   if (products.length === 0) return null
+
+  const scroll = (direction: "left" | "right") => {
+    if (!scrollRef.current) return
+    const cardWidth = scrollRef.current.firstElementChild
+      ? (scrollRef.current.firstElementChild as HTMLElement).offsetWidth + 32
+      : 380
+
+    scrollRef.current.scrollBy({
+      left: direction === "left" ? -cardWidth * 2 : cardWidth * 2,
+      behavior: "smooth",
+    })
+  }
 
   return (
     <section className="section-container">
@@ -41,19 +58,45 @@ export function FeaturedProductsSection({
             Featured Products
           </h2>
         </div>
-        <Link
-          href="/products?featured=true"
-          className="hidden items-center gap-1 text-sm font-medium text-zinc-900 hover:underline sm:inline-flex"
-        >
-          View All
-          <ArrowRight className="h-4 w-4" />
-        </Link>
+        <div className="flex items-center gap-2">
+          <div className="hidden items-center gap-1 sm:flex">
+            <button
+              onClick={() => scroll("left")}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-zinc-200 text-zinc-400 transition-colors hover:border-zinc-400 hover:text-zinc-700"
+              aria-label="Scroll featured products left"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => scroll("right")}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-zinc-200 text-zinc-400 transition-colors hover:border-zinc-400 hover:text-zinc-700"
+              aria-label="Scroll featured products right"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+
+          <Link
+            href="/products?featured=true"
+            className="ml-2 hidden items-center gap-1 text-sm font-medium text-zinc-900 hover:underline sm:inline-flex"
+          >
+            View All
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
       </div>
 
-      {/* Product grid — 2 cols mobile, 3 on sm, 4 on lg */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+      <div
+        ref={scrollRef}
+        className="flex snap-x snap-mandatory gap-8 overflow-x-auto px-4 pb-5 scrollbar-none sm:-mx-6 sm:px-6 md:snap-none lg:-mx-8 lg:px-8 py-4"
+      >
         {products.map((product) => (
-          <ProductCard key={product.id} product={product} />
+          <div
+            key={product.id}
+            className="w-[80%] min-w-[280px] max-w-[380px] shrink-0 snap-start md:w-[calc((100%_-_2rem)/2.5)] lg:w-[calc((100%_-_4rem)/3.5)] xl:w-[380px]"
+          >
+            <ProductCard product={product} />
+          </div>
         ))}
       </div>
 

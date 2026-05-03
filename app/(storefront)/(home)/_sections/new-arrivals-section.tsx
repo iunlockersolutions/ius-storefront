@@ -36,7 +36,7 @@ export function NewArrivalsSection({ products }: NewArrivalsSectionProps) {
   const scroll = (direction: "left" | "right") => {
     if (!scrollRef.current) return
     const cardWidth = scrollRef.current.firstElementChild
-      ? (scrollRef.current.firstElementChild as HTMLElement).offsetWidth + 16
+      ? (scrollRef.current.firstElementChild as HTMLElement).offsetWidth + 32
       : 300
     scrollRef.current.scrollBy({
       left: direction === "left" ? -cardWidth * 2 : cardWidth * 2,
@@ -91,12 +91,12 @@ export function NewArrivalsSection({ products }: NewArrivalsSectionProps) {
       {/* Horizontal scroll */}
       <div
         ref={scrollRef}
-        className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-4 scrollbar-none sm:-mx-6 sm:gap-4 sm:px-6 sm:snap-none"
+        className="flex snap-x snap-mandatory gap-8 overflow-x-auto px-4 pb-5 scrollbar-none sm:-mx-6 sm:px-6 md:snap-none lg:-mx-8 lg:px-8 py-4"
       >
         {products.map((product) => (
           <div
             key={product.id}
-            className="w-44 shrink-0 snap-start sm:w-56 lg:w-64"
+            className="w-[80%] min-w-[280px] max-w-[380px] shrink-0 snap-start md:w-[calc((100%_-_2rem)/2.5)] lg:w-[calc((100%_-_4rem)/3.5)] xl:w-[380px]"
           >
             <ProductCard product={product} />
           </div>
