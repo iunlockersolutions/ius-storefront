@@ -1,22 +1,18 @@
-﻿import { getActiveBrands } from "@/lib/actions/brand"
+import { getActiveBrands } from "@/lib/actions/brand"
 import {
-  getBestSellers,
   getDealProducts,
   getFeaturedCategories,
-  getFeaturedProducts,
-  getNewArrivals,
+  getHomeCategoryProductSections,
   getTopReviews,
 } from "@/lib/actions/storefront"
 
-import { BestSellersSection } from "./_sections/best-sellers-section"
 import { BrandsSection } from "./_sections/brands-section"
 import { CategoriesSection } from "./_sections/categories-section"
 import { ContactSection } from "./_sections/contact-section"
 import { DealsSection } from "./_sections/deals-section"
-import { FeaturedProductsSection } from "./_sections/featured-products-section"
 import { HeroSection } from "./_sections/hero-section"
-import { NewArrivalsSection } from "./_sections/new-arrivals-section"
 import { NewsletterSection } from "./_sections/newsletter-section"
+import { ProductCategorySection } from "./_sections/product-category-section"
 import {
   PromoFreeDelivery,
   PromoTradeIn,
@@ -26,24 +22,20 @@ import { StoreInfoSection } from "./_sections/store-info-section"
 
 export const revalidate = 1800
 
+const HOME_PRODUCT_CATEGORY_SLUGS = ["iphone", "mac", "airpods", "accessories"]
+
 export default async function HomePage() {
-  const [
-    bestSellers,
-    categories,
-    featuredProducts,
-    deals,
-    brands,
-    newArrivals,
-    topReviews,
-  ] = await Promise.all([
-    getBestSellers(10),
-    getFeaturedCategories(8),
-    getFeaturedProducts(8),
-    getDealProducts(10),
-    getActiveBrands({ failSoft: true }),
-    getNewArrivals(10),
-    getTopReviews(6),
-  ])
+  const [productCategorySections, categories, deals, brands, topReviews] =
+    await Promise.all([
+      getHomeCategoryProductSections({
+        slugs: HOME_PRODUCT_CATEGORY_SLUGS,
+        limitPerSection: 8,
+      }),
+      getFeaturedCategories(8),
+      getDealProducts(10),
+      getActiveBrands({ failSoft: true }),
+      getTopReviews(6),
+    ])
 
   const brandsList = brands.map((b) => ({
     id: b.id,
@@ -57,15 +49,19 @@ export default async function HomePage() {
     <>
       <HeroSection />
 
-      <BestSellersSection products={bestSellers} />
+      {productCategorySections.map((section) => (
+        <ProductCategorySection
+          key={section.id}
+          title={section.title}
+          eyebrow={section.eyebrow}
+          href={section.href}
+          products={section.products}
+        />
+      ))}
 
       <CategoriesSection categories={categories} />
 
       <PromoTradeIn />
-
-      <NewArrivalsSection products={newArrivals} />
-
-      <FeaturedProductsSection products={featuredProducts} />
 
       <PromoFreeDelivery />
 

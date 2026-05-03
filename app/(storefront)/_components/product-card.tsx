@@ -8,7 +8,7 @@ import { ManagedMediaImage } from "@/components/shared/media/managed-media-image
 import { Badge } from "@/components/ui/badge"
 import { cn, formatCurrency } from "@/lib/utils"
 
-interface Product {
+export interface ProductCardProduct {
   id: string
   name: string
   slug: string
@@ -25,7 +25,7 @@ interface Product {
 }
 
 interface ProductCardProps {
-  product: Product
+  product: ProductCardProduct
 }
 
 export function ProductCard({ product }: ProductCardProps) {
