@@ -1,4 +1,3 @@
-import { getActiveBrands } from "@/lib/actions/brand"
 import {
   getDealProducts,
   getFeaturedCategories,
@@ -6,17 +5,12 @@ import {
   getTopReviews,
 } from "@/lib/actions/storefront"
 
-import { BrandsSection } from "./_sections/brands-section"
 import { CategoriesSection } from "./_sections/categories-section"
 import { ContactSection } from "./_sections/contact-section"
 import { DealsSection } from "./_sections/deals-section"
 import { HeroSection } from "./_sections/hero-section"
-import { NewsletterSection } from "./_sections/newsletter-section"
 import { ProductCategorySection } from "./_sections/product-category-section"
-import {
-  PromoFreeDelivery,
-  PromoTradeIn,
-} from "./_sections/promo-banners-section"
+import { PromoFreeDelivery } from "./_sections/promo-banners-section"
 import { ReviewsSection } from "./_sections/reviews-section"
 import { StoreInfoSection } from "./_sections/store-info-section"
 
@@ -25,7 +19,7 @@ export const revalidate = 1800
 const HOME_PRODUCT_CATEGORY_SLUGS = ["iphone", "mac", "airpods", "accessories"]
 
 export default async function HomePage() {
-  const [productCategorySections, categories, deals, brands, topReviews] =
+  const [productCategorySections, categories, deals, topReviews] =
     await Promise.all([
       getHomeCategoryProductSections({
         slugs: HOME_PRODUCT_CATEGORY_SLUGS,
@@ -33,17 +27,8 @@ export default async function HomePage() {
       }),
       getFeaturedCategories(8),
       getDealProducts(10),
-      getActiveBrands({ failSoft: true }),
       getTopReviews(6),
     ])
-
-  const brandsList = brands.map((b) => ({
-    id: b.id,
-    name: b.name,
-    slug: b.slug,
-    logo: b.logo,
-    productCount: b.productCount,
-  }))
 
   return (
     <>
@@ -61,21 +46,15 @@ export default async function HomePage() {
 
       <CategoriesSection categories={categories} />
 
-      <PromoTradeIn />
-
       <PromoFreeDelivery />
 
       <DealsSection products={deals} />
-
-      <BrandsSection brands={brandsList} />
 
       <ReviewsSection reviews={topReviews} />
 
       <StoreInfoSection />
 
       <ContactSection />
-
-      <NewsletterSection />
     </>
   )
 }
