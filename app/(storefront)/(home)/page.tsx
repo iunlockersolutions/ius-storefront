@@ -23,7 +23,6 @@ export default async function HomePage() {
       slugs: HOME_PRODUCT_CATEGORY_SLUGS,
       limitPerSection: 8,
     }),
-    getFeaturedCategories(8),
     getDealProducts(10),
     getTopReviews(6),
   ])
