@@ -1,7 +1,7 @@
 ﻿"use client"
 
 import { useEffect, useMemo, useState, useTransition } from "react"
-import { useForm } from "react-hook-form"
+import { Controller, useForm } from "react-hook-form"
 import { usePathname, useRouter } from "next/navigation"
 
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -74,6 +74,7 @@ import { slugify } from "@/lib/utils"
 import { normalizeEntityName } from "@/lib/utils/catalog"
 
 import { CreatableEntityCombobox } from "./creatable-entity-combobox"
+import { DescriptionEditor } from "./description-editor"
 import {
   ProductMediaField,
   type ProductMediaFieldValue,
@@ -417,6 +418,7 @@ export function ProductEditorForm({
     setValue,
     watch,
     handleSubmit,
+    control,
     formState: { errors },
   } = form
 
@@ -1431,11 +1433,28 @@ export function ProductEditorForm({
 
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                rows={5}
-                {...register("description")}
-              />
+              {currentProductId ? (
+                <Controller
+                  control={control}
+                  name="description"
+                  render={({ field }) => (
+                    <DescriptionEditor
+                      value={field.value || ""}
+                      onChange={field.onChange}
+                      productId={currentProductId}
+                    />
+                  )}
+                />
+              ) : (
+                <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
+                  Save the draft first to enable the rich description editor
+                  with image uploads.
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Use headings, lists, images, and tables to build a rich product
+                story.
+              </p>
             </div>
 
             <div className="space-y-2">

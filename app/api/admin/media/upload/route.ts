@@ -27,6 +27,7 @@ const clientPayloadSchema = z.object({
     access: z.literal("public"),
     provider: z.enum(["vercel_blob", "external_url"]).optional(),
     kind: z.enum(["image", "video"]),
+    context: z.enum(["gallery", "inline"]).default("gallery"),
     createdBy: z.string().uuid().optional().nullable(),
     derivatives: z
       .array(
@@ -99,6 +100,10 @@ export async function POST(request: NextRequest) {
         const parsed = completedTokenPayloadSchema.parse(
           JSON.parse(tokenPayload || "{}"),
         )
+
+        if (parsed.media.context === "inline") {
+          return
+        }
 
         await upsertMediaAssetFromUpload({
           ...parsed.media,
