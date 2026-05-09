@@ -77,15 +77,6 @@ export function ContactMethods() {
           </Link>
         ))}
       </div>
-
-      <div className="flex gap-3 border-t border-zinc-200/70 pt-5">
-        <Info className="mt-0.5 size-4 shrink-0 text-zinc-400" />
-        <p className="text-sm leading-6 text-zinc-500">
-          These are example contact details for now. Replace them later with the
-          official EvoluX email, phone number, WhatsApp number, and store
-          address.
-        </p>
-      </div>
     </div>
   )
 }

@@ -1,9 +1,9 @@
 export const supportContact = {
-  email: "support@evolux.example",
-  phone: "+94 77 123 4567",
-  phoneHref: "tel:+94771234567",
-  whatsappNumber: "94771234567",
-  address: "EvoluX Store, Main Street, Matara, Sri Lanka",
+  email: "support@evolux.lk",
+  phone: "+94 77 767 5577",
+  phoneHref: "tel:+94777675577",
+  whatsappNumber: "94777675577",
+  address: "EvoluX, Matara, Sri Lanka",
 }
 
 export function buildWhatsAppHref(message: string) {

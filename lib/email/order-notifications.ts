@@ -37,7 +37,7 @@ interface OrderEmailData {
 // Email provider configuration
 const EMAIL_CONFIG = {
   from: process.env.EMAIL_FROM || "noreply@ius-storefront.com",
-  replyTo: process.env.EMAIL_REPLY_TO || "support@ius-storefront.com",
+  replyTo: process.env.EMAIL_REPLY_TO || "support@evolux.lk",
   siteName: process.env.NEXT_PUBLIC_SITE_NAME || "IUS Storefront",
   siteUrl: process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
 }
