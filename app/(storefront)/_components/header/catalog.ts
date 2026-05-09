@@ -64,11 +64,6 @@ export const dealStripMessages: HeaderLink[] = [
     label: "Shipping and returns support",
     href: routes.storefront.support.shippingAndReturns,
   },
-  {
-    id: "trade-in",
-    label: "Trade in your old device for credit",
-    href: routes.storefront.prodcuts.root,
-  },
 ]
 
 const commonShopLinks = (categoryHref: string, label: string) => [
