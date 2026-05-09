@@ -20,6 +20,20 @@ const csvUrlList = z
       })
   }, "PASSKEY_ORIGIN must be a valid URL or comma-separated list of URLs")
 
+const enabledFeatureFlag = z
+  .preprocess(
+    (value) =>
+      typeof value === "string" && value.trim() !== ""
+        ? value.trim().toLowerCase()
+        : undefined,
+    z.enum(["true", "false", "1", "0", "yes", "no", "on", "off"]).optional(),
+  )
+  .transform((value) => {
+    if (!value) return false
+
+    return ["true", "1", "yes", "on"].includes(value)
+  })
+
 const serverEnvSchema = z.object({
   DATABASE_URL: z.string().url("DATABASE_URL must be a valid PostgreSQL URL"),
   AUTH_SECRET: z.string().min(32, "AUTH_SECRET must be at least 32 characters"),
@@ -52,6 +66,7 @@ const serverEnvSchema = z.object({
     .min(1)
     .max(24 * 60)
     .default(60),
+  FEATURE_GUEST_AUTH_PROMPT_ENABLED: enabledFeatureFlag,
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),

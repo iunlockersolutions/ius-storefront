@@ -1,7 +1,7 @@
 "use client"
 
 import type { ReactNode } from "react"
-import { createContext, useContext, useEffect, useRef, useState } from "react"
+import { createContext, use, useEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 
@@ -124,16 +124,18 @@ function getPromptCopy(source: GuestAuthPromptSource) {
 
 interface GuestAuthPromptProviderProps {
   children: ReactNode
+  enabled: boolean
   isAuthenticated: boolean
   socialProviders: SocialProviderId[]
 }
 
 export function GuestAuthPromptProvider({
   children,
+  enabled,
   isAuthenticated,
   socialProviders,
 }: GuestAuthPromptProviderProps) {
-  const router = useRouter()
+  const { push } = useRouter()
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
   const [options, setOptions] = useState<GuestAuthPromptOptions>({
@@ -145,8 +147,8 @@ export function GuestAuthPromptProvider({
   const hasSocialProviders = socialProviders.length > 0
 
   const open = (nextOptions: GuestAuthPromptOptions) => {
-    if (!hasSocialProviders) {
-      router.push(buildAuthHref(routes.auth.login, nextOptions.callbackUrl))
+    if (!enabled || !hasSocialProviders) {
+      push(buildAuthHref(routes.auth.login, nextOptions.callbackUrl))
       return
     }
 
@@ -157,6 +159,7 @@ export function GuestAuthPromptProvider({
   useEffect(() => {
     if (
       autoPromptAttemptedRef.current ||
+      !enabled ||
       isAuthenticated ||
       !hasSocialProviders ||
       pathname.startsWith("/auth")
@@ -180,7 +183,7 @@ export function GuestAuthPromptProvider({
     }, 0)
 
     return () => window.clearTimeout(timer)
-  }, [hasSocialProviders, isAuthenticated, pathname])
+  }, [enabled, hasSocialProviders, isAuthenticated, pathname])
 
   const handleOpenChange = (nextOpen: boolean) => {
     setIsOpen(nextOpen)
@@ -193,7 +196,7 @@ export function GuestAuthPromptProvider({
   return (
     <GuestAuthPromptContext.Provider value={{ open }}>
       {children}
-      {hasSocialProviders ? (
+      {enabled && hasSocialProviders ? (
         <GuestAuthPrompt
           open={isOpen}
           onOpenChange={handleOpenChange}
@@ -206,7 +209,7 @@ export function GuestAuthPromptProvider({
 }
 
 export function useGuestAuthPrompt() {
-  const context = useContext(GuestAuthPromptContext)
+  const context = use(GuestAuthPromptContext)
 
   if (!context) {
     throw new Error(
