@@ -17,7 +17,128 @@ import {
 } from "@/lib/db/schema"
 import { getPrimaryProductImageMap } from "@/lib/media/service"
 
+import { getStorefrontProducts } from "./product"
 import { withStorefrontCatalogFallback } from "./storefront-catalog-read"
+
+const HOME_CATEGORY_SECTION_COPY: Record<
+  string,
+  {
+    title: string
+    eyebrow: string
+  }
+> = {
+  iphone: {
+    title: "iPhone",
+    eyebrow: "Shop iPhone",
+  },
+  mac: {
+    title: "Mac",
+    eyebrow: "Shop Mac",
+  },
+  airpods: {
+    title: "AirPods",
+    eyebrow: "Shop AirPods",
+  },
+  accessories: {
+    title: "Accessories",
+    eyebrow: "Shop Accessories",
+  },
+}
+
+type HomeCategoryProductSectionsInput = {
+  slugs: string[]
+  limitPerSection?: number
+}
+
+function getProductsHrefForCategory(slug: string) {
+  const params = new URLSearchParams({ category: slug })
+  return `/products?${params.toString()}`
+}
+
+function getFallbackHomeCategoryCopy(slug: string) {
+  const title = slug
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ")
+
+  return {
+    title,
+    eyebrow: `Shop ${title}`,
+  }
+}
+
+// ============================================
+// Get Home Category Product Sections
+// ============================================
+
+export async function getHomeCategoryProductSections({
+  slugs,
+  limitPerSection = 8,
+}: HomeCategoryProductSectionsInput) {
+  const normalizedSlugs = Array.from(
+    new Set(
+      slugs
+        .map((slug) => slug.trim().toLowerCase())
+        .filter((slug) => slug.length > 0),
+    ),
+  )
+
+  return unstable_cache(
+    async () => {
+      const sections = await withStorefrontCatalogFallback(
+        "storefront:getHomeCategoryProductSections",
+        [],
+        async () =>
+          Promise.all(
+            normalizedSlugs.map(async (slug) => {
+              const { products: categoryProducts } =
+                await getStorefrontProducts({
+                  categorySlug: slug,
+                  limit: limitPerSection,
+                  sortBy: "newest",
+                })
+
+              if (categoryProducts.length === 0) {
+                return null
+              }
+
+              const copy =
+                HOME_CATEGORY_SECTION_COPY[slug] ||
+                getFallbackHomeCategoryCopy(slug)
+
+              return {
+                id: slug,
+                title: copy.title,
+                eyebrow: copy.eyebrow,
+                href: getProductsHrefForCategory(slug),
+                products: categoryProducts.map((product) => ({
+                  id: product.id,
+                  name: product.name,
+                  slug: product.slug,
+                  shortDescription: product.shortDescription,
+                  basePrice: product.basePrice,
+                  compareAtPrice: product.compareAtPrice,
+                  isFeatured: product.isFeatured,
+                  image: product.image,
+                  brand: product.brand,
+                })),
+              }
+            }),
+          ),
+      )
+
+      return sections.filter((section) => section !== null)
+    },
+    [
+      `home-category-product-sections-${normalizedSlugs.join("-")}-${limitPerSection}`,
+    ],
+    {
+      revalidate: 1800,
+      tags: ["products", "categories", "category-products"],
+    },
+  )()
+}
 
 // ============================================
 // Get Featured Products

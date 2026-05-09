@@ -98,7 +98,7 @@ export function ReviewsSection({ reviews }: ReviewsSectionProps) {
       {/* Horizontal scroll */}
       <div
         ref={scrollRef}
-        className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-4 scrollbar-none sm:-mx-6 sm:gap-4 sm:px-6 sm:snap-none"
+        className="flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-4 scrollbar-none sm:-mx-6 sm:gap-4 sm:px-6 sm:snap-none py-4"
       >
         {reviews.map((review) => (
           <div
