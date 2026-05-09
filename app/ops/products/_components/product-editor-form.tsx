@@ -314,6 +314,10 @@ export function ProductEditorForm({
   const pathname = usePathname()
   const [isPending, startTransition] = useTransition()
   const [currentProductId, setCurrentProductId] = useState(initialData.id)
+  const [pendingDescriptionUploadId] = useState(() =>
+    initialData.id ? "" : crypto.randomUUID(),
+  )
+  const descriptionUploadId = currentProductId || pendingDescriptionUploadId
   const [currentStep, setCurrentStep] = useState(() =>
     getStepIndex(initialData.draftStep),
   )
@@ -1433,24 +1437,17 @@ export function ProductEditorForm({
 
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
-              {currentProductId ? (
-                <Controller
-                  control={control}
-                  name="description"
-                  render={({ field }) => (
-                    <DescriptionEditor
-                      value={field.value || ""}
-                      onChange={field.onChange}
-                      productId={currentProductId}
-                    />
-                  )}
-                />
-              ) : (
-                <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
-                  Save the draft first to enable the rich description editor
-                  with image uploads.
-                </div>
-              )}
+              <Controller
+                control={control}
+                name="description"
+                render={({ field }) => (
+                  <DescriptionEditor
+                    value={field.value || ""}
+                    onChange={field.onChange}
+                    productId={descriptionUploadId}
+                  />
+                )}
+              />
               <p className="text-xs text-muted-foreground">
                 Use headings, lists, images, and tables to build a rich product
                 story.
