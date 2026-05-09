@@ -2,6 +2,8 @@ import Link from "next/link"
 
 import { routes } from "@/configs/routes"
 
+import { supportContact } from "../support/support-content"
+
 export function Footer() {
   return (
     <footer className="border-t bg-zinc-50">
@@ -86,6 +88,14 @@ export function Footer() {
           <div>
             <h4 className="font-semibold">Support</h4>
             <ul className="mt-3 space-y-2">
+              <li>
+                <Link
+                  href={`mailto:${supportContact.email}`}
+                  className="text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+                >
+                  {supportContact.email}
+                </Link>
+              </li>
               <li>
                 <Link
                   href={routes.storefront.support.contact}

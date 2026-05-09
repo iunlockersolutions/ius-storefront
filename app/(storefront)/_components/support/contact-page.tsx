@@ -70,8 +70,8 @@ export function ContactPage({ kind }: ContactPageProps) {
               Other ways to reach us
             </h2>
             <p className="mt-2 text-sm leading-6 text-zinc-600">
-              Use these example contact details for now. They are ready to be
-              replaced with the official store details later.
+              Email, call, or message our team if you need help before sending
+              the form.
             </p>
             <div className="mt-6">
               <ContactMethods />

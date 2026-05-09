@@ -18,5 +18,5 @@ export const isEmailConfigured = Boolean(process.env.RESEND_API_KEY)
  */
 export const emailConfig = {
   from: process.env.EMAIL_FROM || "EvoluX <noreply@code-dock.d>",
-  replyTo: process.env.EMAIL_REPLY_TO || "support@example.com",
+  replyTo: process.env.EMAIL_REPLY_TO || "support@evolux.lk",
 }
