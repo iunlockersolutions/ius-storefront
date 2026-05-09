@@ -5,15 +5,9 @@ import { ChevronRight } from "lucide-react"
 
 import { ProductCard } from "@/app/(storefront)/_components/product-card"
 import { ProductDetailContent } from "@/app/(storefront)/products/_components/product-detail-content"
-import { ProductReviews } from "@/app/(storefront)/products/_components/product-reviews"
-import { Badge } from "@/components/ui/badge"
+import { ProductDescription } from "@/components/shared/markdown-description"
 import { isProductFavorited } from "@/lib/actions/favorites"
 import { getProductBySlug, getStorefrontProducts } from "@/lib/actions/product"
-import {
-  canUserReview,
-  getProductReviews,
-  getProductReviewStats,
-} from "@/lib/actions/product-reviews"
 import { getServerSession } from "@/lib/auth/rbac"
 
 interface ProductPageProps {
@@ -64,18 +58,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
     notFound()
   }
 
-  // Get session for authentication check
-  const session = await getServerSession()
-  const isAuthenticated = !!session?.user?.id
-
-  // Fetch data in parallel
-  const [
-    isFavorited,
-    relatedProductsData,
-    reviewsData,
-    reviewStats,
-    reviewPermission,
-  ] = await Promise.all([
+  const [isFavorited, relatedProductsData] = await Promise.all([
     isProductFavorited(product.id),
     product.primaryCategoryId
       ? getStorefrontProducts({
@@ -83,19 +66,14 @@ export default async function ProductPage({ params }: ProductPageProps) {
           limit: 4,
         })
       : Promise.resolve(null),
-    getProductReviews(product.id),
-    getProductReviewStats(product.id),
-    canUserReview(product.id),
   ])
 
-  // Filter out current product from related
   const filteredRelated =
     relatedProductsData?.products.filter((p) => p.id !== product.id) || []
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Breadcrumb */}
-      <nav className="mb-6 flex items-center gap-2 text-sm text-muted-foreground">
+    <div className="py-8">
+      <nav className="container mx-auto px-4 mb-6 flex items-center gap-2 text-sm text-muted-foreground">
         <Link href="/" className="hover:text-foreground">
           Home
         </Link>
@@ -114,135 +92,27 @@ export default async function ProductPage({ params }: ProductPageProps) {
             </Link>
           </>
         )}
-        {product.model && (
-          <>
-            <ChevronRight className="h-4 w-4" />
-            <Link
-              href={`/products/models/${product.model.slug}`}
-              className="hover:text-foreground"
-            >
-              {product.model.name}
-            </Link>
-          </>
-        )}
         <ChevronRight className="h-4 w-4" />
         <span className="text-foreground font-medium truncate max-w-50">
           {product.name}
         </span>
       </nav>
 
-      {/* Product Main Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+      <div className="container mx-auto px-4 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
         <ProductDetailContent
           product={product}
           initialIsFavorited={isFavorited}
         />
       </div>
 
-      {/* Product Description */}
       {product.description && (
-        <div className="mt-12 max-w-3xl">
-          <h2 className="text-xl font-semibold mb-4">Description</h2>
-          <div className="prose prose-neutral max-w-none">
-            <p className="text-muted-foreground whitespace-pre-wrap">
-              {product.description}
-            </p>
-          </div>
-        </div>
+        <section className="container mx-auto px-4 mt-20">
+          <ProductDescription html={product.description} />
+        </section>
       )}
 
-      {/* Product Details */}
-      {/* <div className="mt-12 max-w-3xl">
-        <h2 className="text-xl font-semibold mb-4">Product Details</h2>
-        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="border rounded-lg p-4">
-            <dt className="text-sm text-muted-foreground">Brand</dt>
-            <dd className="mt-1 font-medium">
-              {product.brand ? (
-                <Link
-                  href={`/brands/${product.brand.slug}`}
-                  className="text-primary hover:underline"
-                >
-                  {product.brand.name}
-                </Link>
-              ) : (
-                "Unbranded"
-              )}
-            </dd>
-          </div>
-          <div className="border rounded-lg p-4">
-            <dt className="text-sm text-muted-foreground">Primary Category</dt>
-            <dd className="mt-1 font-medium">
-              {product.primaryCategory ? (
-                <Link
-                  href={`/categories/${product.primaryCategory.slug}`}
-                  className="text-primary hover:underline"
-                >
-                  {product.primaryCategory.name}
-                </Link>
-              ) : (
-                "Uncategorized"
-              )}
-            </dd>
-          </div>
-          {product.model && (
-            <div className="border rounded-lg p-4">
-              <dt className="text-sm text-muted-foreground">Model</dt>
-              <dd className="mt-1 font-medium">
-                <Link
-                  href={`/products/models/${product.model.slug}`}
-                  className="text-primary hover:underline"
-                >
-                  {product.model.name}
-                </Link>
-              </dd>
-            </div>
-          )}
-          {product.categories.length > 0 && (
-            <div className="border rounded-lg p-4 sm:col-span-2">
-              <dt className="text-sm text-muted-foreground">Browse In</dt>
-              <dd className="mt-2 flex flex-wrap gap-2">
-                {product.categories.map((category) => (
-                  <Link key={category.id} href={`/categories/${category.slug}`}>
-                    <Badge variant="secondary">{category.name}</Badge>
-                  </Link>
-                ))}
-              </dd>
-            </div>
-          )}
-          {product.variants.length > 0 && (
-            <div className="border rounded-lg p-4">
-              <dt className="text-sm text-muted-foreground">Variants</dt>
-              <dd className="mt-1">
-                <div className="flex flex-wrap gap-1">
-                  {product.variants.slice(0, 5).map((v) => (
-                    <Badge key={v.id} variant="secondary">
-                      {v.name}
-                    </Badge>
-                  ))}
-                  {product.variants.length > 5 && (
-                    <Badge variant="outline">
-                      +{product.variants.length - 5} more
-                    </Badge>
-                  )}
-                </div>
-              </dd>
-            </div>
-          )}
-          {product.variants.length > 0 && (
-            <div className="border rounded-lg p-4 sm:col-span-2">
-              <dt className="text-sm text-muted-foreground">SKU</dt>
-              <dd className="mt-1 font-mono text-sm">
-                {product.variants[0]?.sku || product.slug.toUpperCase()}
-              </dd>
-            </div>
-          )}
-        </dl>
-      </div> */}
-
-      {/* Related Products */}
-      {/* {filteredRelated.length > 0 && (
-        <div className="mt-16">
+      {filteredRelated.length > 0 && (
+        <div className="container mx-auto px-4 mt-16">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold">Related Products</h2>
             {product.primaryCategory && (
@@ -261,7 +131,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
             ))}
           </div>
         </div>
-      )} */}
+      )}
 
       {/* Customer Reviews */}
       {/* <div className="mt-16">

@@ -4,6 +4,7 @@ export type MediaKind = "image" | "video"
 export type MediaStatus = "pending" | "ready" | "failed" | "deleted"
 export type MediaDerivativeKind = "blur" | "poster"
 export type ProductMediaAssignmentMode = "all" | "specific"
+export type MediaContext = "gallery" | "inline"
 
 export interface MediaDerivativeInput {
   kind: MediaDerivativeKind
@@ -36,6 +37,7 @@ export interface UploadedMediaSource {
   access: MediaAccess
   provider?: MediaStorageProvider
   kind: MediaKind
+  context?: MediaContext
   createdBy?: string | null
   derivatives?: MediaDerivativeInput[]
 }
