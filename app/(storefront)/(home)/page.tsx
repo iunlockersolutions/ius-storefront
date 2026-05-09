@@ -15,7 +15,13 @@ import { StoreInfoSection } from "./_sections/store-info-section"
 
 export const revalidate = 1800
 
-const HOME_PRODUCT_CATEGORY_SLUGS = ["iphone", "mac", "airpods", "accessories"]
+const HOME_PRODUCT_CATEGORY_SLUGS = [
+  "iphone",
+  "macbook",
+  "airpods",
+  "apple-watch",
+  "accessories",
+]
 
 export default async function HomePage() {
   const [productCategorySections, deals, topReviews] = await Promise.all([
