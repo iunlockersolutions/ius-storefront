@@ -1,9 +1,9 @@
-import DOMPurify from "isomorphic-dompurify"
+import sanitizeHtml from "sanitize-html"
 
 import { cn } from "@/lib/utils"
 
-const SANITIZE_CONFIG = {
-  ALLOWED_TAGS: [
+const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
+  allowedTags: [
     "h1",
     "h2",
     "h3",
@@ -36,21 +36,16 @@ const SANITIZE_CONFIG = {
     "span",
     "div",
   ],
-  ALLOWED_ATTR: [
-    "href",
-    "target",
-    "rel",
-    "src",
-    "alt",
-    "title",
-    "loading",
-    "class",
-    "style",
-    "colspan",
-    "rowspan",
-  ],
-  ALLOWED_URI_REGEXP:
-    /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
+  allowedAttributes: {
+    a: ["href", "target", "rel", "title"],
+    img: ["src", "alt", "title", "loading"],
+    "*": ["class", "style", "colspan", "rowspan"],
+  },
+  allowedSchemes: ["http", "https", "mailto", "tel"],
+  allowedSchemesByTag: {
+    img: ["http", "https", "data"],
+  },
+  allowProtocolRelative: true,
 }
 
 interface ProductDescriptionProps {
@@ -62,7 +57,7 @@ export function ProductDescription({
   html,
   className,
 }: ProductDescriptionProps) {
-  const clean = DOMPurify.sanitize(html, SANITIZE_CONFIG)
+  const clean = sanitizeHtml(html, SANITIZE_OPTIONS)
 
   return (
     <article
