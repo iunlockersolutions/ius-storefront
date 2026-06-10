@@ -1,8 +1,6 @@
 import {
   getDealProducts,
-  getFeaturedCategories,
   getHomeCategoryProductSections,
-  getTopReviews,
 } from "@/lib/actions/storefront"
 
 import { ContactSection } from "./_sections/contact-section"
@@ -10,10 +8,9 @@ import { DealsSection } from "./_sections/deals-section"
 import { HeroSection } from "./_sections/hero-section"
 import { ProductCategorySection } from "./_sections/product-category-section"
 import { PromoFreeDelivery } from "./_sections/promo-banners-section"
-import { ReviewsSection } from "./_sections/reviews-section"
 import { StoreInfoSection } from "./_sections/store-info-section"
 
-export const revalidate = 1800
+export const revalidate = 1800 // 30min
 
 const HOME_PRODUCT_CATEGORY_SLUGS = [
   "iphone",
@@ -24,13 +21,12 @@ const HOME_PRODUCT_CATEGORY_SLUGS = [
 ]
 
 export default async function HomePage() {
-  const [productCategorySections, deals, topReviews] = await Promise.all([
+  const [productCategorySections, deals] = await Promise.all([
     getHomeCategoryProductSections({
       slugs: HOME_PRODUCT_CATEGORY_SLUGS,
       limitPerSection: 8,
     }),
     getDealProducts(10),
-    getTopReviews(6),
   ])
 
   return (
@@ -50,8 +46,6 @@ export default async function HomePage() {
       <PromoFreeDelivery />
 
       <DealsSection products={deals} />
-
-      <ReviewsSection reviews={topReviews} />
 
       <StoreInfoSection />
 
