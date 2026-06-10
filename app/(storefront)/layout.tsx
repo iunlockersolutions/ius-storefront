@@ -1,9 +1,6 @@
-﻿import { GuestAuthPromptProvider } from "@/components/auth/guest-auth-prompt"
-import { ForceLightTheme } from "@/components/force-light-theme"
+﻿import { ForceLightTheme } from "@/components/force-light-theme"
 import { Toaster } from "@/components/ui/sonner"
 import { getServerSession } from "@/lib/auth/rbac"
-import { getEnabledSocialProviderIds } from "@/lib/auth/social-providers"
-import { serverEnv } from "@/lib/env"
 
 import { Footer } from "./_components/footer"
 import { Header } from "./_components/header"
@@ -23,8 +20,6 @@ export default async function StorefrontLayout({
         image: session.user.image,
       }
     : undefined
-  const isAuthenticated = !!user
-  const socialProviders = getEnabledSocialProviderIds()
 
   return (
     <div
@@ -32,15 +27,9 @@ export default async function StorefrontLayout({
       data-storefront-mobile-align="center"
     >
       <ForceLightTheme />
-      <GuestAuthPromptProvider
-        enabled={serverEnv.FEATURE_GUEST_AUTH_PROMPT_ENABLED}
-        isAuthenticated={isAuthenticated}
-        socialProviders={socialProviders}
-      >
-        <Header user={user} />
-        <main className="flex-1">{children}</main>
-        <Footer />
-      </GuestAuthPromptProvider>
+      <Header user={user} />
+      <main className="flex-1">{children}</main>
+      <Footer />
       <Toaster theme="light" />
     </div>
   )
