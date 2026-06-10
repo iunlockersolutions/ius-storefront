@@ -7,19 +7,12 @@ import { ArrowLeft, Home } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 
-/**
- * 404 Not Found Page
- *
- * Beautiful animated 404 page with floating elements and gradient text.
- */
 export default function NotFound() {
   const router = useRouter()
 
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-linear-to-b from-background via-background to-muted/30 px-4">
-      {/* Animated background elements */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        {/* Floating circles */}
         <div className="animate-float-slow absolute left-[10%] top-[20%] h-64 w-64 rounded-full bg-primary/5 blur-3xl" />
         <div className="animate-float-medium absolute right-[15%] top-[30%] h-48 w-48 rounded-full bg-primary/10 blur-2xl" />
         <div className="animate-float-fast absolute bottom-[20%] left-[20%] h-32 w-32 rounded-full bg-primary/5 blur-2xl" />
@@ -28,14 +21,12 @@ export default function NotFound() {
 
       {/* Main content */}
       <div className="relative z-10 flex flex-col items-center text-center">
-        {/* Animated 404 SVG */}
         <div className="relative mb-8">
           <svg
             viewBox="0 0 400 150"
             className="h-32 w-80 sm:h-40 sm:w-96"
             aria-hidden="true"
           >
-            {/* Animated gradient definition */}
             <defs>
               <linearGradient
                 id="gradient404"
@@ -88,7 +79,6 @@ export default function NotFound() {
               </filter>
             </defs>
 
-            {/* 404 Text with animations */}
             <g filter="url(#shadow404)">
               {/* First 4 */}
               <text
@@ -207,46 +197,6 @@ export default function NotFound() {
           Error Code: 404
         </p>
       </div>
-
-      {/* Custom animation styles */}
-      <style jsx>{`
-        @keyframes float-slow {
-          0%,
-          100% {
-            transform: translateY(0px) translateX(0px);
-          }
-          50% {
-            transform: translateY(-20px) translateX(10px);
-          }
-        }
-        @keyframes float-medium {
-          0%,
-          100% {
-            transform: translateY(0px) translateX(0px);
-          }
-          50% {
-            transform: translateY(-15px) translateX(-10px);
-          }
-        }
-        @keyframes float-fast {
-          0%,
-          100% {
-            transform: translateY(0px);
-          }
-          50% {
-            transform: translateY(-10px);
-          }
-        }
-        :global(.animate-float-slow) {
-          animation: float-slow 8s ease-in-out infinite;
-        }
-        :global(.animate-float-medium) {
-          animation: float-medium 6s ease-in-out infinite;
-        }
-        :global(.animate-float-fast) {
-          animation: float-fast 4s ease-in-out infinite;
-        }
-      `}</style>
     </div>
   )
 }

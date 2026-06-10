@@ -11,9 +11,6 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
-  /* Header sizing — single source of truth.
-     Used by header rows (DealsStrip, DesktopNav, MobileNav) and by the
-     hero to offset its fixed position below the sticky header. */
   --spacing-deals-strip: var(--deals-strip-h);
   --spacing-nav: var(--nav-h);
   --spacing-header: var(--header-h);
@@ -56,7 +53,6 @@
 }
 
 :root {
-  /* Header heights — change these to propagate across header + hero. */
   --deals-strip-h: 2rem; /* 32px */
   --nav-h: 3.5rem; /* 56px — mobile nav */
   --header-h: calc(var(--deals-strip-h) + var(--nav-h));
@@ -134,8 +130,6 @@ body {
 	overscroll-behavior: none;
 }
 
-/* Desktop nav is taller than mobile nav — bump --nav-h at lg breakpoint.
-   Tailwind v4's default lg breakpoint is 1024px. */
 @media (min-width: 1024px) {
   :root {
     --nav-h: 4rem; /* 64px — desktop nav */
@@ -156,7 +150,6 @@ body {
     mix-blend-mode: normal;
 }
 
-/* Hide scrollbar utility for horizontal scroll containers */
 .scrollbar-none {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -213,10 +206,6 @@ body {
   @apply mx-auto container py-12 px-4 sm:px-6 lg:px-8;
 }
 
-/* Storefront mobile alignment defaults.
-   Keep this scoped to the storefront shell so admin/auth screens keep their
-   operational layout. Add data-mobile-align="start" to any nested region that
-   should opt out, such as dense forms or comparison rows. */
 @media (max-width: 767px) {
   [data-storefront-mobile-align="center"] :where(main, footer) {
     text-align: center;
@@ -247,4 +236,46 @@ body {
     :where([data-mobile-align="start"] .flex-col.items-start) {
     align-items: flex-start;
   }
+}
+
+@keyframes float-slow {
+  0%,
+  100% {
+    transform: translateY(0px) translateX(0px);
+  }
+  50% {
+    transform: translateY(-20px) translateX(10px);
+  }
+}
+
+@keyframes float-medium {
+  0%,
+  100% {
+    transform: translateY(0px) translateX(0px);
+  }
+  50% {
+    transform: translateY(-15px) translateX(-10px);
+  }
+}
+
+@keyframes float-fast {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-float-slow {
+  animation: float-slow 8s ease-in-out infinite;
+}
+
+.animate-float-medium {
+  animation: float-medium 6s ease-in-out infinite;
+}
+
+.animate-float-fast {
+  animation: float-fast 4s ease-in-out infinite;
 }
