@@ -277,6 +277,24 @@ export function ProductInfo({
     })
   }
 
+  const handleWhatsAppClick = () => {
+    if (!selectedVariant) {
+      return
+    }
+
+    const message = [
+      "Hello, I am interested in the following product:",
+      `Product: ${product.name}`,
+      `Variant: ${selectedVariant.name}`,
+      `Link: ${window.location.href}`,
+    ].join("\n")
+    const whatsappUrl = `https://wa.me/${BUSINESS_NUMBER}?text=${encodeURIComponent(
+      message,
+    )}`
+
+    window.open(whatsappUrl, "_blank", "noopener,noreferrer")
+  }
+
   const handleQuantityChange = (delta: number) => {
     setQuantity((prev) => Math.max(1, Math.min(maxQuantity, prev + delta)))
   }
@@ -432,59 +450,28 @@ export function ProductInfo({
         </div>
       </div> */}
 
-      {/* Action Buttons */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        {/* <Button
-          size="lg"
-          className="flex-1"
-          disabled={!inStock || isPending || !selectedVariant}
-          onClick={handleAddToCart}
-        >
-          {isPending ? (
-            <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-          ) : (
-            <ShoppingCart className="h-5 w-5 mr-2" />
-          )}
-          {isPending ? "Adding..." : "Add to Cart"}
-        </Button> */}
-        {/* WhatsApp Button */}
+      <div className="flex flex-col lg:flex-row gap-2">
         <Button
-          asChild
-          size="lg"
-          className="flex-1 bg-green-500 hover:bg-green-600 text-white"
+          type="button"
+          className="flex-1 bg-green-500 hover:bg-green-600 text-white py-2"
           disabled={!selectedVariant}
+          onClick={handleWhatsAppClick}
         >
-          <a
-            href={`https://wa.me/${BUSINESS_NUMBER}?text=${encodeURIComponent(
-              `Hello, I am interested in the following product:
-              \nProduct: ${product.name}${
-                selectedVariant ? `\nVariant: ${selectedVariant.name}` : ""
-              }
-              \nLink: ${
-                typeof window !== "undefined" ? window.location.href : ""
-              }`,
-            )}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <WhatsApp className="h-5 w-5 mr-2" />
-            WhatsApp
-          </a>
+          <WhatsApp className="h-5 w-5 mr-2" />
+          WhatsApp
         </Button>
-        <FavoriteButton
-          productId={product.id}
-          initialIsFavorited={initialIsFavorited}
-          variant="button"
-          size="lg"
-        />
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-11 w-11"
-          disabled={isPending}
-        >
-          <Share2 className="h-5 w-5" />
-        </Button>
+        <div className="flex justify-between items-center gap-2">
+          <FavoriteButton
+            className="flex-1"
+            productId={product.id}
+            initialIsFavorited={initialIsFavorited}
+            variant="button"
+          />
+          <Button className="flex-1" variant="outline" disabled={isPending}>
+            <Share2 className="h-5 w-5" />
+            <p>Share</p>
+          </Button>
+        </div>
       </div>
 
       {/* Trust Badges */}
