@@ -164,9 +164,9 @@ export function ProductInfo({
   const [quantity, setQuantity] = useState(1)
 
   const selectedVariant =
-    pricingOptions.length > 0
+    product.options.length > 0
       ? activeVariants.find((variant) =>
-          pricingOptions.every((option) => {
+          product.options.every((option) => {
             const selection = variant.selections?.find(
               (current) => current.optionId === option.id,
             )
@@ -206,19 +206,11 @@ export function ProductInfo({
       ...selectedOptions,
       [optionId]: optionValueId,
     }
-    const isPricingOption = pricingOptions.some(
-      (option) => option.id === optionId,
-    )
-
-    if (!isPricingOption) {
-      setSelectedOptions(nextSelections)
-      return
-    }
 
     const matchingVariant = activeVariants.find((variant) => {
       return Object.entries(nextSelections)
         .filter(([selectedOptionId]) =>
-          pricingOptions.some((option) => option.id === selectedOptionId),
+          product.options.some((option) => option.id === selectedOptionId),
         )
         .every(([selectedOptionId, selectedValueId]) => {
           const selection = variant.selections?.find(
@@ -249,10 +241,6 @@ export function ProductInfo({
   }
 
   const isOptionValueAvailable = (optionId: string, optionValueId: string) => {
-    if (!pricingOptions.some((option) => option.id === optionId)) {
-      return true
-    }
-
     return activeVariants.some((variant) => {
       const currentSelection = variant.selections?.find(
         (selection) => selection.optionId === optionId,
@@ -269,7 +257,7 @@ export function ProductInfo({
           }
 
           if (
-            !pricingOptions.some((option) => option.id === selectedOptionId)
+            !product.options.some((option) => option.id === selectedOptionId)
           ) {
             return true
           }
@@ -290,22 +278,27 @@ export function ProductInfo({
       return
     }
 
+    const variantSelectionOptionIds = new Set(
+      selectedVariant.selections?.map((selection) => selection.optionId) ?? [],
+    )
     const nonPricingSelections: Array<NonPricingSelection | null> =
-      nonPricingOptions.map((option) => {
-        const optionValueId = selectedOptions[option.id]
-        const value = option.values.find(
-          (current) => current.id === optionValueId,
-        )
+      nonPricingOptions
+        .filter((option) => !variantSelectionOptionIds.has(option.id))
+        .map((option) => {
+          const optionValueId = selectedOptions[option.id]
+          const value = option.values.find(
+            (current) => current.id === optionValueId,
+          )
 
-        return value
-          ? {
-              optionId: option.id,
-              optionName: option.name,
-              optionValueId: value.id,
-              optionValue: value.value,
-            }
-          : null
-      })
+          return value
+            ? {
+                optionId: option.id,
+                optionName: option.name,
+                optionValueId: value.id,
+                optionValue: value.value,
+              }
+            : null
+        })
 
     if (nonPricingSelections.some((selection) => selection === null)) {
       toast.error("Please choose all product options")

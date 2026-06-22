@@ -34,16 +34,19 @@ interface ProductDetailContentProps {
   initialIsFavorited?: boolean
 }
 
-function getInitialGalleryVariantId(product: ProductInfoProduct) {
-  const activeVariants = product.variants.filter((variant) => variant.isActive)
-  const fallbackVariant =
-    activeVariants.find((variant) => variant.isDefault) ||
-    activeVariants[0] ||
-    product.variants.find((variant) => variant.isDefault) ||
-    product.variants[0] ||
-    null
+function comparePrimaryThenSortOrder(
+  left: ProductMediaItem,
+  right: ProductMediaItem,
+) {
+  if (left.isPrimaryImage) {
+    return -1
+  }
 
-  return fallbackVariant?.id ?? null
+  if (right.isPrimaryImage) {
+    return 1
+  }
+
+  return left.sortOrder - right.sortOrder
 }
 
 export function ProductDetailContent({
@@ -52,38 +55,36 @@ export function ProductDetailContent({
 }: ProductDetailContentProps) {
   const [selectedGalleryVariantId, setSelectedGalleryVariantId] = useState<
     string | null
-  >(() => getInitialGalleryVariantId(product))
+  >(null)
 
   const galleryMedia = useMemo(() => {
     const media = product.media ?? []
     const globalMedia = media.filter(
       (item) => item.variantAssignment.mode === "all",
     )
-    const orderedGlobalMedia = [...globalMedia].sort((left, right) => {
-      if (left.isPrimaryImage) {
-        return -1
-      }
-
-      if (right.isPrimaryImage) {
-        return 1
-      }
-
-      return left.sortOrder - right.sortOrder
-    })
-
-    if (!selectedGalleryVariantId) {
-      return orderedGlobalMedia
-    }
-
-    const specificMedia = media.filter(
+    const selectedSpecificMedia = selectedGalleryVariantId
+      ? media.filter(
+          (item) =>
+            item.variantAssignment.mode === "specific" &&
+            item.variantAssignment.variantIds.includes(
+              selectedGalleryVariantId,
+            ),
+        )
+      : []
+    const unselectedSpecificMedia = media.filter(
       (item) =>
         item.variantAssignment.mode === "specific" &&
-        item.variantAssignment.variantIds.includes(selectedGalleryVariantId),
+        !selectedSpecificMedia.some((selected) => selected.id === item.id),
     )
 
     const ordered = [
-      ...specificMedia.sort((left, right) => left.sortOrder - right.sortOrder),
-      ...orderedGlobalMedia,
+      ...selectedSpecificMedia.sort(
+        (left, right) => left.sortOrder - right.sortOrder,
+      ),
+      ...globalMedia.sort(comparePrimaryThenSortOrder),
+      ...unselectedSpecificMedia.sort(
+        (left, right) => left.sortOrder - right.sortOrder,
+      ),
     ]
 
     const seenAssetIds = new Set<string>()

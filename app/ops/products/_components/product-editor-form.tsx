@@ -126,6 +126,14 @@ type VariantEditorValue = {
   optionValues: Record<string, string>
 }
 
+type PricingFieldName = "price" | "compareAtPrice" | "costPrice"
+
+const INHERITED_PRICING_FIELDS: PricingFieldName[] = [
+  "price",
+  "compareAtPrice",
+  "costPrice",
+]
+
 type CategoryOption = {
   id: string
   name: string
@@ -257,6 +265,75 @@ function buildOptionKey(optionValues: Record<string, string>) {
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([name, value]) => `${name}:${value}`)
     .join("|")
+}
+
+function buildPricingKey(
+  optionValues: Record<string, string>,
+  pricingOptionNames: string[],
+) {
+  if (pricingOptionNames.length === 0) {
+    return "__default_pricing__"
+  }
+
+  return buildOptionKey(
+    Object.fromEntries(
+      pricingOptionNames.map((optionName) => [
+        optionName,
+        optionValues[optionName] || "",
+      ]),
+    ),
+  )
+}
+
+function getPriceSourceMap(
+  variants: VariantEditorValue[],
+  pricingOptionNames: string[],
+) {
+  const sourceByPricingKey = new Map<string, VariantEditorValue>()
+
+  for (const variant of variants) {
+    const pricingKey = buildPricingKey(variant.optionValues, pricingOptionNames)
+
+    if (!sourceByPricingKey.has(pricingKey)) {
+      sourceByPricingKey.set(pricingKey, variant)
+    }
+  }
+
+  return sourceByPricingKey
+}
+
+function applyInheritedPricing(
+  variants: VariantEditorValue[],
+  pricingOptionNames: string[],
+) {
+  const sourceByPricingKey = getPriceSourceMap(variants, pricingOptionNames)
+
+  return variants.map((variant) => {
+    const source = sourceByPricingKey.get(
+      buildPricingKey(variant.optionValues, pricingOptionNames),
+    )
+
+    if (!source || source.key === variant.key) {
+      return variant
+    }
+
+    return {
+      ...variant,
+      price: source.price,
+      compareAtPrice: source.compareAtPrice,
+      costPrice: source.costPrice,
+    }
+  })
+}
+
+function takeUnusedVariant(
+  variantsByKey: Map<string, VariantEditorValue[]>,
+  key: string,
+  usedVariantKeys: Set<string>,
+) {
+  const variants = variantsByKey.get(key) ?? []
+
+  return variants.find((variant) => !usedVariantKeys.has(variant.key))
 }
 
 function splitOptionValueInput(rawValue: string) {
@@ -610,6 +687,19 @@ export function ProductEditorForm({
     [options],
   )
 
+  const pricingOptionNames = useMemo(
+    () =>
+      normalizedOptions
+        .filter((option) => option.affectsPricing)
+        .map((option) => option.name),
+    [normalizedOptions],
+  )
+
+  const priceSourceByPricingKey = useMemo(
+    () => getPriceSourceMap(variants, pricingOptionNames),
+    [pricingOptionNames, variants],
+  )
+
   const optionNameDuplicates = useMemo(() => {
     const counts = new Map<string, number>()
 
@@ -663,14 +753,11 @@ export function ProductEditorForm({
   }, [normalizedOptions, optionNameDuplicates, options])
 
   useEffect(() => {
-    const pricingOptionInputs = normalizedOptions.filter(
-      (option) => option.affectsPricing && option.values.length > 0,
-    )
-    const pricingOptionNameSet = new Set(
-      pricingOptionInputs.map((option) => option.name),
+    const optionInputs = normalizedOptions.filter(
+      (option) => option.values.length > 0,
     )
 
-    if (pricingOptionInputs.length === 0) {
+    if (optionInputs.length === 0) {
       setVariants((current) => {
         const existingDefault = current[0] ?? createEmptyVariant()
         return [
@@ -685,34 +772,62 @@ export function ProductEditorForm({
       return
     }
 
-    const combinations = buildCombinations(pricingOptionInputs)
+    const combinations = buildCombinations(optionInputs)
 
     setVariants((current) => {
-      const existingMap = new Map<string, VariantEditorValue>()
+      const existingFullMap = new Map<string, VariantEditorValue[]>()
+      const existingPricingMap = new Map<string, VariantEditorValue[]>()
 
       for (const variant of current) {
-        existingMap.set(buildOptionKey(variant.optionValues), variant)
-
-        const pricingOnlyValues = Object.fromEntries(
-          Object.entries(variant.optionValues).filter(([optionName]) =>
-            pricingOptionNameSet.has(optionName),
-          ),
+        const fullKey = buildOptionKey(variant.optionValues)
+        const pricingKey = buildPricingKey(
+          variant.optionValues,
+          pricingOptionNames,
         )
-        const pricingOnlyKey = buildOptionKey(pricingOnlyValues)
 
-        if (!existingMap.has(pricingOnlyKey)) {
-          existingMap.set(pricingOnlyKey, variant)
-        }
+        existingFullMap.set(fullKey, [
+          ...(existingFullMap.get(fullKey) ?? []),
+          variant,
+        ])
+        existingPricingMap.set(pricingKey, [
+          ...(existingPricingMap.get(pricingKey) ?? []),
+          variant,
+        ])
       }
 
+      const usedVariantKeys = new Set<string>()
       const nextVariants = combinations.map((combination, index) => {
-        const existing = existingMap.get(buildOptionKey(combination))
+        const fullKey = buildOptionKey(combination)
+        const pricingKey = buildPricingKey(combination, pricingOptionNames)
+        let existing = takeUnusedVariant(
+          existingFullMap,
+          fullKey,
+          usedVariantKeys,
+        )
+        let shouldKeepIdentity = Boolean(existing)
+
+        if (!existing) {
+          existing = takeUnusedVariant(
+            existingPricingMap,
+            pricingKey,
+            usedVariantKeys,
+          )
+          shouldKeepIdentity = Boolean(existing)
+        }
+
+        if (existing) {
+          usedVariantKeys.add(existing.key)
+        }
 
         return {
-          key: existing?.key || crypto.randomUUID(),
-          id: existing?.id,
-          sku: existing?.sku || "",
-          name: existing?.name || buildVariantName(combination),
+          key:
+            shouldKeepIdentity && existing ? existing.key : crypto.randomUUID(),
+          id: shouldKeepIdentity ? existing?.id : undefined,
+          sku: shouldKeepIdentity ? existing?.sku || "" : "",
+          name:
+            shouldKeepIdentity && existing?.name
+              ? existing.name
+              : buildVariantName(combination),
           price: existing?.price || "0.00",
           compareAtPrice: existing?.compareAtPrice || "",
           costPrice: existing?.costPrice || "",
@@ -731,7 +846,7 @@ export function ProductEditorForm({
       }
 
       let defaultAssigned = false
-      return nextVariants.map((variant) => {
+      const normalizedDefaultVariants = nextVariants.map((variant) => {
         if (variant.isDefault && !defaultAssigned) {
           defaultAssigned = true
           return variant
@@ -742,8 +857,13 @@ export function ProductEditorForm({
           isDefault: false,
         }
       })
+
+      return applyInheritedPricing(
+        normalizedDefaultVariants,
+        pricingOptionNames,
+      )
     })
-  }, [normalizedOptions])
+  }, [normalizedOptions, pricingOptionNames])
 
   useEffect(() => {
     setMedia((current) => {
@@ -928,11 +1048,32 @@ export function ProductEditorForm({
     variantKey: string,
     updates: Partial<VariantEditorValue>,
   ) => {
-    setVariants((current) =>
-      current.map((variant) =>
-        variant.key === variantKey ? { ...variant, ...updates } : variant,
-      ),
-    )
+    setVariants((current) => {
+      const sourceByPricingKey = getPriceSourceMap(current, pricingOptionNames)
+      const currentVariant = current.find(
+        (variant) => variant.key === variantKey,
+      )
+      const source =
+        currentVariant &&
+        sourceByPricingKey.get(
+          buildPricingKey(currentVariant.optionValues, pricingOptionNames),
+        )
+      const sanitizedUpdates = { ...updates }
+
+      if (source && source.key !== variantKey) {
+        for (const field of INHERITED_PRICING_FIELDS) {
+          delete sanitizedUpdates[field]
+        }
+      }
+
+      const next = current.map((variant) =>
+        variant.key === variantKey
+          ? { ...variant, ...sanitizedUpdates }
+          : variant,
+      )
+
+      return applyInheritedPricing(next, pricingOptionNames)
+    })
   }
 
   const hydrateFromSavedProduct = (savedProduct: AdminProductDetail) => {
@@ -1963,10 +2104,10 @@ export function ProductEditorForm({
             <CardContent className="space-y-4">
               <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
                 {variants.length} sellable variant
-                {variants.length === 1 ? "" : "s"} are derived from pricing
-                option values. Options that do not affect price are collected on
-                the order without creating separate variant rows. Stock intake
-                happens later in the dedicated inventory flow.
+                {variants.length === 1 ? "" : "s"} are derived from all option
+                values. Options marked as not affecting price still create rows
+                for media and selection, but their price fields inherit from the
+                matching pricing option row.
               </div>
 
               <div className="grid gap-4 rounded-xl border bg-muted/10 p-4 md:grid-cols-2">
@@ -2058,116 +2199,139 @@ export function ProductEditorForm({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {variants.map((variant) => (
-                      <TableRow key={variant.key}>
-                        <TableCell className="min-w-40">
-                          {Object.keys(variant.optionValues).length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {Object.entries(variant.optionValues).map(
-                                ([name, value]) => (
-                                  <Badge
-                                    key={`${variant.key}-${name}`}
-                                    variant="outline"
-                                  >
-                                    {name}: {value}
-                                  </Badge>
-                                ),
+                    {variants.map((variant) => {
+                      const priceSource = priceSourceByPricingKey.get(
+                        buildPricingKey(
+                          variant.optionValues,
+                          pricingOptionNames,
+                        ),
+                      )
+                      const inheritsPricing =
+                        Boolean(priceSource) && priceSource?.key !== variant.key
+
+                      return (
+                        <TableRow key={variant.key}>
+                          <TableCell className="min-w-40">
+                            <div className="space-y-2">
+                              {Object.keys(variant.optionValues).length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {Object.entries(variant.optionValues).map(
+                                    ([name, value]) => (
+                                      <Badge
+                                        key={`${variant.key}-${name}`}
+                                        variant="outline"
+                                      >
+                                        {name}: {value}
+                                      </Badge>
+                                    ),
+                                  )}
+                                </div>
+                              ) : (
+                                <Badge variant="outline">Default</Badge>
                               )}
+                              {inheritsPricing ? (
+                                <Badge variant="secondary">
+                                  Price inherited
+                                </Badge>
+                              ) : null}
                             </div>
-                          ) : (
-                            <Badge variant="outline">Default</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={variant.name}
-                            onChange={(event) =>
-                              updateVariant(variant.key, {
-                                name: event.target.value,
-                              })
-                            }
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={variant.sku}
-                            onChange={(event) =>
-                              updateVariant(variant.key, {
-                                sku: event.target.value,
-                              })
-                            }
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={variant.price}
-                            onChange={(event) =>
-                              updateVariant(variant.key, {
-                                price: event.target.value,
-                              })
-                            }
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={variant.compareAtPrice}
-                            onChange={(event) =>
-                              updateVariant(variant.key, {
-                                compareAtPrice: event.target.value,
-                              })
-                            }
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={variant.costPrice}
-                            onChange={(event) =>
-                              updateVariant(variant.key, {
-                                costPrice: event.target.value,
-                              })
-                            }
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={variant.weight}
-                            onChange={(event) =>
-                              updateVariant(variant.key, {
-                                weight: event.target.value,
-                              })
-                            }
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Switch
-                            checked={variant.manageInventory}
-                            onCheckedChange={(checked) =>
-                              updateVariant(variant.key, {
-                                manageInventory: checked,
-                              })
-                            }
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Switch
-                            checked={variant.isDefault}
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                setDefaultVariant(variant.key)
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              value={variant.name}
+                              onChange={(event) =>
+                                updateVariant(variant.key, {
+                                  name: event.target.value,
+                                })
                               }
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Switch
-                            checked={variant.isActive}
-                            onCheckedChange={(checked) =>
-                              updateVariant(variant.key, { isActive: checked })
-                            }
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              value={variant.sku}
+                              onChange={(event) =>
+                                updateVariant(variant.key, {
+                                  sku: event.target.value,
+                                })
+                              }
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              value={variant.price}
+                              disabled={inheritsPricing}
+                              onChange={(event) =>
+                                updateVariant(variant.key, {
+                                  price: event.target.value,
+                                })
+                              }
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              value={variant.compareAtPrice}
+                              disabled={inheritsPricing}
+                              onChange={(event) =>
+                                updateVariant(variant.key, {
+                                  compareAtPrice: event.target.value,
+                                })
+                              }
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              value={variant.costPrice}
+                              disabled={inheritsPricing}
+                              onChange={(event) =>
+                                updateVariant(variant.key, {
+                                  costPrice: event.target.value,
+                                })
+                              }
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              value={variant.weight}
+                              onChange={(event) =>
+                                updateVariant(variant.key, {
+                                  weight: event.target.value,
+                                })
+                              }
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Switch
+                              checked={variant.manageInventory}
+                              onCheckedChange={(checked) =>
+                                updateVariant(variant.key, {
+                                  manageInventory: checked,
+                                })
+                              }
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Switch
+                              checked={variant.isDefault}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setDefaultVariant(variant.key)
+                                }
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Switch
+                              checked={variant.isActive}
+                              onCheckedChange={(checked) =>
+                                updateVariant(variant.key, {
+                                  isActive: checked,
+                                })
+                              }
+                            />
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
                   </TableBody>
                 </Table>
               </div>

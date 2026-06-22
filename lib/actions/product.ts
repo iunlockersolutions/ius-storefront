@@ -772,12 +772,9 @@ async function syncProductOptionsAndVariants(
   variantsInput: z.infer<typeof productVariantInputSchema>[],
 ) {
   const normalizedOptions = normalizeOptions(optionsInput)
-  const pricingOptions = normalizedOptions.filter(
-    (option) => option.affectsPricing,
-  )
   const normalizedVariants = normalizeVariants(
     variantsInput,
-    pricingOptions.length > 0,
+    normalizedOptions.length > 0,
   )
 
   const existingOptions = await tx
@@ -918,8 +915,8 @@ async function syncProductOptionsAndVariants(
   ) {
     const variant = normalizedVariants[variantIndex]
 
-    if (pricingOptions.length > 0) {
-      for (const option of pricingOptions) {
+    if (normalizedOptions.length > 0) {
+      for (const option of normalizedOptions) {
         const selectedValue = variant.optionValues[option.name]
 
         if (!selectedValue) {
@@ -940,8 +937,8 @@ async function syncProductOptionsAndVariants(
 
     const variantName =
       variant.name ||
-      (pricingOptions.length > 0
-        ? pricingOptions
+      (normalizedOptions.length > 0
+        ? normalizedOptions
             .map((option) => variant.optionValues[option.name] || "")
             .join(" / ")
         : "Default")
@@ -1010,9 +1007,9 @@ async function syncProductOptionsAndVariants(
       .delete(productVariantOptionValues)
       .where(eq(productVariantOptionValues.variantId, variantRecord.id))
 
-    if (pricingOptions.length > 0) {
+    if (normalizedOptions.length > 0) {
       await tx.insert(productVariantOptionValues).values(
-        pricingOptions.map((option) => {
+        normalizedOptions.map((option) => {
           const optionRecord = optionMap.get(option.name.toLowerCase())!
           const optionValueRecord = optionRecord.values.get(
             variant.optionValues[option.name].toLowerCase(),

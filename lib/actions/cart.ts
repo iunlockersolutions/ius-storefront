@@ -16,6 +16,7 @@ import {
   productOptions,
   productOptionValues,
   products,
+  productVariantOptionValues,
   productVariants,
 } from "@/lib/db/schema"
 import {
@@ -44,6 +45,7 @@ function serializeNonPricingSelections(selections: NonPricingSelectionInput[]) {
 
 async function validateNonPricingSelections(
   productId: string,
+  variantId: string,
   selections: NonPricingSelectionInput[] = [],
 ) {
   const options = await db
@@ -65,6 +67,21 @@ async function validateNonPricingSelections(
     return []
   }
 
+  const variantSelections = await db
+    .select({ optionId: productVariantOptionValues.optionId })
+    .from(productVariantOptionValues)
+    .where(eq(productVariantOptionValues.variantId, variantId))
+  const variantSelectionOptionIds = new Set(
+    variantSelections.map((selection) => selection.optionId),
+  )
+  const optionsNeedingSnapshot = options.filter(
+    (option) => !variantSelectionOptionIds.has(option.id),
+  )
+
+  if (optionsNeedingSnapshot.length === 0) {
+    return []
+  }
+
   const values = await db
     .select({
       id: productOptionValues.id,
@@ -76,7 +93,7 @@ async function validateNonPricingSelections(
     .where(
       inArray(
         productOptionValues.optionId,
-        options.map((option) => option.id),
+        optionsNeedingSnapshot.map((option) => option.id),
       ),
     )
     .orderBy(asc(productOptionValues.sortOrder), asc(productOptionValues.value))
@@ -84,7 +101,9 @@ async function validateNonPricingSelections(
   const valueMap = new Map(
     values.map((value) => [`${value.optionId}:${value.id}`, value]),
   )
-  const validOptionIds = new Set(options.map((option) => option.id))
+  const validOptionIds = new Set(
+    optionsNeedingSnapshot.map((option) => option.id),
+  )
   const selectionByOptionId = new Map<string, NonPricingSelectionInput>()
 
   for (const selection of selections) {
@@ -99,7 +118,7 @@ async function validateNonPricingSelections(
     selectionByOptionId.set(selection.optionId, selection)
   }
 
-  return options.map((option) => {
+  return optionsNeedingSnapshot.map((option) => {
     const selection = selectionByOptionId.get(option.id)
 
     if (!selection) {
@@ -303,6 +322,7 @@ export async function addToCart(
 
     const nonPricingSelections = await validateNonPricingSelections(
       variant.product.id,
+      variant.id,
       nonPricingSelectionsInput,
     )
     const serializedSelections =
