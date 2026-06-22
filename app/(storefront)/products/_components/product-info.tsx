@@ -300,7 +300,7 @@ export function ProductInfo({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full">
       {/* Header */}
       <div>
         {product.isFeatured && <Badge className="mb-2">Featured</Badge>}
