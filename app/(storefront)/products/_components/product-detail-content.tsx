@@ -34,13 +34,25 @@ interface ProductDetailContentProps {
   initialIsFavorited?: boolean
 }
 
+function getInitialGalleryVariantId(product: ProductInfoProduct) {
+  const activeVariants = product.variants.filter((variant) => variant.isActive)
+  const fallbackVariant =
+    activeVariants.find((variant) => variant.isDefault) ||
+    activeVariants[0] ||
+    product.variants.find((variant) => variant.isDefault) ||
+    product.variants[0] ||
+    null
+
+  return fallbackVariant?.id ?? null
+}
+
 export function ProductDetailContent({
   product,
   initialIsFavorited = false,
 }: ProductDetailContentProps) {
   const [selectedGalleryVariantId, setSelectedGalleryVariantId] = useState<
     string | null
-  >(null)
+  >(() => getInitialGalleryVariantId(product))
 
   const galleryMedia = useMemo(() => {
     const media = product.media ?? []
@@ -88,16 +100,20 @@ export function ProductDetailContent({
 
   return (
     <>
-      <ManagedMediaGallery
-        key={selectedGalleryVariantId ?? "all-variants"}
-        media={galleryMedia}
-        name={product.name}
-      />
-      <ProductInfo
-        product={product}
-        initialIsFavorited={initialIsFavorited}
-        onSelectedVariantChange={setSelectedGalleryVariantId}
-      />
+      <div className="w-full">
+        <ManagedMediaGallery
+          key={selectedGalleryVariantId ?? "all-variants"}
+          media={galleryMedia}
+          name={product.name}
+        />
+      </div>
+      <div className="w-full">
+        <ProductInfo
+          product={product}
+          initialIsFavorited={initialIsFavorited}
+          onSelectedVariantChange={setSelectedGalleryVariantId}
+        />
+      </div>
     </>
   )
 }
