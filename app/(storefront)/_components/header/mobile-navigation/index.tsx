@@ -3,10 +3,16 @@
 import * as React from "react"
 import Link from "next/link"
 
-import { Search as SearchIcon, ShoppingBag, User } from "lucide-react"
+import {
+  LayoutDashboard,
+  Search as SearchIcon,
+  ShoppingBag,
+  User,
+} from "lucide-react"
 
 import { routes } from "@/configs/routes"
 
+import { isStaffHeaderUser } from "../header-utils"
 import { Search } from "../search"
 import { type HeaderUser } from "../types"
 import { MobileAccountTab } from "./mobile-account-tab"
@@ -24,6 +30,7 @@ export function MobileNavigation({ user, cartCount }: MobileNavigationProps) {
   const [menuOpen, setMenuOpen] = React.useState(false)
   const [searchOpen, setSearchOpen] = React.useState(false)
   const [tab, setTab] = React.useState<"shop" | "account">("shop")
+  const isStaffUser = isStaffHeaderUser(user)
 
   return (
     <div className="border-b border-neutral-200 bg-white">
@@ -56,18 +63,29 @@ export function MobileNavigation({ user, cartCount }: MobileNavigationProps) {
             <SearchIcon className="size-5" />
           </button>
 
-          <Link
-            href={routes.storefront.cart.root}
-            aria-label={`Bag (${cartCount} items)`}
-            className="relative inline-flex size-10 items-center justify-center text-neutral-800"
-          >
-            <ShoppingBag className="size-5" />
-            {cartCount > 0 ? (
-              <span className="absolute top-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-600 px-1 text-[9px] font-medium text-white">
-                {cartCount > 99 ? "99+" : cartCount}
-              </span>
-            ) : null}
-          </Link>
+          {isStaffUser ? (
+            <Link
+              href={routes.ops.root}
+              aria-label="Admin Portal"
+              className="inline-flex h-9 items-center gap-1.5 rounded-full bg-neutral-950 px-3 text-xs font-semibold text-white transition hover:bg-neutral-800"
+            >
+              <LayoutDashboard className="size-4" />
+              Admin
+            </Link>
+          ) : (
+            <Link
+              href={routes.storefront.cart.root}
+              aria-label={`Bag (${cartCount} items)`}
+              className="relative inline-flex size-10 items-center justify-center text-neutral-800"
+            >
+              <ShoppingBag className="size-5" />
+              {cartCount > 0 ? (
+                <span className="absolute top-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-600 px-1 text-[9px] font-medium text-white">
+                  {cartCount > 99 ? "99+" : cartCount}
+                </span>
+              ) : null}
+            </Link>
+          )}
         </div>
       </div>
 

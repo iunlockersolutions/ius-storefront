@@ -5,6 +5,7 @@ import Link from "next/link"
 
 import {
   CreditCard,
+  LayoutDashboard,
   Search as SearchIcon,
   ShoppingBag,
   Tag,
@@ -15,6 +16,7 @@ import { routes } from "@/configs/routes"
 import { cn } from "@/lib/utils"
 
 import { appleCatalog } from "../catalog"
+import { isStaffHeaderUser } from "../header-utils"
 import { Search } from "../search"
 import { type HeaderUser } from "../types"
 import { DesktopAccountMenu } from "./desktop-account-menu"
@@ -123,6 +125,7 @@ export function DesktopNavigation({ cartCount, user }: DesktopNavigationProps) {
     openKind === "panel" && openPanelId
       ? appleCatalog.find((c) => c.id === openPanelId)
       : undefined
+  const isStaffUser = isStaffHeaderUser(user)
 
   return (
     <>
@@ -208,21 +211,34 @@ export function DesktopNavigation({ cartCount, user }: DesktopNavigationProps) {
                 <SearchIcon className="size-5" />
               </button>
 
-              <Link
-                href={routes.storefront.cart.root}
-                aria-label={`Bag (${cartCount} items)`}
-                onClick={closeAll}
-                className="relative p-2 text-neutral-800 hover:text-neutral-950"
-              >
-                <ShoppingBag className="size-5" />
-                {cartCount > 0 ? (
-                  <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-600 px-1 text-[9px] font-medium text-white">
-                    {cartCount > 99 ? "99+" : cartCount}
-                  </span>
-                ) : null}
-              </Link>
+              {isStaffUser ? (
+                <Link
+                  href={routes.ops.root}
+                  onClick={closeAll}
+                  className="ml-2 inline-flex h-9 items-center gap-2 rounded-full bg-neutral-950 px-4 text-xs font-semibold text-white transition hover:bg-neutral-800"
+                >
+                  <LayoutDashboard className="size-4" />
+                  Admin Portal
+                </Link>
+              ) : (
+                <>
+                  <Link
+                    href={routes.storefront.cart.root}
+                    aria-label={`Bag (${cartCount} items)`}
+                    onClick={closeAll}
+                    className="relative p-2 text-neutral-800 hover:text-neutral-950"
+                  >
+                    <ShoppingBag className="size-5" />
+                    {cartCount > 0 ? (
+                      <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-600 px-1 text-[9px] font-medium text-white">
+                        {cartCount > 99 ? "99+" : cartCount}
+                      </span>
+                    ) : null}
+                  </Link>
 
-              <DesktopAccountMenu user={user} />
+                  <DesktopAccountMenu user={user} />
+                </>
+              )}
             </div>
           </nav>
         </div>

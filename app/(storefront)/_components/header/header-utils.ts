@@ -1,5 +1,9 @@
 import { routes } from "@/configs/routes"
 
+import { type HeaderUser } from "./types"
+
+const STAFF_ROLES = new Set(["admin", "manager", "support"])
+
 type ProductHrefParams = {
   brand?: string
   category?: string
@@ -32,4 +36,11 @@ export function getCurrentStorefrontPathWithQuery() {
   }
 
   return `${window.location.pathname}${window.location.search}`
+}
+
+export function isStaffHeaderUser(user?: HeaderUser) {
+  return (user?.role ?? "")
+    .split(",")
+    .map((role) => role.trim())
+    .some((role) => STAFF_ROLES.has(role))
 }
