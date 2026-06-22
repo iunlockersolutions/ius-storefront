@@ -24,6 +24,7 @@ export interface AdminProductOptionValue {
 export interface AdminProductOption {
   id: string
   name: string
+  affectsPricing: boolean
   values: AdminProductOptionValue[]
 }
 
@@ -128,6 +129,7 @@ export interface AdminProductMutationPayload {
   metaDescription?: string
   options: Array<{
     name: string
+    affectsPricing?: boolean
     values: string[]
   }>
   variants: Array<{

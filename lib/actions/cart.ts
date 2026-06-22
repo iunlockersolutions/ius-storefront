@@ -4,13 +4,20 @@ import { revalidatePath } from "next/cache"
 import { cookies } from "next/headers"
 import { headers } from "next/headers"
 
-import { and, eq, sql } from "drizzle-orm"
+import { and, asc, eq, inArray, sql } from "drizzle-orm"
 import { nanoid } from "nanoid"
 
 import { getVariantInventoryAvailabilityMap } from "@/lib/actions/inventory"
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { cartItems, carts, products, productVariants } from "@/lib/db/schema"
+import {
+  cartItems,
+  carts,
+  productOptions,
+  productOptionValues,
+  products,
+  productVariants,
+} from "@/lib/db/schema"
 import {
   getPrimaryProductImageMap,
   getVariantSpecificProductImageMap,
@@ -18,6 +25,101 @@ import {
 
 const CART_SESSION_COOKIE = "cart_session_id"
 const CART_SESSION_EXPIRY = 30 * 24 * 60 * 60 * 1000 // 30 days
+
+export type NonPricingSelectionInput = {
+  optionId: string
+  optionName: string
+  optionValueId: string
+  optionValue: string
+}
+
+function serializeNonPricingSelections(selections: NonPricingSelectionInput[]) {
+  return JSON.stringify(
+    selections.map((selection) => ({
+      optionId: selection.optionId,
+      optionValueId: selection.optionValueId,
+    })),
+  )
+}
+
+async function validateNonPricingSelections(
+  productId: string,
+  selections: NonPricingSelectionInput[] = [],
+) {
+  const options = await db
+    .select({
+      id: productOptions.id,
+      name: productOptions.name,
+      sortOrder: productOptions.sortOrder,
+    })
+    .from(productOptions)
+    .where(
+      and(
+        eq(productOptions.productId, productId),
+        eq(productOptions.affectsPricing, false),
+      ),
+    )
+    .orderBy(asc(productOptions.sortOrder), asc(productOptions.name))
+
+  if (options.length === 0) {
+    return []
+  }
+
+  const values = await db
+    .select({
+      id: productOptionValues.id,
+      optionId: productOptionValues.optionId,
+      value: productOptionValues.value,
+      sortOrder: productOptionValues.sortOrder,
+    })
+    .from(productOptionValues)
+    .where(
+      inArray(
+        productOptionValues.optionId,
+        options.map((option) => option.id),
+      ),
+    )
+    .orderBy(asc(productOptionValues.sortOrder), asc(productOptionValues.value))
+
+  const valueMap = new Map(
+    values.map((value) => [`${value.optionId}:${value.id}`, value]),
+  )
+  const validOptionIds = new Set(options.map((option) => option.id))
+  const selectionByOptionId = new Map<string, NonPricingSelectionInput>()
+
+  for (const selection of selections) {
+    if (!validOptionIds.has(selection.optionId)) {
+      throw new Error("Choose valid product options")
+    }
+
+    if (selectionByOptionId.has(selection.optionId)) {
+      throw new Error("Choose each non-pricing option only once")
+    }
+
+    selectionByOptionId.set(selection.optionId, selection)
+  }
+
+  return options.map((option) => {
+    const selection = selectionByOptionId.get(option.id)
+
+    if (!selection) {
+      throw new Error(`Please choose ${option.name}`)
+    }
+
+    const value = valueMap.get(`${option.id}:${selection.optionValueId}`)
+
+    if (!value) {
+      throw new Error(`Choose a valid value for ${option.name}`)
+    }
+
+    return {
+      optionId: option.id,
+      optionName: option.name,
+      optionValueId: value.id,
+      optionValue: value.value,
+    }
+  })
+}
 
 /**
  * Get or create a cart session ID for guests
@@ -94,6 +196,7 @@ export async function getCart() {
       id: cartItems.id,
       quantity: cartItems.quantity,
       priceAtAdd: cartItems.priceAtAdd,
+      nonPricingSelections: cartItems.nonPricingSelections,
       variant: {
         id: productVariants.id,
         name: productVariants.name,
@@ -165,7 +268,11 @@ export async function getCart() {
 /**
  * Add item to cart
  */
-export async function addToCart(variantId: string, quantity: number = 1) {
+export async function addToCart(
+  variantId: string,
+  quantity: number = 1,
+  nonPricingSelectionsInput: NonPricingSelectionInput[] = [],
+) {
   try {
     const cart = await getOrCreateCart()
 
@@ -194,23 +301,38 @@ export async function addToCart(variantId: string, quantity: number = 1) {
       return { success: false as const, error: "Product is not available" }
     }
 
+    const nonPricingSelections = await validateNonPricingSelections(
+      variant.product.id,
+      nonPricingSelectionsInput,
+    )
+    const serializedSelections =
+      serializeNonPricingSelections(nonPricingSelections)
+
     const availability = await getVariantInventoryAvailabilityMap([variantId])
     const inventory = availability.get(variantId)
     const availableStock = inventory?.sellableQuantity ?? 0
 
-    // Check existing cart item
-    const [existingItem] = await db
+    // Check existing cart items for this variant. Non-pricing selections split
+    // cart rows, but inventory is still reserved at the priced variant level.
+    const existingItems = await db
       .select()
       .from(cartItems)
       .where(
         and(eq(cartItems.cartId, cart.id), eq(cartItems.variantId, variantId)),
       )
-      .limit(1)
+    const existingItem = existingItems.find(
+      (item) =>
+        serializeNonPricingSelections(item.nonPricingSelections) ===
+        serializedSelections,
+    )
 
-    const currentQuantity = existingItem?.quantity || 0
-    const newQuantity = currentQuantity + quantity
+    const currentVariantQuantity = existingItems.reduce(
+      (sum, item) => sum + item.quantity,
+      0,
+    )
+    const newVariantQuantity = currentVariantQuantity + quantity
 
-    if (variant.manageInventory && newQuantity > availableStock) {
+    if (variant.manageInventory && newVariantQuantity > availableStock) {
       return {
         success: false as const,
         error: `Only ${availableStock} items available in stock`,
@@ -222,7 +344,7 @@ export async function addToCart(variantId: string, quantity: number = 1) {
       await db
         .update(cartItems)
         .set({
-          quantity: newQuantity,
+          quantity: existingItem.quantity + quantity,
           updatedAt: new Date(),
         })
         .where(eq(cartItems.id, existingItem.id))
@@ -233,6 +355,7 @@ export async function addToCart(variantId: string, quantity: number = 1) {
         variantId,
         quantity,
         priceAtAdd: variant.price,
+        nonPricingSelections,
       })
     }
 
@@ -240,7 +363,11 @@ export async function addToCart(variantId: string, quantity: number = 1) {
     return { success: true as const }
   } catch (error) {
     console.error("Failed to add to cart:", error)
-    return { success: false as const, error: "Failed to add item to cart" }
+    return {
+      success: false as const,
+      error:
+        error instanceof Error ? error.message : "Failed to add item to cart",
+    }
   }
 }
 
@@ -277,8 +404,25 @@ export async function updateCartItemQuantity(itemId: string, quantity: number) {
       const inventory = availability.get(item.variantId)
       const availableStock = inventory?.sellableQuantity ?? 0
       const manageInventory = inventory?.manageInventory ?? false
+      const siblingItems = await db
+        .select({
+          id: cartItems.id,
+          quantity: cartItems.quantity,
+        })
+        .from(cartItems)
+        .where(
+          and(
+            eq(cartItems.cartId, cart.id),
+            eq(cartItems.variantId, item.variantId),
+          ),
+        )
+      const siblingQuantity = siblingItems.reduce(
+        (sum, sibling) =>
+          sibling.id === item.id ? sum : sum + sibling.quantity,
+        0,
+      )
 
-      if (manageInventory && quantity > availableStock) {
+      if (manageInventory && siblingQuantity + quantity > availableStock) {
         return {
           success: false as const,
           error: `Only ${availableStock} items available in stock`,
@@ -382,7 +526,7 @@ export async function mergeCartsOnLogin(userId: string) {
 
     // Merge items
     for (const item of guestItems) {
-      const [existingItem] = await db
+      const userItemsForVariant = await db
         .select()
         .from(cartItems)
         .where(
@@ -391,7 +535,11 @@ export async function mergeCartsOnLogin(userId: string) {
             eq(cartItems.variantId, item.variantId),
           ),
         )
-        .limit(1)
+      const existingItem = userItemsForVariant.find(
+        (current) =>
+          serializeNonPricingSelections(current.nonPricingSelections) ===
+          serializeNonPricingSelections(item.nonPricingSelections),
+      )
 
       if (existingItem) {
         // Add quantities
@@ -409,6 +557,7 @@ export async function mergeCartsOnLogin(userId: string) {
           variantId: item.variantId,
           quantity: item.quantity,
           priceAtAdd: item.priceAtAdd,
+          nonPricingSelections: item.nonPricingSelections,
         })
       }
     }

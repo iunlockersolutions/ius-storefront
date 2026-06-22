@@ -127,6 +127,17 @@ export const orderItems = pgTable(
     quantity: integer("quantity").notNull(),
     unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
     subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
+    nonPricingSelections: jsonb("non_pricing_selections")
+      .$type<
+        Array<{
+          optionId: string
+          optionName: string
+          optionValueId: string
+          optionValue: string
+        }>
+      >()
+      .notNull()
+      .default([]),
 
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

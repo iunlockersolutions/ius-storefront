@@ -3,6 +3,7 @@ import {
   decimal,
   index,
   integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -55,6 +56,17 @@ export const cartItems = pgTable(
       .references(() => productVariants.id, { onDelete: "cascade" }),
     quantity: integer("quantity").notNull().default(1),
     priceAtAdd: decimal("price_at_add", { precision: 10, scale: 2 }).notNull(),
+    nonPricingSelections: jsonb("non_pricing_selections")
+      .$type<
+        Array<{
+          optionId: string
+          optionName: string
+          optionValueId: string
+          optionValue: string
+        }>
+      >()
+      .notNull()
+      .default([]),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

@@ -62,6 +62,12 @@ export interface AdminOrderItem {
   subtotal: string
   productName: string
   variantName: string
+  nonPricingSelections: Array<{
+    optionId: string
+    optionName: string
+    optionValueId: string
+    optionValue: string
+  }>
   sku: string
   variant: {
     id: string | null

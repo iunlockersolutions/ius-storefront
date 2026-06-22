@@ -210,6 +210,18 @@ export function OrderPackingCard({ order, onRefetch }: OrderPackingCardProps) {
                       <p className="text-sm text-muted-foreground">
                         {item.variantName} â€¢ {item.sku}
                       </p>
+                      {item.nonPricingSelections.length > 0 && (
+                        <div className="mt-1 space-y-0.5">
+                          {item.nonPricingSelections.map((selection) => (
+                            <p
+                              key={selection.optionId}
+                              className="text-xs text-muted-foreground"
+                            >
+                              {selection.optionName}: {selection.optionValue}
+                            </p>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <Badge variant="outline">
                       {item.packing.allocatedQuantity}/{item.quantity} allocated
@@ -257,6 +269,19 @@ export function OrderPackingCard({ order, onRefetch }: OrderPackingCardProps) {
                           <p className="text-sm text-muted-foreground">
                             {item.variantName} â€¢ {item.sku}
                           </p>
+                          {item.nonPricingSelections.length > 0 && (
+                            <div className="mt-1 space-y-0.5">
+                              {item.nonPricingSelections.map((selection) => (
+                                <p
+                                  key={selection.optionId}
+                                  className="text-xs text-muted-foreground"
+                                >
+                                  {selection.optionName}:{" "}
+                                  {selection.optionValue}
+                                </p>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         <Badge variant="outline">
                           {activeAssignments.length}/{item.quantity} assigned

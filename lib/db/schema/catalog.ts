@@ -304,6 +304,7 @@ export const productOptions = pgTable(
       .notNull()
       .references(() => products.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
+    affectsPricing: boolean("affects_pricing").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

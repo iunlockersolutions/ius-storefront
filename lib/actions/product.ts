@@ -38,6 +38,7 @@ import { withStorefrontCatalogFallback } from "./storefront-catalog-read"
 
 const productOptionInputSchema = z.object({
   name: z.string().min(1).max(100),
+  affectsPricing: z.boolean().default(true),
   values: z.array(z.string().min(1).max(100)).default([]),
 })
 
@@ -142,6 +143,7 @@ function normalizeOptions(options: z.infer<typeof productOptionInputSchema>[]) {
   return options
     .map((option) => ({
       name: option.name.trim(),
+      affectsPricing: option.affectsPricing,
       values: Array.from(
         new Set(
           option.values
@@ -653,6 +655,7 @@ async function getProductOptions(productId: string) {
     .select({
       id: productOptions.id,
       name: productOptions.name,
+      affectsPricing: productOptions.affectsPricing,
       sortOrder: productOptions.sortOrder,
     })
     .from(productOptions)
@@ -769,9 +772,12 @@ async function syncProductOptionsAndVariants(
   variantsInput: z.infer<typeof productVariantInputSchema>[],
 ) {
   const normalizedOptions = normalizeOptions(optionsInput)
+  const pricingOptions = normalizedOptions.filter(
+    (option) => option.affectsPricing,
+  )
   const normalizedVariants = normalizeVariants(
     variantsInput,
-    normalizedOptions.length > 0,
+    pricingOptions.length > 0,
   )
 
   const existingOptions = await tx
@@ -805,6 +811,7 @@ async function syncProductOptionsAndVariants(
             .update(productOptions)
             .set({
               name: option.name,
+              affectsPricing: option.affectsPricing,
               sortOrder: optionIndex,
               updatedAt: new Date(),
             })
@@ -817,6 +824,7 @@ async function syncProductOptionsAndVariants(
             .values({
               productId,
               name: option.name,
+              affectsPricing: option.affectsPricing,
               sortOrder: optionIndex,
             })
             .returning()
@@ -910,8 +918,8 @@ async function syncProductOptionsAndVariants(
   ) {
     const variant = normalizedVariants[variantIndex]
 
-    if (normalizedOptions.length > 0) {
-      for (const option of normalizedOptions) {
+    if (pricingOptions.length > 0) {
+      for (const option of pricingOptions) {
         const selectedValue = variant.optionValues[option.name]
 
         if (!selectedValue) {
@@ -932,8 +940,8 @@ async function syncProductOptionsAndVariants(
 
     const variantName =
       variant.name ||
-      (normalizedOptions.length > 0
-        ? normalizedOptions
+      (pricingOptions.length > 0
+        ? pricingOptions
             .map((option) => variant.optionValues[option.name] || "")
             .join(" / ")
         : "Default")
@@ -1002,9 +1010,9 @@ async function syncProductOptionsAndVariants(
       .delete(productVariantOptionValues)
       .where(eq(productVariantOptionValues.variantId, variantRecord.id))
 
-    if (normalizedOptions.length > 0) {
+    if (pricingOptions.length > 0) {
       await tx.insert(productVariantOptionValues).values(
-        normalizedOptions.map((option) => {
+        pricingOptions.map((option) => {
           const optionRecord = optionMap.get(option.name.toLowerCase())!
           const optionValueRecord = optionRecord.values.get(
             variant.optionValues[option.name].toLowerCase(),

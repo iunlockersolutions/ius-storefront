@@ -148,6 +148,7 @@ export async function getCustomerOrder(orderId: string) {
       subtotal: orderItems.subtotal,
       productName: orderItems.productName,
       variantName: orderItems.variantName,
+      nonPricingSelections: orderItems.nonPricingSelections,
       sku: orderItems.sku,
       variantId: orderItems.variantId,
     })

@@ -347,6 +347,7 @@ async function getOrderAggregate(
         subtotal: orderItems.subtotal,
         productName: orderItems.productName,
         variantName: orderItems.variantName,
+        nonPricingSelections: orderItems.nonPricingSelections,
         sku: orderItems.sku,
         variant: {
           id: productVariants.id,
@@ -503,6 +504,7 @@ async function getOrderAggregate(
       subtotal: item.subtotal,
       productName: item.productName,
       variantName: item.variantName,
+      nonPricingSelections: item.nonPricingSelections,
       sku: item.sku,
       variant: item.variant
         ? {

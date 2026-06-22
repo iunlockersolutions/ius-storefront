@@ -81,6 +81,12 @@ export interface CartValidationResult {
       variantName: string
       variantSku: string
       variantPrice: string
+      nonPricingSelections: Array<{
+        optionId: string
+        optionName: string
+        optionValueId: string
+        optionValue: string
+      }>
       productId: string
       productName: string
       productSlug: string
@@ -113,6 +119,12 @@ export interface CheckoutSummary {
     id: string
     name: string
     variant: string
+    nonPricingSelections: Array<{
+      optionId: string
+      optionName: string
+      optionValueId: string
+      optionValue: string
+    }>
     price: number
     quantity: number
     image: string | null

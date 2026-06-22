@@ -136,6 +136,14 @@ export async function validateCartForCheckout(): Promise<CartValidationResult> {
   const availabilityByVariant = await getVariantInventoryAvailabilityMap(
     items.map((item) => item.variant.id),
   )
+  const quantityByVariant = new Map<string, number>()
+
+  for (const item of items) {
+    quantityByVariant.set(
+      item.variant.id,
+      (quantityByVariant.get(item.variant.id) ?? 0) + item.quantity,
+    )
+  }
 
   for (const item of items) {
     const availability = availabilityByVariant.get(item.variant.id)
@@ -157,7 +165,10 @@ export async function validateCartForCheckout(): Promise<CartValidationResult> {
     }
 
     // Check stock
-    if (availableQuantity < item.quantity) {
+    const requestedVariantQuantity =
+      quantityByVariant.get(item.variant.id) ?? item.quantity
+
+    if (availableQuantity < requestedVariantQuantity) {
       if (availableQuantity === 0) {
         errors.push(
           `${item.variant.product.name} (${item.variant.name}) is out of stock`,
@@ -179,6 +190,7 @@ export async function validateCartForCheckout(): Promise<CartValidationResult> {
       variantName: item.variant.name,
       variantSku: item.variant.sku,
       variantPrice: item.variant.price,
+      nonPricingSelections: item.nonPricingSelections,
       productId: item.variant.product.id,
       productName: item.variant.product.name,
       productSlug: item.variant.product.slug,
@@ -302,6 +314,7 @@ export async function createOrder(
           quantity: item.quantity,
           unitPrice: item.variantPrice,
           subtotal: (parseFloat(item.variantPrice) * item.quantity).toFixed(2),
+          nonPricingSelections: item.nonPricingSelections,
           // Denormalized product data
           productName: item.productName,
           variantName: item.variantName,
@@ -569,6 +582,7 @@ export async function getCheckoutSummary(): Promise<CheckoutSummary | null> {
       id: item.id,
       name: item.variant.product.name,
       variant: item.variant.name,
+      nonPricingSelections: item.nonPricingSelections,
       price,
       quantity: item.quantity,
       image:

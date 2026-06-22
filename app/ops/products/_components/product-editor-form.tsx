@@ -107,6 +107,7 @@ type OptionValueEditorValue = {
 type OptionEditorValue = {
   key: string
   name: string
+  affectsPricing: boolean
   values: OptionValueEditorValue[]
 }
 
@@ -246,6 +247,7 @@ function createEmptyOption(): OptionEditorValue {
   return {
     key: crypto.randomUUID(),
     name: "",
+    affectsPricing: true,
     values: [],
   }
 }
@@ -342,6 +344,7 @@ export function ProductEditorForm({
       initialData.options.map((option) => ({
         key: option.id,
         name: option.name,
+        affectsPricing: option.affectsPricing,
         values: option.values.map((value) => ({
           key: value.id,
           value: value.value,
@@ -582,6 +585,7 @@ export function ProductEditorForm({
       options
         .map((option) => ({
           name: option.name.trim(),
+          affectsPricing: option.affectsPricing,
           values: option.values.reduce<string[]>((uniqueValues, value) => {
             const trimmedValue = value.value.trim()
 
@@ -659,11 +663,14 @@ export function ProductEditorForm({
   }, [normalizedOptions, optionNameDuplicates, options])
 
   useEffect(() => {
-    const optionInputs = normalizedOptions.filter(
-      (option) => option.values.length > 0,
+    const pricingOptionInputs = normalizedOptions.filter(
+      (option) => option.affectsPricing && option.values.length > 0,
+    )
+    const pricingOptionNameSet = new Set(
+      pricingOptionInputs.map((option) => option.name),
     )
 
-    if (optionInputs.length === 0) {
+    if (pricingOptionInputs.length === 0) {
       setVariants((current) => {
         const existingDefault = current[0] ?? createEmptyVariant()
         return [
@@ -678,15 +685,25 @@ export function ProductEditorForm({
       return
     }
 
-    const combinations = buildCombinations(optionInputs)
+    const combinations = buildCombinations(pricingOptionInputs)
 
     setVariants((current) => {
-      const existingMap = new Map(
-        current.map((variant) => [
-          buildOptionKey(variant.optionValues),
-          variant,
-        ]),
-      )
+      const existingMap = new Map<string, VariantEditorValue>()
+
+      for (const variant of current) {
+        existingMap.set(buildOptionKey(variant.optionValues), variant)
+
+        const pricingOnlyValues = Object.fromEntries(
+          Object.entries(variant.optionValues).filter(([optionName]) =>
+            pricingOptionNameSet.has(optionName),
+          ),
+        )
+        const pricingOnlyKey = buildOptionKey(pricingOnlyValues)
+
+        if (!existingMap.has(pricingOnlyKey)) {
+          existingMap.set(pricingOnlyKey, variant)
+        }
+      }
 
       const nextVariants = combinations.map((combination, index) => {
         const existing = existingMap.get(buildOptionKey(combination))
@@ -939,6 +956,7 @@ export function ProductEditorForm({
       savedProduct.options.map((option) => ({
         key: option.id,
         name: option.name,
+        affectsPricing: option.affectsPricing,
         values: option.values.map((value) => ({
           key: value.id,
           value: value.value,
@@ -1255,6 +1273,7 @@ export function ProductEditorForm({
       metaDescription: data.metaDescription || undefined,
       options: normalizedOptions.map((option) => ({
         name: option.name,
+        affectsPricing: option.affectsPricing,
         values: option.values,
       })),
       variants: variants.map((variant) => ({
@@ -1770,18 +1789,45 @@ export function ProductEditorForm({
                               <p className="text-sm text-muted-foreground">
                                 {committedValueCount} value
                                 {committedValueCount === 1 ? "" : "s"} added.
-                                Variants update automatically from this list.
+                                {option.affectsPricing
+                                  ? " Priced variants update automatically from this list."
+                                  : " This option will be collected without creating priced variants."}
                               </p>
                             </div>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => removeOption(option.key)}
-                              aria-label={`Remove option ${index + 1}`}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <div className="flex items-start gap-3">
+                              <div className="flex items-start gap-3 rounded-lg border bg-background/60 p-3">
+                                <Switch
+                                  id={`non-pricing-${option.key}`}
+                                  checked={!option.affectsPricing}
+                                  onCheckedChange={(checked) =>
+                                    updateOption(option.key, {
+                                      affectsPricing: !checked,
+                                    })
+                                  }
+                                />
+                                <div className="space-y-1">
+                                  <Label
+                                    htmlFor={`non-pricing-${option.key}`}
+                                    className="text-sm font-medium"
+                                  >
+                                    Does not affect price
+                                  </Label>
+                                  <p className="max-w-xs text-xs text-muted-foreground">
+                                    Customers can still choose this option, but
+                                    it will not create separate priced variants.
+                                  </p>
+                                </div>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => removeOption(option.key)}
+                                aria-label={`Remove option ${index + 1}`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
 
                           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
@@ -1917,9 +1963,10 @@ export function ProductEditorForm({
             <CardContent className="space-y-4">
               <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">
                 {variants.length} sellable variant
-                {variants.length === 1 ? "" : "s"} are derived from the current
-                option values. Stock intake happens later in the dedicated
-                inventory flow.
+                {variants.length === 1 ? "" : "s"} are derived from pricing
+                option values. Options that do not affect price are collected on
+                the order without creating separate variant rows. Stock intake
+                happens later in the dedicated inventory flow.
               </div>
 
               <div className="grid gap-4 rounded-xl border bg-muted/10 p-4 md:grid-cols-2">

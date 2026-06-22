@@ -40,6 +40,12 @@ interface CartItem {
   id: string
   quantity: number
   priceAtAdd: string
+  nonPricingSelections: Array<{
+    optionId: string
+    optionName: string
+    optionValueId: string
+    optionValue: string
+  }>
   variant: {
     id: string
     name: string
@@ -158,6 +164,18 @@ function CartItemRow({ item }: { item: CartItem }) {
                 <p className="text-sm text-muted-foreground">
                   {item.variant.name}
                 </p>
+                {item.nonPricingSelections.length > 0 && (
+                  <div className="mt-1 space-y-0.5">
+                    {item.nonPricingSelections.map((selection) => (
+                      <p
+                        key={selection.optionId}
+                        className="text-xs text-muted-foreground"
+                      >
+                        {selection.optionName}: {selection.optionValue}
+                      </p>
+                    ))}
+                  </div>
+                )}
                 {item.variant.sku && (
                   <p className="text-xs text-muted-foreground">
                     SKU: {item.variant.sku}

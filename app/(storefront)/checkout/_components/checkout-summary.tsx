@@ -38,13 +38,14 @@ export function CheckoutSummary({ summary }: CheckoutSummaryProps) {
           <div className="space-y-3 max-h-64 overflow-y-auto">
             {summary.items.map((item) => (
               <div key={item.id} className="flex gap-3">
-                <div className="relative h-16 w-16 rounded-md overflow-hidden bg-muted flex-shrink-0">
+                <div className="relative h-16 w-16 rounded-md overflow-hidden bg-muted shrink-0">
                   {item.image ? (
                     <Image
                       src={item.image}
                       alt={item.name}
                       fill
                       className="object-cover"
+                      sizes="64px"
                     />
                   ) : (
                     <div className="h-full w-full flex items-center justify-center">
@@ -60,6 +61,18 @@ export function CheckoutSummary({ summary }: CheckoutSummaryProps) {
                   <p className="text-xs text-muted-foreground">
                     {item.variant}
                   </p>
+                  {item.nonPricingSelections.length > 0 && (
+                    <div className="mt-1 space-y-0.5">
+                      {item.nonPricingSelections.map((selection) => (
+                        <p
+                          key={selection.optionId}
+                          className="text-xs text-muted-foreground"
+                        >
+                          {selection.optionName}: {selection.optionValue}
+                        </p>
+                      ))}
+                    </div>
+                  )}
                   <p className="text-sm font-medium mt-1">
                     {formatCurrency(item.price * item.quantity)}
                   </p>

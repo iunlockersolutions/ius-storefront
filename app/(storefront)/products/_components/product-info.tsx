@@ -64,7 +64,15 @@ interface ProductOptionValue {
 interface ProductOption {
   id: string
   name: string
+  affectsPricing: boolean
   values: ProductOptionValue[]
+}
+
+type NonPricingSelection = {
+  optionId: string
+  optionName: string
+  optionValueId: string
+  optionValue: string
 }
 
 interface Product {
@@ -114,6 +122,12 @@ export function ProductInfo({
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const activeVariants = product.variants.filter((variant) => variant.isActive)
+  const pricingOptions = product.options.filter(
+    (option) => option.affectsPricing,
+  )
+  const nonPricingOptions = product.options.filter(
+    (option) => !option.affectsPricing,
+  )
   const fallbackVariant =
     activeVariants.find((variant) => variant.isDefault) ||
     activeVariants[0] ||
@@ -150,9 +164,9 @@ export function ProductInfo({
   const [quantity, setQuantity] = useState(1)
 
   const selectedVariant =
-    product.options.length > 0
+    pricingOptions.length > 0
       ? activeVariants.find((variant) =>
-          product.options.every((option) => {
+          pricingOptions.every((option) => {
             const selection = variant.selections?.find(
               (current) => current.optionId === option.id,
             )
@@ -192,28 +206,39 @@ export function ProductInfo({
       ...selectedOptions,
       [optionId]: optionValueId,
     }
+    const isPricingOption = pricingOptions.some(
+      (option) => option.id === optionId,
+    )
+
+    if (!isPricingOption) {
+      setSelectedOptions(nextSelections)
+      return
+    }
 
     const matchingVariant = activeVariants.find((variant) => {
-      return Object.entries(nextSelections).every(
-        ([selectedOptionId, selectedValueId]) => {
+      return Object.entries(nextSelections)
+        .filter(([selectedOptionId]) =>
+          pricingOptions.some((option) => option.id === selectedOptionId),
+        )
+        .every(([selectedOptionId, selectedValueId]) => {
           const selection = variant.selections?.find(
             (current) => current.optionId === selectedOptionId,
           )
 
           return selection?.optionValueId === selectedValueId
-        },
-      )
+        })
     })
 
     if (matchingVariant?.selections?.length) {
-      setSelectedOptions(
-        Object.fromEntries(
+      setSelectedOptions({
+        ...nextSelections,
+        ...Object.fromEntries(
           matchingVariant.selections.map((selection) => [
             selection.optionId,
             selection.optionValueId,
           ]),
         ),
-      )
+      })
       setSelectedVariantId(matchingVariant.id)
       onSelectedVariantChange?.(matchingVariant.id)
       return
@@ -224,6 +249,10 @@ export function ProductInfo({
   }
 
   const isOptionValueAvailable = (optionId: string, optionValueId: string) => {
+    if (!pricingOptions.some((option) => option.id === optionId)) {
+      return true
+    }
+
     return activeVariants.some((variant) => {
       const currentSelection = variant.selections?.find(
         (selection) => selection.optionId === optionId,
@@ -236,6 +265,12 @@ export function ProductInfo({
       return Object.entries(selectedOptions).every(
         ([selectedOptionId, selectedValueId]) => {
           if (selectedOptionId === optionId) {
+            return true
+          }
+
+          if (
+            !pricingOptions.some((option) => option.id === selectedOptionId)
+          ) {
             return true
           }
 
@@ -255,8 +290,36 @@ export function ProductInfo({
       return
     }
 
+    const nonPricingSelections: Array<NonPricingSelection | null> =
+      nonPricingOptions.map((option) => {
+        const optionValueId = selectedOptions[option.id]
+        const value = option.values.find(
+          (current) => current.id === optionValueId,
+        )
+
+        return value
+          ? {
+              optionId: option.id,
+              optionName: option.name,
+              optionValueId: value.id,
+              optionValue: value.value,
+            }
+          : null
+      })
+
+    if (nonPricingSelections.some((selection) => selection === null)) {
+      toast.error("Please choose all product options")
+      return
+    }
+
     startTransition(async () => {
-      const result = await addToCart(selectedVariant.id, quantity)
+      const result = await addToCart(
+        selectedVariant.id,
+        quantity,
+        nonPricingSelections.filter(
+          (selection): selection is NonPricingSelection => selection !== null,
+        ),
+      )
 
       if (result.success) {
         // Dispatch event to update cart badge

@@ -173,6 +173,18 @@ export default async function OrderDetailPage({
                             {item.variantName}
                           </p>
                         )}
+                        {item.nonPricingSelections.length > 0 && (
+                          <div className="mt-1 space-y-0.5">
+                            {item.nonPricingSelections.map((selection) => (
+                              <p
+                                key={selection.optionId}
+                                className="text-xs text-muted-foreground"
+                              >
+                                {selection.optionName}: {selection.optionValue}
+                              </p>
+                            ))}
+                          </div>
+                        )}
                         <p className="text-sm text-muted-foreground">
                           SKU: {item.sku}
                         </p>
