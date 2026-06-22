@@ -7,11 +7,6 @@ import { ArrowLeft, Home } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 
-/**
- * 404 Not Found Page
- *
- * Beautiful animated 404 page with floating elements and gradient text.
- */
 export default function NotFound() {
   const router = useRouter()
 
